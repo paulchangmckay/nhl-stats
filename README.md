@@ -2,6 +2,8 @@
 
 A learning project for building a local NHL stats database using the NHL's free public API and SQLite.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the branching workflow used in this repo.
+
 ## What this project teaches
 - **Git** — branching, commits, pull requests
 - **REST APIs** — fetching JSON data with Python `requests`

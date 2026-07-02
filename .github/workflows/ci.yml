@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned to a stable Actions runtime; doesn't need to match the local dev interpreter.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Syntax check (all tracked .py files)
+        run: git ls-files '*.py' | xargs -n1 python -m py_compile
+
+      - name: Import check (library modules only — scripts/ excluded, they run live ETL on import)
+        run: |
+          python -c "
+          import importlib
+          mods = ['app', 'src.database', 'src.api_client', 'src.models',
+                   'etl.load_teams', 'etl.load_standings', 'etl.load_rosters',
+                   'etl.load_schedule', 'etl.load_boxscores', 'etl.load_season_stats',
+                   'etl.enrich_players']
+          for m in mods:
+              importlib.import_module(m)
+              print(f'OK: {m}')
+          "
