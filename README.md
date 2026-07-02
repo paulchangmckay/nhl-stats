@@ -14,16 +14,20 @@ NHL Web API — `https://api-web.nhle.com/v1/` (free, no auth required)
 ## Setup
 
 ```bash
-# 1. Install dependencies
+# 1. Create a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# 2. Install dependencies
 pip install -r requirements.txt
 
-# 2. Create the database and all tables
+# 3. Create the database and all tables
 python scripts/setup_db.py
 
-# 3. Run all ETL to populate the database
+# 4. Run all ETL to populate the database
 python scripts/run_all_etl.py
 
-# 4. Try the example queries
+# 5. Try the example queries
 python scripts/query_examples.py
 ```
 
