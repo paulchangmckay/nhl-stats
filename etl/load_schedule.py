@@ -12,18 +12,19 @@ def run(conn):
     count = 0
 
     for day in game_week:
+        day_date = day.get("date", "")
         for g in day.get("games", []):
             game = Game(
                 game_id=g["id"],
                 season_id=str(g.get("season", "")),
                 game_type=g.get("gameType"),
-                game_date=g.get("gameDate", day.get("date", "")),
+                game_date=day_date,
                 venue=g.get("venue", {}).get("default"),
                 home_team_id=g.get("homeTeam", {}).get("id"),
                 away_team_id=g.get("awayTeam", {}).get("id"),
                 home_score=g.get("homeTeam", {}).get("score"),
                 away_score=g.get("awayTeam", {}).get("score"),
-                last_period_type=g.get("periodDescriptor", {}).get("periodType"),
+                last_period_type=g.get("gameOutcome", {}).get("lastPeriodType"),
                 game_state=g.get("gameState"),
             )
             database.insert_game(conn, game.__dict__)

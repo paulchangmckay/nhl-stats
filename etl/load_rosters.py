@@ -1,17 +1,18 @@
 import sys
 import os
+import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src import api_client, database
 from src.models import Player
 
 
-def _parse_player(p, team_id, position_code):
+def _parse_player(p, team_id):
     return Player(
         player_id=p["id"],
         first_name=p["firstName"]["default"],
         last_name=p["lastName"]["default"],
-        position_code=position_code,
+        position_code=p.get("positionCode"),
         sweater_number=p.get("sweaterNumber"),
         shoots_catches=p.get("shootsCatches"),
         height_inches=p.get("heightInInches"),
@@ -32,21 +33,24 @@ def run(conn):
         abbrev = team["abbrev"]
         try:
             roster = api_client.get_roster(abbrev)
+            time.sleep(0.5)  # stay under NHL API rate limit
         except Exception as e:
             print(f"  Warning: could not fetch roster for {abbrev}: {e}")
+            time.sleep(2)
             continue
 
-        players = (
-            [(_parse_player(p, team_id, "F"), ) for p in roster.get("forwards", [])] +
-            [(_parse_player(p, team_id, "D"), ) for p in roster.get("defensemen", [])] +
-            [(_parse_player(p, team_id, "G"), ) for p in roster.get("goalies", [])]
+        all_players = (
+            roster.get("forwards", []) +
+            roster.get("defensemen", []) +
+            roster.get("goalies", [])
         )
 
-        for (player,) in players:
+        for p in all_players:
+            player = _parse_player(p, team_id)
             database.upsert_player(conn, player.__dict__)
             total += 1
 
-        print(f"  {abbrev}: {len(players)} players")
+        print(f"  {abbrev}: {len(all_players)} players")
 
     conn.commit()
     print(f"  {total} players loaded across {len(teams)} teams.")
