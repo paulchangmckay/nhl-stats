@@ -20,6 +20,9 @@ def _parse_player(p, team_id):
         birth_date=p.get("birthDate"),
         birth_country=p.get("birthCountry"),
         current_team_id=team_id,
+        birth_city=p.get("birthCity", {}).get("default") if isinstance(p.get("birthCity"), dict) else p.get("birthCity"),
+        birth_state_province=p.get("birthStateProvince", {}).get("default") if isinstance(p.get("birthStateProvince"), dict) else p.get("birthStateProvince"),
+        headshot_url=p.get("headshot"),
     )
 
 

@@ -100,6 +100,86 @@ CREATE TABLE IF NOT EXISTS standings (
 );
 """
 
+CREATE_PLAYER_SEASON_STATS = """
+CREATE TABLE IF NOT EXISTS player_season_stats (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_id     INTEGER NOT NULL REFERENCES players(player_id),
+    season_id     TEXT    NOT NULL,
+    game_type     INTEGER NOT NULL,
+    team_abbrevs  TEXT,
+    position_code TEXT,
+    gp            INTEGER,
+    goals         INTEGER,
+    assists       INTEGER,
+    points        INTEGER,
+    plus_minus    INTEGER,
+    pim           INTEGER,
+    pp_goals      INTEGER,
+    sh_goals      INTEGER,
+    shots         INTEGER,
+    shooting_pct  REAL,
+    avg_toi       TEXT,
+    wins          INTEGER,
+    losses        INTEGER,
+    ot_losses     INTEGER,
+    save_pct      REAL,
+    gaa           REAL,
+    shutouts      INTEGER,
+    UNIQUE (player_id, season_id, game_type)
+);
+"""
+
+CREATE_PLAYER_CAREER_STATS = """
+CREATE TABLE IF NOT EXISTS player_career_stats (
+    player_id       INTEGER PRIMARY KEY REFERENCES players(player_id),
+    rs_gp           INTEGER,
+    rs_goals        INTEGER,
+    rs_assists      INTEGER,
+    rs_points       INTEGER,
+    rs_plus_minus   INTEGER,
+    rs_pim          INTEGER,
+    rs_pp_goals     INTEGER,
+    rs_sh_goals     INTEGER,
+    rs_shots        INTEGER,
+    rs_shooting_pct REAL,
+    rs_avg_toi      TEXT,
+    rs_wins         INTEGER,
+    rs_losses       INTEGER,
+    rs_save_pct     REAL,
+    rs_gaa          REAL,
+    rs_shutouts     INTEGER,
+    po_gp           INTEGER,
+    po_goals        INTEGER,
+    po_assists      INTEGER,
+    po_points       INTEGER,
+    po_plus_minus   INTEGER,
+    po_pim          INTEGER,
+    po_pp_goals     INTEGER,
+    po_sh_goals     INTEGER,
+    po_shots        INTEGER,
+    po_shooting_pct REAL,
+    po_avg_toi      TEXT,
+    po_wins         INTEGER,
+    po_losses       INTEGER,
+    po_save_pct     REAL,
+    po_gaa          REAL,
+    po_shutouts     INTEGER,
+    last_updated    TEXT DEFAULT (datetime('now'))
+);
+"""
+
+_PLAYER_MIGRATIONS = [
+    "ALTER TABLE players ADD COLUMN birth_city           TEXT",
+    "ALTER TABLE players ADD COLUMN birth_state_province TEXT",
+    "ALTER TABLE players ADD COLUMN headshot_url         TEXT",
+    "ALTER TABLE players ADD COLUMN draft_year           INTEGER",
+    "ALTER TABLE players ADD COLUMN draft_round          INTEGER",
+    "ALTER TABLE players ADD COLUMN draft_pick           INTEGER",
+    "ALTER TABLE players ADD COLUMN draft_overall        INTEGER",
+    "ALTER TABLE players ADD COLUMN draft_team_abbrev    TEXT",
+    "ALTER TABLE players ADD COLUMN is_active            INTEGER",
+]
+
 
 def get_connection(db_path=DB_PATH):
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -109,10 +189,21 @@ def get_connection(db_path=DB_PATH):
     return conn
 
 
+def run_migrations(conn):
+    for sql in _PLAYER_MIGRATIONS:
+        try:
+            conn.execute(sql)
+        except Exception:
+            pass  # column already exists
+    conn.commit()
+
+
 def create_all_tables(conn):
     for sql in [CREATE_TEAMS, CREATE_SEASONS, CREATE_PLAYERS,
-                CREATE_GAMES, CREATE_PLAYER_GAME_STATS, CREATE_STANDINGS]:
+                CREATE_GAMES, CREATE_PLAYER_GAME_STATS, CREATE_STANDINGS,
+                CREATE_PLAYER_SEASON_STATS, CREATE_PLAYER_CAREER_STATS]:
         conn.execute(sql)
+    run_migrations(conn)
     conn.commit()
     print("All tables created.")
 
@@ -133,15 +224,116 @@ def upsert_season(conn, s):
 
 
 def upsert_player(conn, p):
+    """Upsert roster-sourced player data. Never overwrites draft_* or is_active."""
+    conn.execute("""
+        INSERT INTO players (
+            player_id, first_name, last_name, position_code, sweater_number,
+            shoots_catches, height_inches, weight_pounds, birth_date, birth_country,
+            current_team_id, birth_city, birth_state_province, headshot_url
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(player_id) DO UPDATE SET
+            first_name           = excluded.first_name,
+            last_name            = excluded.last_name,
+            position_code        = excluded.position_code,
+            sweater_number       = excluded.sweater_number,
+            shoots_catches       = excluded.shoots_catches,
+            height_inches        = excluded.height_inches,
+            weight_pounds        = excluded.weight_pounds,
+            birth_date           = excluded.birth_date,
+            birth_country        = excluded.birth_country,
+            current_team_id      = excluded.current_team_id,
+            birth_city           = excluded.birth_city,
+            birth_state_province = excluded.birth_state_province,
+            headshot_url         = excluded.headshot_url,
+            updated_at           = datetime('now')
+    """, (
+        p["player_id"], p["first_name"], p["last_name"], p.get("position_code"),
+        p.get("sweater_number"), p.get("shoots_catches"), p.get("height_inches"),
+        p.get("weight_pounds"), p.get("birth_date"), p.get("birth_country"),
+        p.get("current_team_id"), p.get("birth_city"), p.get("birth_state_province"),
+        p.get("headshot_url"),
+    ))
+
+
+def upsert_player_stub(conn, p):
+    """INSERT OR IGNORE — creates a minimal record for historical players not on any roster."""
     conn.execute(
-        "INSERT OR REPLACE INTO players "
-        "(player_id, first_name, last_name, position_code, sweater_number, "
-        "shoots_catches, height_inches, weight_pounds, birth_date, birth_country, current_team_id) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (p["player_id"], p["first_name"], p["last_name"], p["position_code"],
-         p["sweater_number"], p["shoots_catches"], p["height_inches"],
-         p["weight_pounds"], p["birth_date"], p["birth_country"], p["current_team_id"]),
+        "INSERT OR IGNORE INTO players "
+        "(player_id, first_name, last_name, position_code, shoots_catches) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (p["player_id"], p["first_name"], p["last_name"],
+         p.get("position_code"), p.get("shoots_catches")),
     )
+
+
+def upsert_player_enrichment(conn, p):
+    """UPDATE players with bio/draft data from the landing API."""
+    conn.execute("""
+        UPDATE players SET
+            draft_year        = ?,
+            draft_round       = ?,
+            draft_pick        = ?,
+            draft_overall     = ?,
+            draft_team_abbrev = ?,
+            is_active         = ?,
+            birth_city        = COALESCE(birth_city, ?),
+            birth_state_province = COALESCE(birth_state_province, ?),
+            headshot_url      = COALESCE(headshot_url, ?)
+        WHERE player_id = ?
+    """, (
+        p.get("draft_year"), p.get("draft_round"), p.get("draft_pick"),
+        p.get("draft_overall"), p.get("draft_team_abbrev"), p.get("is_active"),
+        p.get("birth_city"), p.get("birth_state_province"), p.get("headshot_url"),
+        p["player_id"],
+    ))
+
+
+def upsert_season_stats(conn, s):
+    conn.execute("""
+        INSERT OR REPLACE INTO player_season_stats (
+            player_id, season_id, game_type, team_abbrevs, position_code,
+            gp, goals, assists, points, plus_minus, pim, pp_goals, sh_goals,
+            shots, shooting_pct, avg_toi,
+            wins, losses, ot_losses, save_pct, gaa, shutouts
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        s["player_id"], s["season_id"], s["game_type"], s.get("team_abbrevs"),
+        s.get("position_code"), s.get("gp"), s.get("goals"), s.get("assists"),
+        s.get("points"), s.get("plus_minus"), s.get("pim"), s.get("pp_goals"),
+        s.get("sh_goals"), s.get("shots"), s.get("shooting_pct"), s.get("avg_toi"),
+        s.get("wins"), s.get("losses"), s.get("ot_losses"), s.get("save_pct"),
+        s.get("gaa"), s.get("shutouts"),
+    ))
+
+
+def upsert_career_stats(conn, c):
+    conn.execute("""
+        INSERT OR REPLACE INTO player_career_stats (
+            player_id,
+            rs_gp, rs_goals, rs_assists, rs_points, rs_plus_minus, rs_pim,
+            rs_pp_goals, rs_sh_goals, rs_shots, rs_shooting_pct, rs_avg_toi,
+            rs_wins, rs_losses, rs_save_pct, rs_gaa, rs_shutouts,
+            po_gp, po_goals, po_assists, po_points, po_plus_minus, po_pim,
+            po_pp_goals, po_sh_goals, po_shots, po_shooting_pct, po_avg_toi,
+            po_wins, po_losses, po_save_pct, po_gaa, po_shutouts,
+            last_updated
+        ) VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now')
+        )
+    """, (
+        c["player_id"],
+        c.get("rs_gp"), c.get("rs_goals"), c.get("rs_assists"), c.get("rs_points"),
+        c.get("rs_plus_minus"), c.get("rs_pim"), c.get("rs_pp_goals"), c.get("rs_sh_goals"),
+        c.get("rs_shots"), c.get("rs_shooting_pct"), c.get("rs_avg_toi"),
+        c.get("rs_wins"), c.get("rs_losses"), c.get("rs_save_pct"), c.get("rs_gaa"),
+        c.get("rs_shutouts"),
+        c.get("po_gp"), c.get("po_goals"), c.get("po_assists"), c.get("po_points"),
+        c.get("po_plus_minus"), c.get("po_pim"), c.get("po_pp_goals"), c.get("po_sh_goals"),
+        c.get("po_shots"), c.get("po_shooting_pct"), c.get("po_avg_toi"),
+        c.get("po_wins"), c.get("po_losses"), c.get("po_save_pct"), c.get("po_gaa"),
+        c.get("po_shutouts"),
+    ))
 
 
 def insert_game(conn, g):
