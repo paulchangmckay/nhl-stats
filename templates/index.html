@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NHL Players</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #58a6ff;
+      white-space: nowrap;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    label {
+      font-size: 13px;
+      color: #8b949e;
+    }
+
+    select {
+      background: #21262d;
+      color: #e6edf3;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      min-width: 180px;
+    }
+
+    select:focus { outline: none; border-color: #58a6ff; }
+
+    .count {
+      margin-left: auto;
+      font-size: 13px;
+      color: #8b949e;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      padding: 0 24px 24px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 16px;
+      min-width: 900px;
+    }
+
+    thead th {
+      background: #161b22;
+      border-bottom: 2px solid #30363d;
+      padding: 10px 12px;
+      text-align: left;
+      font-weight: 600;
+      color: #8b949e;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      position: sticky;
+      top: 57px; /* matches header height */
+    }
+
+    thead th:hover { color: #e6edf3; background: #1c2129; }
+
+    thead th.sort-asc::after  { content: " ▲"; color: #58a6ff; }
+    thead th.sort-desc::after { content: " ▼"; color: #58a6ff; }
+    thead th.sort-asc,
+    thead th.sort-desc { color: #58a6ff; }
+
+    tbody tr { border-bottom: 1px solid #21262d; }
+    tbody tr:hover { background: #1c2129; }
+    tbody tr:nth-child(even) { background: #0d1117; }
+    tbody tr:nth-child(odd)  { background: #161b22; }
+    tbody tr:hover { background: #1c2129 !important; }
+
+    td {
+      padding: 9px 12px;
+      color: #c9d1d9;
+      white-space: nowrap;
+    }
+
+    td.num   { text-align: right; color: #8b949e; font-variant-numeric: tabular-nums; }
+    td.name  { font-weight: 500; color: #e6edf3; }
+
+    .team-badge {
+      display: inline-block;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #8b949e;
+      letter-spacing: 0.05em;
+    }
+
+    .pos-badge {
+      display: inline-block;
+      min-width: 22px;
+      text-align: center;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .pos-C { border-color: #3fb950; color: #3fb950; }
+    .pos-L { border-color: #58a6ff; color: #58a6ff; }
+    .pos-R { border-color: #79c0ff; color: #79c0ff; }
+    .pos-D { border-color: #d2a8ff; color: #d2a8ff; }
+    .pos-G { border-color: #ffa657; color: #ffa657; }
+
+    #empty-msg {
+      text-align: center;
+      padding: 48px;
+      color: #8b949e;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🏒 NHL Players</h1>
+  <div class="controls">
+    <label for="team-filter">Team</label>
+    <select id="team-filter">
+      <option value="">All Teams</option>
+    </select>
+  </div>
+  <span class="count" id="count-label"></span>
+</header>
+
+<div class="table-wrap">
+  <table id="player-table">
+    <thead>
+      <tr>
+        <th data-key="sweater_number" data-type="num">#</th>
+        <th data-key="first_name">First Name</th>
+        <th data-key="last_name">Last Name</th>
+        <th data-key="position_code">Pos</th>
+        <th data-key="shoots_catches">S/C</th>
+        <th data-key="height">Height</th>
+        <th data-key="weight_pounds" data-type="num">Weight</th>
+        <th data-key="birth_date">Birth Date</th>
+        <th data-key="birth_country">Country</th>
+        <th data-key="team_abbrev">Team</th>
+      </tr>
+    </thead>
+    <tbody id="player-tbody"></tbody>
+  </table>
+  <div id="empty-msg" style="display:none">No players found.</div>
+</div>
+
+<script>
+  let allPlayers = [];
+  let sortKey = "last_name";
+  let sortDir = "asc";
+  let activeTeam = "";
+
+  // ─── Fetch teams for dropdown ───────────────────────────────────────────────
+  fetch("/api/teams")
+    .then(r => r.json())
+    .then(teams => {
+      const sel = document.getElementById("team-filter");
+      teams.forEach(t => {
+        const opt = document.createElement("option");
+        opt.value = t.abbrev;
+        opt.textContent = `${t.abbrev} — ${t.common_name}`;
+        sel.appendChild(opt);
+      });
+    });
+
+  // ─── Fetch all players ───────────────────────────────────────────────────────
+  fetch("/api/players")
+    .then(r => r.json())
+    .then(players => {
+      allPlayers = players;
+      render();
+    });
+
+  // ─── Filter dropdown ─────────────────────────────────────────────────────────
+  document.getElementById("team-filter").addEventListener("change", e => {
+    activeTeam = e.target.value;
+    render();
+  });
+
+  // ─── Sort on header click ────────────────────────────────────────────────────
+  document.querySelectorAll("thead th").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.key;
+      if (sortKey === key) {
+        sortDir = sortDir === "asc" ? "desc" : "asc";
+      } else {
+        sortKey = key;
+        sortDir = "asc";
+      }
+      document.querySelectorAll("thead th").forEach(h => {
+        h.classList.remove("sort-asc", "sort-desc");
+      });
+      th.classList.add(sortDir === "asc" ? "sort-asc" : "sort-desc");
+      render();
+    });
+  });
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
+  function render() {
+    // Filter
+    let rows = activeTeam
+      ? allPlayers.filter(p => p.team_abbrev === activeTeam)
+      : allPlayers;
+
+    // Sort
+    const isNum = document.querySelector(`th[data-key="${sortKey}"]`)?.dataset?.type === "num";
+    rows = [...rows].sort((a, b) => {
+      let va = a[sortKey], vb = b[sortKey];
+      if (isNum) {
+        va = va == null ? -Infinity : Number(va);
+        vb = vb == null ? -Infinity : Number(vb);
+        return sortDir === "asc" ? va - vb : vb - va;
+      }
+      va = String(va ?? "").toLowerCase();
+      vb = String(vb ?? "").toLowerCase();
+      if (va < vb) return sortDir === "asc" ? -1 : 1;
+      if (va > vb) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    // Render rows
+    const tbody = document.getElementById("player-tbody");
+    tbody.innerHTML = "";
+    rows.forEach(p => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="num">${p.sweater_number ?? ""}</td>
+        <td class="name">${esc(p.first_name)}</td>
+        <td class="name">${esc(p.last_name)}</td>
+        <td><span class="pos-badge pos-${esc(p.position_code)}">${esc(p.position_code)}</span></td>
+        <td>${esc(p.shoots_catches)}</td>
+        <td>${esc(p.height)}</td>
+        <td class="num">${p.weight_pounds ? p.weight_pounds + " lbs" : ""}</td>
+        <td>${esc(p.birth_date)}</td>
+        <td>${esc(p.birth_country)}</td>
+        <td><span class="team-badge" title="${esc(p.team_name)}">${esc(p.team_abbrev)}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Count label
+    const total = allPlayers.length;
+    const shown = rows.length;
+    document.getElementById("count-label").textContent =
+      activeTeam ? `${shown} of ${total} players` : `${total} players`;
+
+    // Empty state
+    document.getElementById("empty-msg").style.display = rows.length === 0 ? "" : "none";
+    document.getElementById("player-table").style.display = rows.length === 0 ? "none" : "";
+  }
+
+  function esc(str) {
+    if (str == null) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+</script>
+</body>
+</html>
