@@ -23,9 +23,9 @@ Bugs fixed earlier this session (missing bio data, missing `position_code`, a WH
 
 ## 1. Trigger & Orchestration
 
-- **On-demand**: a "Sync" button in the Flask app's UI calls an endpoint that invokes the pipeline in the background (non-blocking) and returns immediately.
-- **Weekly**: a `launchd` job (user-level, macOS-native — survives sleep/wake better than cron, which silently skips missed windows) invokes the same pipeline via CLI on a weekly schedule.
-- **Single pipeline function**: both triggers call one orchestration function (replacing the current split between `run_all_etl.py` and `sync.py`). There is no "light" vs "full" mode — every sync runs all 7 steps in this order:
+- **On-demand**: a "Sync" button in the Flask app's UI calls an endpoint that launches the pipeline as a **separate OS process** (`subprocess.Popen([venv_python, "-m", "etl.pipeline"])`) and returns immediately. It does **not** run the pipeline as a Python thread inside the Flask worker — `app.py` runs with `app.run(debug=True)`, and Flask's debug reloader can restart the worker process on a file-change detection, which would silently kill an in-process background thread mid-sync. A subprocess is immune to that.
+- **Weekly**: a `launchd` job (user-level, macOS-native) invokes the exact same command — `<venv_python> -m etl.pipeline` — on a weekly `StartCalendarInterval` schedule. The plist uses **absolute paths only**: `ProgramArguments` points directly at the venv's Python binary and the module invocation, and `WorkingDirectory` is set explicitly in the plist. No shell wrapper, no reliance on `PATH` — `launchd` jobs run in a stripped environment with no inherited shell profile. `StartCalendarInterval` (not `StartInterval`) is used specifically because `launchd` fires a missed calendar-based run once the system wakes from sleep, unlike cron which silently skips it.
+- **Single entrypoint**: both triggers invoke the identical CLI command (replacing the current split between `run_all_etl.py` and `sync.py`). There is no "light" vs "full" mode — every sync runs all 7 steps in this order:
 
   1. Teams
   2. Standings
@@ -63,29 +63,32 @@ Two independent gates apply to every step:
 
 This formalizes the pattern already applied to fix the `position_code` and bio-data bugs this session, as a standing rule for all future ETL work:
 
-- **Rosters are authoritative** for identity fields, current team, position, and roster-supplied bio data. When diffing finds the API disagrees with the DB, the API value wins and overwrites.
+- **Rosters are authoritative** for identity fields, current team, position, and roster-supplied bio data. When diffing finds the API disagrees with the DB, the API value wins and overwrites — **but only when the API value is non-null**. Diff-before-write for rosters never overwrites a non-null DB value with a `null` API value, for any column rosters writes. "Authoritative" means "wins when it has real data," not "wins even when it returns nothing" — this closes off the same class of bug (a real value silently wiped by a missing one) that caused the bio-data and `position_code` gaps fixed earlier this session, this time guarding against it happening from the roster side.
 - **Enrichment is fill-only.** It never overwrites a value that Rosters or a prior Enrichment run already set. It writes via `COALESCE(existing_column, new_value)`, so it only populates currently-`NULL` fields. The exception is bookkeeping fields it owns outright (`is_active`, `enriched_at`, draft fields, career totals) — those are always written by Enrichment since no other step touches them.
 - Any new ETL step must state, in its own header comment, which of these two categories it belongs to (authoritative-overwrite or fill-only) for each field it touches.
 
 ## 4. Concurrency & Error Handling
 
-- **Concurrency guard**: a dedicated `sync_log` (or equivalent) key, e.g. `sync:running`, is written at pipeline start and cleared at pipeline end (including on failure — the clear happens in a `finally`). If a trigger (button click or `launchd` firing) finds this key set, it refuses to start a new sync and reports "sync already running" instead of overlapping.
+- **Concurrency guard**: a lock that records the **PID** of the running pipeline process (not just a timestamp). A new sync attempt (button click or `launchd` firing) checks the lock: if it's set, it checks whether that PID is still alive (`os.kill(pid, 0)`). If the process is genuinely still running, refuse with "sync already running." If the PID is dead — the previous run crashed, got killed, or the laptop was yanked to sleep mid-sync — treat the lock as stale, clear it, and proceed. This avoids both false "stuck forever" locks (a plain flag with no crash recovery) and false "still running" assumptions from a fixed timeout guess.
 - **Error handling**: log-and-continue per step. If a step raises, the pipeline records the failure against that step, moves on to the next step, and that step's data simply remains stale until the next successful sync. The pipeline as a whole does not abort on a single step's failure.
 
 ## 5. Status Reporting
 
-- The pipeline records per-step status (`pending` / `running` / `done` / `failed`) as it executes, in a small persisted location the Flask app can read (a `sync_status` table, or a JSON status file — implementation detail for the plan stage).
-- The Sync button's page polls this status at a short interval while a sync is active and renders live progress (e.g. "✓ Teams · ✓ Standings · ⟳ Rosters · … · ✗ Boxscores (failed) · …").
+- Status lives in a **JSON file** (e.g. `data/sync_status.json`), written atomically (temp file + `os.replace`) by the pipeline subprocess — **not** a DB table. The pipeline is a separate process writing to SQLite while Flask concurrently polls status every couple of seconds from a different process; keeping status out of SQLite entirely sidesteps any question of read/write lock contention for something read this frequently. The same file also backs the concurrency lock's PID.
+- The file persists after a sync finishes — it's not cleared. It always holds the most recent run's outcome: `{"state": "idle" | "running", "pid": <int>, "last_run": "<timestamp>", "last_result": "success" | "partial_failure", "steps": {"teams": "done", "rosters": "failed", ...}}`. This means the app can always show "Last synced: 2 hours ago" or "Rosters failed at last sync" even when nothing is currently running, not just live progress while a sync is active.
+- **Self-healing on read**: any reader (a Flask status-poll request, or a new sync checking the lock) that finds `"state": "running"` also checks the recorded PID. If that process is dead, the reader rewrites the file to a terminal `"state": "idle", "last_result": "failed", "error": "process died unexpectedly"` before returning it. This reuses the same PID-liveness check as the concurrency lock (§4) rather than inventing a second staleness mechanism — a crashed subprocess can't leave the UI stuck showing a phantom in-progress sync.
+- The Sync button's page polls this file at a short interval while a sync is active and renders live progress (e.g. "✓ Teams · ✓ Standings · ⟳ Rosters · … · ✗ Boxscores (failed) · …").
 - When the pipeline finishes, the affected tables in the UI refresh automatically.
 
 ## Files Likely Touched (for planning reference)
 
-- `scripts/run_all_etl.py`, `scripts/sync.py` → collapse into one pipeline module (e.g. `etl/pipeline.py` or similar)
-- `src/database.py` → `sync_log` helpers extended for per-step keys, plus a `sync:running` lock and status read/write helpers
-- `etl/load_standings.py`, `etl/load_rosters.py` → add diff-before-write
-- `app.py` → new sync-trigger endpoint + status endpoint
-- `templates/index.html` → Sync button + live status polling UI
-- New: a `launchd` plist for the weekly schedule
+- `scripts/run_all_etl.py`, `scripts/sync.py` → collapse into one `etl/pipeline.py`, runnable as `python -m etl.pipeline`
+- `src/database.py` → `sync_log` helpers extended for per-step keys; new JSON status-file read/write/self-heal helpers (not DB-backed)
+- `etl/load_standings.py`, `etl/load_rosters.py` → add diff-before-write (rosters with the non-null guard from §3)
+- `app.py` → new sync-trigger endpoint (spawns the subprocess, checks the lock first) + status-poll endpoint (reads the JSON file)
+- `templates/index.html` → Sync button + live status polling UI + idle "last synced" display
+- New: a `launchd` plist (absolute venv Python path, explicit `WorkingDirectory`, `StartCalendarInterval`) for the weekly schedule
+- New: `data/sync_status.json` (git-ignored, runtime-generated)
 
 ## Open Questions for the Plan Stage
 
