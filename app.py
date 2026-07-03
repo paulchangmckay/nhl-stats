@@ -36,7 +36,7 @@ def index():
 def api_teams():
     conn = get_connection()
     rows = conn.execute(
-        "SELECT abbrev, common_name FROM teams ORDER BY abbrev"
+        "SELECT abbrev, common_name FROM teams ORDER BY common_name"
     ).fetchall()
     conn.close()
     return jsonify([{"abbrev": r["abbrev"], "common_name": r["common_name"]} for r in rows])
