@@ -9,14 +9,19 @@ Bio/Stats tab toggle. All filtering happens client-side over JSON already loaded
 players), per existing project convention (`.wolf/cerebrum.md`, 2026-07-02 entry on
 client-side filter/sort pattern for ≤1000 rows).
 
-This spec adds four filters to make the UI "more advanced": name search, position
-filter, multi-select seasons, and stat threshold filters.
+This spec adds five changes to make the UI "more advanced": autocomplete name search,
+position filter, multi-select seasons, stat threshold filters, and a richer team
+filter (full names + logos).
 
 ## Scope
 
 In scope:
-1. **Name search** — live text input, matches first or last name, case-insensitive
-   substring, client-side.
+1. **Name search with autocomplete** — text input that (a) live-filters the table by
+   first/last-name substring match, case-insensitive, same as before, AND (b) shows a
+   typeahead suggestion dropdown of up to 8 matching player names below the box.
+   Clicking a suggestion clears the search text (restoring the table to its
+   non-search-filtered state, other filters still applied) and scrolls to + briefly
+   highlights that player's row.
 2. **Position filter** — toggle buttons for C / L / R / D / G, multi-select (none
    active = no position filtering).
 3. **Season multi-select** — replaces the single Season `<select>` with a checkbox
@@ -28,9 +33,16 @@ In scope:
 4. **Stat threshold filters** (Stats tab only) — four "≥" number inputs: GP, Goals,
    Assists, Points. Minimum-only (no max). Hidden entirely on the Bio tab. Skater
    stats only — goalie stats (W/L/SV%/GAA) are not filtered in this round.
+5. **Team filter — full names + logos** — the Team filter converts from a native
+   `<select>` to a custom single-select popup dropdown (same component pattern as
+   the season multi-select), showing each team's small logo plus full common name
+   (e.g. "Carolina Hurricanes"), no abbreviation prefix. Logos are loaded live from
+   the NHL CDN (`assets.nhle.com/logos/nhl/svg/{ABBREV}_light.svg`) as plain
+   `<img>` tags — no local storage or new backend route.
 
 Out of scope (explicitly not changing):
-- Team filter stays single-select.
+- The Team column badge in the table body stays exactly as-is: abbreviation only,
+  full name as hover tooltip. Only the filter dropdown changes.
 - Goalie-specific stat filters.
 - Any server-side pagination or query-based (non-JSON-bulk-load) architecture change.
 - Automated test suite / CI — this project has no existing test framework
@@ -44,14 +56,41 @@ Out of scope (explicitly not changing):
 The sticky header (`templates/index.html:190-215`) expands using the existing
 `flex-wrap: wrap` behavior, growing to up to three visual rows:
 
-- **Row 1 (always):** title, name search box, Team dropdown, Season checkbox-dropdown
-  button, Bio/Stats tabs, player count.
+- **Row 1 (always):** title, name search box (with suggestion popup), Team popup
+  dropdown, Season checkbox-dropdown button, Bio/Stats tabs, player count.
 - **Row 2 (always, both tabs):** position toggle buttons (C/L/R/D/G), styled with the
   existing `.pos-C`/`.pos-L`/etc. color scheme but as clickable toggle buttons with an
   active/pressed visual state (not just badges).
 - **Row 3 (Stats tab only):** GP≥, G≥, A≥, Pts≥ number inputs, compact width, visually
   consistent with existing `select` styling. Entirely hidden (not just disabled) when
   `activeTab === "bio"`.
+
+### Name search + autocomplete
+
+- The search `<input>` filters the table live on every keystroke (existing
+  first/last-name substring behavior, folded into the filter chain below).
+- On the same keystroke, a suggestion popup appears below the input listing up to 8
+  matching player names (`"First Last"`, sourced from `bioData` regardless of active
+  tab), if the input is non-empty and has at least one match.
+- Clicking a suggestion: clears the search input (table reverts to showing all rows
+  allowed by the other active filters), closes the popup, scrolls the matched
+  player's row into view (`scrollIntoView({behavior: "smooth", block: "center"})`),
+  and applies a brief highlight (e.g. a CSS transition on background-color for
+  ~1.5s) so the row is easy to spot.
+- Popup closes on outside click, Escape, or when the input is cleared.
+
+### Team popup dropdown
+
+Same custom-component pattern as the season dropdown, but single-select:
+- Button shows the selected team's logo + full name, or "All Teams" when none
+  selected.
+- Popup lists "All Teams" first, then one row per team: `<img>` logo (loaded from
+  `https://assets.nhle.com/logos/nhl/svg/{abbrev}_light.svg`) + full `common_name`
+  text, sorted alphabetically by name (matching the existing `/api/teams` order
+  change — see Backend Design).
+- Clicking a row selects that team, closes the popup, and re-renders the table
+  (same effect as the current `team-filter` change handler).
+- Popup closes on outside click or Escape.
 
 ### Season checkbox-dropdown
 
@@ -82,9 +121,18 @@ rows = data
 ```
 
 No new network calls are introduced by search or position filtering — both operate on
-already-loaded `bioData` / `statsData[seasonKey]`.
+already-loaded `bioData` / `statsData[seasonKey]`. Team filtering still matches on
+`team_abbrev` internally; only its selector UI changes (see Team popup dropdown
+above) — the underlying filter predicate is unchanged.
 
 ## Backend Design
+
+### `/api/teams` — sort order
+
+Currently orders by `abbrev` (`app.py:39`). Changes to order by `common_name` so the
+new team popup dropdown lists teams alphabetically by full name, matching how the
+dropdown is displayed. No response shape change — `abbrev` and `common_name` are
+already returned; only the SQL `ORDER BY` clause changes.
 
 ### `/api/players/stats` — multi-season support
 
@@ -125,3 +173,10 @@ server (`python app.py`, after clearing port 5000 per `.wolf/cerebrum.md`):
 6. Player count label reflects the fully-filtered row count, not just team-filtered
    count (existing `count-label` logic needs to account for all active filters, not
    only `activeTeam`).
+7. Typing in the search box shows correct suggestions (max 8, name-substring match)
+   and live-narrows the table at the same time; clicking a suggestion clears the
+   search box, scrolls to, and highlights the right row.
+8. Team popup dropdown lists teams alphabetically by full name with a logo per row;
+   selecting one filters the table the same as the old native `<select>` did.
+9. Team logos load correctly from the NHL CDN and degrade gracefully (broken-image
+   icon, not a layout break) if a given abbreviation's logo URL 404s.
