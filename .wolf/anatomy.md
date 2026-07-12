@@ -1,7 +1,7 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-07-04T16:00:00.647Z
-> Files: 511 tracked | Anatomy hits: 0 | Misses: 0
+> Auto-maintained by OpenWolf. Last scanned: 2026-07-12T04:00:01.153Z
+> Files: 514 tracked | Anatomy hits: 0 | Misses: 0
 
 ## ./
 
@@ -28,14 +28,22 @@
 ## .claude/worktrees/advanced-filters/.superpowers/sdd/
 
 - `.gitignore` — Git ignore rules (~1 tok)
-- `progress.md` (~49 tok)
+- `progress.md` (~151 tok)
 - `review-22bb120..4215054.diff` — Review package: 22bb120..4215054 (~1084 tok)
+- `review-4215054..b919954.diff` — Review package: 4215054..b919954 (~2773 tok)
+- `review-b919954..a6261b2.diff` — Review package: b919954..a6261b2 (~1664 tok)
 - `review-fea15d4..22bb120.diff` — Review package: fea15d4..22bb120 (~239 tok)
 - `review-fea15d4..fea15d4.diff` — Review package: fea15d48f85df36154c4e10f4d8be95a62abd8c7..fea15d48f85df36154c4e10f4d8be95a62abd8c7 (~38 tok)
 - `task-1-brief.md` — ## Task 1: Backend — `/api/teams` alphabetical order (~346 tok)
 - `task-1-report.md` — Task 1: Backend — `/api/teams` alphabetical order — COMPLETED (~456 tok)
 - `task-2-brief.md` — ## Task 2: Backend — multi-season stats endpoint (~1397 tok)
 - `task-2-report.md` — Task 2 Report: Backend — multi-season stats endpoint (~1294 tok)
+- `task-3-brief.md` — ## Task 3: Frontend — header restructure + position filter (~2160 tok)
+- `task-3-report.md` — Task 3 Report — Frontend header restructure + position filter (~1638 tok)
+- `task-4-brief.md` — ## Task 4: Frontend — Stats-tab threshold filters (~1051 tok)
+- `task-4-report.md` — Task 4 Implementation Report: Frontend — Stats-tab threshold filters (~1362 tok)
+- `task-5-brief.md` — ## Task 5: Frontend — team popup dropdown (full names + logos) (~1464 tok)
+- `task-5-report.md` — Task 5 Report — Frontend: team popup dropdown (full names + logos) (~1369 tok)
 
 ## .claude/worktrees/advanced-filters/__pycache__/
 
@@ -89,7 +97,7 @@
 
 ## .claude/worktrees/advanced-filters/templates/
 
-- `index.html` — NHL Players (~4007 tok)
+- `index.html` — NHL Players (~5858 tok)
 
 ## .github/workflows/
 
@@ -733,8 +741,6 @@
 - `download.py` — Download files with progress indicators. (~3608 tok)
 - `lazy_wheel.py` — Lazy ZIP over HTTP (~2185 tok)
 - `session.py` — PipSession and supporting code, containing all pip-specific (~5588 tok)
-- `utils.py` — The following comments and HTTP headers were originally added by (~1169 tok)
-- `xmlrpc.py` — xmlrpclib.Transport implementation (~523 tok)
 
 ## .venv/lib/python3.14/site-packages/pip/_internal/network/__pycache__/
 
@@ -743,9 +749,6 @@
 - `cache.cpython-314.pyc` (~2729 tok)
 - `download.cpython-314.pyc` (~4970 tok)
 - `lazy_wheel.cpython-314.pyc` (~3790 tok)
-- `session.cpython-314.pyc` (~5974 tok)
-- `utils.cpython-314.pyc` (~770 tok)
-- `xmlrpc.cpython-314.pyc` (~913 tok)
 
 ## __pycache__/
 
