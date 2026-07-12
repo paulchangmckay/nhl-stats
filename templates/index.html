@@ -137,6 +137,56 @@
 
     .stat-input:focus { outline: none; border-color: #58a6ff; }
 
+    .popup-select { position: relative; }
+
+    .popup-select-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #21262d;
+      color: #e6edf3;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      min-width: 160px;
+    }
+
+    .popup-select-btn:focus { outline: none; border-color: #58a6ff; }
+
+    .popup-select-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      max-height: 320px;
+      overflow-y: auto;
+      z-index: 20;
+      min-width: 220px;
+    }
+
+    .popup-select-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .popup-select-row:hover { background: #1c2129; }
+
+    .popup-select-row img {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+    }
+
     .count {
       margin-left: auto;
       font-size: 13px;
@@ -245,10 +295,10 @@
   <div class="header-row1">
     <h1>🏒 NHL Players</h1>
     <div class="controls">
-      <label for="team-filter">Team</label>
-      <select id="team-filter">
-        <option value="">All Teams</option>
-      </select>
+      <div class="popup-select" id="team-popup">
+        <button type="button" class="popup-select-btn" id="team-popup-btn">All Teams</button>
+        <div class="popup-select-menu" id="team-popup-menu" style="display:none"></div>
+      </div>
 
       <label for="season-filter">Season</label>
       <select id="season-filter">
@@ -313,6 +363,7 @@
   let activeTeam   = "";
   let activePositions = new Set();
   let statMins = { gp: null, goals: null, assists: null, points: null };
+  let teamsList = [];
   let sortKey      = "last_name";
   let sortDir      = "asc";
 
@@ -363,16 +414,48 @@
     document.getElementById("empty-msg").style.display = "none";
   }
 
+  function logoUrl(abbrev) {
+    return `https://assets.nhle.com/logos/nhl/svg/${abbrev}_light.svg`;
+  }
+
+  function renderTeamPopup() {
+    const menu = document.getElementById("team-popup-menu");
+    menu.innerHTML = "";
+
+    const allRow = document.createElement("div");
+    allRow.className = "popup-select-row";
+    allRow.textContent = "All Teams";
+    allRow.addEventListener("click", () => selectTeam("", "All Teams"));
+    menu.appendChild(allRow);
+
+    teamsList.forEach(t => {
+      const row = document.createElement("div");
+      row.className = "popup-select-row";
+      const img = document.createElement("img");
+      img.src = logoUrl(t.abbrev);
+      img.alt = "";
+      img.onerror = () => { img.style.visibility = "hidden"; };
+      row.appendChild(img);
+      const span = document.createElement("span");
+      span.textContent = t.common_name;
+      row.appendChild(span);
+      row.addEventListener("click", () => selectTeam(t.abbrev, t.common_name));
+      menu.appendChild(row);
+    });
+  }
+
+  function selectTeam(abbrev, label) {
+    activeTeam = abbrev;
+    document.getElementById("team-popup-btn").textContent = label;
+    document.getElementById("team-popup-menu").style.display = "none";
+    render();
+  }
+
   fetch("/api/teams")
     .then(r => r.json())
     .then(teams => {
-      const sel = document.getElementById("team-filter");
-      teams.forEach(t => {
-        const opt = document.createElement("option");
-        opt.value = t.abbrev;
-        opt.textContent = `${t.abbrev} — ${t.common_name}`;
-        sel.appendChild(opt);
-      });
+      teamsList = teams;
+      renderTeamPopup();
     });
 
   fetch("/api/players")
@@ -400,9 +483,22 @@
   }
 
   // ─── Event listeners ──────────────────────────────────────────────────────────
-  document.getElementById("team-filter").addEventListener("change", e => {
-    activeTeam = e.target.value;
-    render();
+  document.getElementById("team-popup-btn").addEventListener("click", e => {
+    e.stopPropagation();
+    const menu = document.getElementById("team-popup-menu");
+    menu.style.display = menu.style.display === "none" ? "" : "none";
+  });
+
+  document.addEventListener("click", e => {
+    if (!e.target.closest("#team-popup")) {
+      document.getElementById("team-popup-menu").style.display = "none";
+    }
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      document.getElementById("team-popup-menu").style.display = "none";
+    }
   });
 
   document.getElementById("season-filter").addEventListener("change", e => {
