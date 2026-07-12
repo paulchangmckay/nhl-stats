@@ -125,6 +125,18 @@
     .pos-toggle.pos-D.active { background: #d2a8ff; color: #0d1117; }
     .pos-toggle.pos-G.active { background: #ffa657; color: #0d1117; }
 
+    .stat-input {
+      width: 64px;
+      background: #21262d;
+      color: #e6edf3;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-size: 13px;
+    }
+
+    .stat-input:focus { outline: none; border-color: #58a6ff; }
+
     .count {
       margin-left: auto;
       font-size: 13px;
@@ -267,6 +279,17 @@
       <button type="button" class="pos-toggle pos-G" data-pos="G">G</button>
     </div>
   </div>
+
+  <div class="header-row3" id="stat-filter-row" style="display:none">
+    <label for="min-gp">GP≥</label>
+    <input type="number" min="0" class="stat-input" id="min-gp">
+    <label for="min-goals">G≥</label>
+    <input type="number" min="0" class="stat-input" id="min-goals">
+    <label for="min-assists">A≥</label>
+    <input type="number" min="0" class="stat-input" id="min-assists">
+    <label for="min-points">Pts≥</label>
+    <input type="number" min="0" class="stat-input" id="min-points">
+  </div>
 </header>
 
 <div class="table-wrap">
@@ -289,6 +312,7 @@
   let activeSeason = "20252026";
   let activeTeam   = "";
   let activePositions = new Set();
+  let statMins = { gp: null, goals: null, assists: null, points: null };
   let sortKey      = "last_name";
   let sortDir      = "asc";
 
@@ -396,12 +420,25 @@
     });
   });
 
+  function wireStatInput(id, key) {
+    document.getElementById(id).addEventListener("input", e => {
+      const v = e.target.value;
+      statMins[key] = v === "" ? null : Number(v);
+      render();
+    });
+  }
+  wireStatInput("min-gp", "gp");
+  wireStatInput("min-goals", "goals");
+  wireStatInput("min-assists", "assists");
+  wireStatInput("min-points", "points");
+
   document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       const tab = btn.dataset.tab;
       if (tab === activeTab) return;
       activeTab = tab;
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+      document.getElementById("stat-filter-row").style.display = tab === "stats" ? "" : "none";
       // reset sort sensibly for each tab
       if (tab === "bio") {
         sortKey = "last_name"; sortDir = "asc";
@@ -513,6 +550,12 @@
     let rows = data;
     if (activeTeam) rows = rows.filter(p => p.team_abbrev === activeTeam);
     if (activePositions.size > 0) rows = rows.filter(p => activePositions.has(p.position_code));
+    if (activeTab === "stats") {
+      if (statMins.gp      != null) rows = rows.filter(p => (p.gp      ?? 0) >= statMins.gp);
+      if (statMins.goals   != null) rows = rows.filter(p => (p.goals   ?? 0) >= statMins.goals);
+      if (statMins.assists != null) rows = rows.filter(p => (p.assists ?? 0) >= statMins.assists);
+      if (statMins.points  != null) rows = rows.filter(p => (p.points  ?? 0) >= statMins.points);
+    }
 
     // Sort
     const col = cols.find(c => c.key === sortKey);
