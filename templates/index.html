@@ -625,7 +625,6 @@
 
   // ─── Event listeners ──────────────────────────────────────────────────────────
   document.getElementById("team-popup-btn").addEventListener("click", e => {
-    e.stopPropagation();
     const menu = document.getElementById("team-popup-menu");
     menu.style.display = menu.style.display === "none" ? "" : "none";
   });
@@ -645,7 +644,6 @@
   });
 
   document.getElementById("season-popup-btn").addEventListener("click", e => {
-    e.stopPropagation();
     const menu = document.getElementById("season-popup-menu");
     menu.style.display = menu.style.display === "none" ? "" : "none";
   });
