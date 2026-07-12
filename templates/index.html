@@ -187,6 +187,20 @@
       object-fit: contain;
     }
 
+    .search-wrap { position: relative; }
+
+    #search-input {
+      background: #21262d;
+      color: #e6edf3;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      width: 200px;
+    }
+
+    #search-input:focus { outline: none; border-color: #58a6ff; }
+
     .count {
       margin-left: auto;
       font-size: 13px;
@@ -294,6 +308,9 @@
 <header>
   <div class="header-row1">
     <h1>🏒 NHL Players</h1>
+    <div class="search-wrap" id="search-wrap">
+      <input type="text" id="search-input" placeholder="Search players…" autocomplete="off">
+    </div>
     <div class="controls">
       <div class="popup-select" id="team-popup">
         <button type="button" class="popup-select-btn" id="team-popup-btn">All Teams</button>
@@ -367,6 +384,7 @@
   let activePositions = new Set();
   let statMins = { gp: null, goals: null, assists: null, points: null };
   let teamsList = [];
+  let searchText = "";
   let sortKey      = "last_name";
   let sortDir      = "asc";
 
@@ -568,6 +586,11 @@
     menu.style.display = menu.style.display === "none" ? "" : "none";
   });
 
+  document.getElementById("search-input").addEventListener("input", e => {
+    searchText = e.target.value;
+    render();
+  });
+
   document.querySelectorAll(".pos-toggle").forEach(btn => {
     btn.addEventListener("click", () => {
       const pos = btn.dataset.pos;
@@ -708,6 +731,13 @@
     let rows = data;
     if (activeTeam) rows = rows.filter(p => p.team_abbrev === activeTeam);
     if (activePositions.size > 0) rows = rows.filter(p => activePositions.has(p.position_code));
+    if (searchText) {
+      const q = searchText.toLowerCase();
+      rows = rows.filter(p =>
+        (p.first_name || "").toLowerCase().includes(q) ||
+        (p.last_name  || "").toLowerCase().includes(q)
+      );
+    }
     if (activeTab === "stats") {
       if (statMins.gp      != null) rows = rows.filter(p => (p.gp      ?? 0) >= statMins.gp);
       if (statMins.goals   != null) rows = rows.filter(p => (p.goals   ?? 0) >= statMins.goals);
