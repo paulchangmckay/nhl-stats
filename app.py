@@ -36,7 +36,15 @@ def index():
 def api_teams():
     conn = get_connection()
     rows = conn.execute(
-        "SELECT abbrev, common_name FROM teams ORDER BY abbrev"
+        """
+        SELECT abbrev,
+               CASE WHEN place_name LIKE '%' || common_name
+                    THEN place_name
+                    ELSE place_name || ' ' || common_name
+               END AS common_name
+        FROM teams
+        ORDER BY 2
+        """
     ).fetchall()
     conn.close()
     return jsonify([{"abbrev": r["abbrev"], "common_name": r["common_name"]} for r in rows])
@@ -86,10 +94,13 @@ def api_players():
 
 @app.route("/api/players/stats")
 def api_players_stats():
-    season = request.args.get("season", "all")
+    seasons_param = request.args.get("seasons", "all")
+    seasons = [s.strip() for s in seasons_param.split(",") if s.strip()]
+    if not seasons:
+        seasons = ["all"]
     conn = get_connection()
 
-    if season == "all":
+    if seasons == ["all"]:
         rows = conn.execute("""
             SELECT
                 p.player_id,
@@ -124,7 +135,8 @@ def api_players_stats():
             ORDER BY points DESC
         """).fetchall()
     else:
-        rows = conn.execute("""
+        placeholders = ",".join("?" for _ in seasons)
+        rows = conn.execute(f"""
             SELECT
                 p.player_id,
                 p.first_name,
@@ -152,10 +164,10 @@ def api_players_stats():
             FROM players p
             LEFT JOIN teams t ON p.current_team_id = t.team_id
             JOIN player_season_stats s ON p.player_id = s.player_id
-            WHERE s.season_id = ?
+            WHERE s.season_id IN ({placeholders})
             GROUP BY p.player_id
             ORDER BY SUM(s.points) DESC
-        """, (season,)).fetchall()
+        """, seasons).fetchall()
 
     conn.close()
     players = []

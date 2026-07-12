@@ -17,13 +17,26 @@
     header {
       background: #161b22;
       border-bottom: 1px solid #30363d;
-      padding: 14px 24px;
+      padding: 14px 24px 10px;
       display: flex;
-      align-items: center;
-      gap: 16px;
+      flex-direction: column;
+      gap: 8px;
       position: sticky;
       top: 0;
       z-index: 10;
+    }
+
+    .header-row1 {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-row2, .header-row3 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       flex-wrap: wrap;
     }
 
@@ -83,6 +96,138 @@
     .tab-btn:hover { background: #1c2129; color: #e6edf3; }
     .tab-btn.active { background: #1f6feb; color: #ffffff; }
 
+    .pos-toggle-group {
+      display: flex;
+      gap: 4px;
+    }
+
+    .pos-toggle {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .pos-toggle.pos-C { color: #3fb950; border-color: #3fb950; }
+    .pos-toggle.pos-L { color: #58a6ff; border-color: #58a6ff; }
+    .pos-toggle.pos-R { color: #79c0ff; border-color: #79c0ff; }
+    .pos-toggle.pos-D { color: #d2a8ff; border-color: #d2a8ff; }
+    .pos-toggle.pos-G { color: #ffa657; border-color: #ffa657; }
+
+    .pos-toggle.pos-C.active { background: #3fb950; color: #0d1117; }
+    .pos-toggle.pos-L.active { background: #58a6ff; color: #0d1117; }
+    .pos-toggle.pos-R.active { background: #79c0ff; color: #0d1117; }
+    .pos-toggle.pos-D.active { background: #d2a8ff; color: #0d1117; }
+    .pos-toggle.pos-G.active { background: #ffa657; color: #0d1117; }
+
+    .stat-input {
+      width: 64px;
+      background: #21262d;
+      color: #e6edf3;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-size: 13px;
+    }
+
+    .stat-input:focus { outline: none; border-color: #58a6ff; }
+
+    .popup-select { position: relative; }
+
+    .popup-select-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #21262d;
+      color: #e6edf3;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      min-width: 160px;
+    }
+
+    .popup-select-btn:focus { outline: none; border-color: #58a6ff; }
+
+    .popup-select-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      max-height: 320px;
+      overflow-y: auto;
+      z-index: 20;
+      min-width: 220px;
+    }
+
+    .popup-select-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .popup-select-row:hover { background: #1c2129; }
+
+    .popup-select-row img {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+    }
+
+    .search-wrap { position: relative; }
+
+    #search-input {
+      background: #21262d;
+      color: #e6edf3;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      width: 200px;
+    }
+
+    #search-input:focus { outline: none; border-color: #58a6ff; }
+
+    .suggestion-list {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      min-width: 200px;
+      max-height: 260px;
+      overflow-y: auto;
+      z-index: 20;
+    }
+
+    .suggestion-item {
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .suggestion-item:hover { background: #1c2129; }
+
+    tbody tr.row-highlight {
+      background: #1f6feb66 !important;
+      transition: background-color 0.3s ease;
+    }
+
     .count {
       margin-left: auto;
       font-size: 13px;
@@ -114,7 +259,7 @@
       cursor: pointer;
       user-select: none;
       position: sticky;
-      top: 57px;
+      top: var(--thead-top, 57px);
     }
 
     thead th:hover { color: #e6edf3; background: #1c2129; }
@@ -188,30 +333,52 @@
 <body>
 
 <header>
-  <h1>🏒 NHL Players</h1>
-  <div class="controls">
-    <label for="team-filter">Team</label>
-    <select id="team-filter">
-      <option value="">All Teams</option>
-    </select>
+  <div class="header-row1">
+    <h1>🏒 NHL Players</h1>
+    <div class="search-wrap" id="search-wrap">
+      <input type="text" id="search-input" placeholder="Search players…" autocomplete="off">
+      <div class="suggestion-list" id="search-suggestions" style="display:none"></div>
+    </div>
+    <div class="controls">
+      <div class="popup-select" id="team-popup">
+        <button type="button" class="popup-select-btn" id="team-popup-btn">All Teams</button>
+        <div class="popup-select-menu" id="team-popup-menu" style="display:none"></div>
+      </div>
 
-    <label for="season-filter">Season</label>
-    <select id="season-filter">
-      <option value="all">All Seasons (Career)</option>
-      <option value="20252026" selected>2025–26</option>
-      <option value="20242025">2024–25</option>
-      <option value="20232024">2023–24</option>
-      <option value="20222023">2022–23</option>
-      <option value="20212022">2021–22</option>
-      <option value="20202021">2020–21</option>
-    </select>
+      <div class="popup-select" id="season-popup">
+        <button type="button" class="popup-select-btn" id="season-popup-btn">2025–26</button>
+        <div class="popup-select-menu" id="season-popup-menu" style="display:none"></div>
+      </div>
 
-    <div class="tab-group">
-      <button class="tab-btn active" data-tab="bio">Bio</button>
-      <button class="tab-btn" data-tab="stats">Stats</button>
+      <div class="tab-group">
+        <button class="tab-btn active" data-tab="bio">Bio</button>
+        <button class="tab-btn" data-tab="stats">Stats</button>
+      </div>
+    </div>
+    <span class="count" id="count-label"></span>
+  </div>
+
+  <div class="header-row2" id="pos-filter-row">
+    <label>Position</label>
+    <div class="pos-toggle-group">
+      <button type="button" class="pos-toggle pos-C" data-pos="C">C</button>
+      <button type="button" class="pos-toggle pos-L" data-pos="L">L</button>
+      <button type="button" class="pos-toggle pos-R" data-pos="R">R</button>
+      <button type="button" class="pos-toggle pos-D" data-pos="D">D</button>
+      <button type="button" class="pos-toggle pos-G" data-pos="G">G</button>
     </div>
   </div>
-  <span class="count" id="count-label"></span>
+
+  <div class="header-row3" id="stat-filter-row" style="display:none">
+    <label for="min-gp">GP≥</label>
+    <input type="number" min="0" class="stat-input" id="min-gp">
+    <label for="min-goals">G≥</label>
+    <input type="number" min="0" class="stat-input" id="min-goals">
+    <label for="min-assists">A≥</label>
+    <input type="number" min="0" class="stat-input" id="min-assists">
+    <label for="min-points">Pts≥</label>
+    <input type="number" min="0" class="stat-input" id="min-points">
+  </div>
 </header>
 
 <div class="table-wrap">
@@ -231,8 +398,21 @@
   let statsData = {};   // keyed by season id → array
 
   let activeTab    = "bio";
-  let activeSeason = "20252026";
+  let activeSeasons = ["20252026"];
+
+  const SEASONS = [
+    { id: "20252026", label: "2025–26" },
+    { id: "20242025", label: "2024–25" },
+    { id: "20232024", label: "2023–24" },
+    { id: "20222023", label: "2022–23" },
+    { id: "20212022", label: "2021–22" },
+    { id: "20202021", label: "2020–21" },
+  ];
   let activeTeam   = "";
+  let activePositions = new Set();
+  let statMins = { gp: null, goals: null, assists: null, points: null };
+  let teamsList = [];
+  let searchText = "";
   let sortKey      = "last_name";
   let sortDir      = "asc";
 
@@ -283,16 +463,135 @@
     document.getElementById("empty-msg").style.display = "none";
   }
 
+  function logoUrl(abbrev) {
+    return `https://assets.nhle.com/logos/nhl/svg/${abbrev}_light.svg`;
+  }
+
+  function renderTeamPopup() {
+    const menu = document.getElementById("team-popup-menu");
+    menu.innerHTML = "";
+
+    const allRow = document.createElement("div");
+    allRow.className = "popup-select-row";
+    allRow.textContent = "All Teams";
+    allRow.addEventListener("click", () => selectTeam("", "All Teams"));
+    menu.appendChild(allRow);
+
+    teamsList.forEach(t => {
+      const row = document.createElement("div");
+      row.className = "popup-select-row";
+      const img = document.createElement("img");
+      img.src = logoUrl(t.abbrev);
+      img.alt = "";
+      img.onerror = () => { img.style.visibility = "hidden"; };
+      row.appendChild(img);
+      const span = document.createElement("span");
+      span.textContent = t.common_name;
+      row.appendChild(span);
+      row.addEventListener("click", () => selectTeam(t.abbrev, t.common_name));
+      menu.appendChild(row);
+    });
+  }
+
+  function selectTeam(abbrev, label) {
+    activeTeam = abbrev;
+    document.getElementById("team-popup-btn").textContent = label;
+    document.getElementById("team-popup-menu").style.display = "none";
+    render();
+  }
+
+  function renderSuggestions(query) {
+    const box = document.getElementById("search-suggestions");
+    if (!query) { box.style.display = "none"; box.innerHTML = ""; return; }
+    const q = query.toLowerCase();
+    const matches = bioData.filter(p =>
+      (p.first_name || "").toLowerCase().includes(q) ||
+      (p.last_name  || "").toLowerCase().includes(q)
+    ).slice(0, 8);
+    box.innerHTML = "";
+    if (matches.length === 0) { box.style.display = "none"; return; }
+    matches.forEach(p => {
+      const item = document.createElement("div");
+      item.className = "suggestion-item";
+      item.textContent = `${p.first_name} ${p.last_name}`;
+      item.addEventListener("click", () => selectSuggestion(p));
+      box.appendChild(item);
+    });
+    box.style.display = "";
+  }
+
+  function selectSuggestion(player) {
+    document.getElementById("search-input").value = "";
+    searchText = "";
+    document.getElementById("search-suggestions").style.display = "none";
+    render();
+    requestAnimationFrame(() => {
+      const row = document.querySelector(`tr[data-player-id="${player.player_id}"]`);
+      if (!row) return;
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
+      row.classList.add("row-highlight");
+      setTimeout(() => row.classList.remove("row-highlight"), 1500);
+    });
+  }
+
+  function seasonButtonLabel() {
+    if (activeSeasons.includes("all")) return "All Seasons (Career)";
+    if (activeSeasons.length === 1) {
+      return SEASONS.find(s => s.id === activeSeasons[0])?.label || activeSeasons[0];
+    }
+    return `${activeSeasons.length} Seasons`;
+  }
+
+  function toggleSeason(id) {
+    if (id === "all") {
+      activeSeasons = activeSeasons.includes("all") ? ["20252026"] : ["all"];
+    } else if (activeSeasons.includes("all")) {
+      activeSeasons = [id];
+    } else if (activeSeasons.includes(id)) {
+      if (activeSeasons.length > 1) activeSeasons = activeSeasons.filter(s => s !== id);
+      // else: no-op — at least one season must always remain selected
+    } else {
+      activeSeasons = [...activeSeasons, id];
+    }
+    renderSeasonPopup();
+    document.getElementById("season-popup-btn").textContent = seasonButtonLabel();
+    if (activeTab === "stats") loadStats(activeSeasons);
+  }
+
+  function renderSeasonPopup() {
+    const menu = document.getElementById("season-popup-menu");
+    menu.innerHTML = "";
+
+    const allRow = document.createElement("div");
+    allRow.className = "popup-select-row";
+    const allCheck = document.createElement("input");
+    allCheck.type = "checkbox";
+    allCheck.checked = activeSeasons.includes("all");
+    allRow.appendChild(allCheck);
+    allRow.appendChild(document.createTextNode("All Seasons (Career)"));
+    allRow.addEventListener("click", () => toggleSeason("all"));
+    menu.appendChild(allRow);
+
+    SEASONS.forEach(s => {
+      const row = document.createElement("div");
+      row.className = "popup-select-row";
+      const check = document.createElement("input");
+      check.type = "checkbox";
+      check.checked = activeSeasons.includes(s.id);
+      row.appendChild(check);
+      row.appendChild(document.createTextNode(s.label));
+      row.addEventListener("click", () => toggleSeason(s.id));
+      menu.appendChild(row);
+    });
+  }
+
+  renderSeasonPopup();
+
   fetch("/api/teams")
     .then(r => r.json())
     .then(teams => {
-      const sel = document.getElementById("team-filter");
-      teams.forEach(t => {
-        const opt = document.createElement("option");
-        opt.value = t.abbrev;
-        opt.textContent = `${t.abbrev} — ${t.common_name}`;
-        sel.appendChild(opt);
-      });
+      teamsList = teams;
+      renderTeamPopup();
     });
 
   fetch("/api/players")
@@ -302,28 +601,80 @@
       render();
     });
 
-  function loadStats(season) {
-    if (statsData[season]) { render(); return; }
+  function seasonsKey(seasons) {
+    return seasons.includes("all") ? "all" : [...seasons].sort().join(",");
+  }
+
+  function loadStats(seasons) {
+    const key = seasonsKey(seasons);
+    if (statsData[key]) { render(); return; }
     showLoading(true);
-    fetch(`/api/players/stats?season=${season}`)
+    fetch(`/api/players/stats?seasons=${seasons.join(",")}`)
       .then(r => r.json())
       .then(data => {
-        statsData[season] = data;
+        statsData[key] = data;
         showLoading(false);
         render();
       });
   }
 
+  function updateHeaderOffset() {
+    const header = document.querySelector("header");
+    document.documentElement.style.setProperty("--thead-top", `${header.offsetHeight}px`);
+  }
+
   // ─── Event listeners ──────────────────────────────────────────────────────────
-  document.getElementById("team-filter").addEventListener("change", e => {
-    activeTeam = e.target.value;
+  document.getElementById("team-popup-btn").addEventListener("click", e => {
+    const menu = document.getElementById("team-popup-menu");
+    menu.style.display = menu.style.display === "none" ? "" : "none";
+  });
+
+  document.addEventListener("click", e => {
+    if (!e.target.closest("#team-popup")) document.getElementById("team-popup-menu").style.display = "none";
+    if (!e.target.closest("#season-popup")) document.getElementById("season-popup-menu").style.display = "none";
+    if (!e.target.closest("#search-wrap")) document.getElementById("search-suggestions").style.display = "none";
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      document.getElementById("team-popup-menu").style.display = "none";
+      document.getElementById("season-popup-menu").style.display = "none";
+      document.getElementById("search-suggestions").style.display = "none";
+    }
+  });
+
+  document.getElementById("season-popup-btn").addEventListener("click", e => {
+    const menu = document.getElementById("season-popup-menu");
+    menu.style.display = menu.style.display === "none" ? "" : "none";
+  });
+
+  document.getElementById("search-input").addEventListener("input", e => {
+    searchText = e.target.value;
+    renderSuggestions(searchText);
     render();
   });
 
-  document.getElementById("season-filter").addEventListener("change", e => {
-    activeSeason = e.target.value;
-    if (activeTab === "stats") loadStats(activeSeason);
+  document.querySelectorAll(".pos-toggle").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const pos = btn.dataset.pos;
+      if (activePositions.has(pos)) activePositions.delete(pos);
+      else activePositions.add(pos);
+      btn.classList.toggle("active");
+      render();
+    });
   });
+
+  function wireStatInput(id, key) {
+    document.getElementById(id).addEventListener("input", e => {
+      const v = e.target.value;
+      statMins[key] = v === "" ? null : Number(v);
+      render();
+    });
+  }
+  wireStatInput("min-gp", "gp");
+  wireStatInput("min-goals", "goals");
+  wireStatInput("min-assists", "assists");
+  wireStatInput("min-points", "points");
 
   document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -331,12 +682,13 @@
       if (tab === activeTab) return;
       activeTab = tab;
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+      document.getElementById("stat-filter-row").style.display = tab === "stats" ? "" : "none";
       // reset sort sensibly for each tab
       if (tab === "bio") {
         sortKey = "last_name"; sortDir = "asc";
       } else {
         sortKey = "points"; sortDir = "desc";
-        loadStats(activeSeason);
+        loadStats(activeSeasons);
         return;  // loadStats calls render when done
       }
       buildHeader();
@@ -346,7 +698,7 @@
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   function currentData() {
-    return activeTab === "bio" ? bioData : (statsData[activeSeason] || []);
+    return activeTab === "bio" ? bioData : (statsData[seasonsKey(activeSeasons)] || []);
   }
 
   function buildHeader() {
@@ -439,9 +791,22 @@
     const cols = activeCols();
 
     // Filter
-    let rows = activeTeam
-      ? data.filter(p => p.team_abbrev === activeTeam)
-      : data;
+    let rows = data;
+    if (activeTeam) rows = rows.filter(p => p.team_abbrev === activeTeam);
+    if (activePositions.size > 0) rows = rows.filter(p => activePositions.has(p.position_code));
+    if (searchText) {
+      const q = searchText.toLowerCase();
+      rows = rows.filter(p =>
+        (p.first_name || "").toLowerCase().includes(q) ||
+        (p.last_name  || "").toLowerCase().includes(q)
+      );
+    }
+    if (activeTab === "stats") {
+      if (statMins.gp      != null) rows = rows.filter(p => (p.gp      ?? 0) >= statMins.gp);
+      if (statMins.goals   != null) rows = rows.filter(p => (p.goals   ?? 0) >= statMins.goals);
+      if (statMins.assists != null) rows = rows.filter(p => (p.assists ?? 0) >= statMins.assists);
+      if (statMins.points  != null) rows = rows.filter(p => (p.points  ?? 0) >= statMins.points);
+    }
 
     // Sort
     const col = cols.find(c => c.key === sortKey);
@@ -464,18 +829,22 @@
     tbody.innerHTML = "";
     rows.forEach(p => {
       const tr = document.createElement("tr");
+      tr.dataset.playerId = p.player_id;
       cols.forEach(col => tr.appendChild(renderCell(col, p)));
       tbody.appendChild(tr);
     });
 
     const total = data.length;
     const shown = rows.length;
+    const filtersActive = !!activeTeam || activePositions.size > 0 || !!searchText ||
+      (activeTab === "stats" && Object.values(statMins).some(v => v != null));
     document.getElementById("count-label").textContent =
-      activeTeam ? `${shown} of ${total} players` : `${total} players`;
+      filtersActive ? `${shown} of ${total} players` : `${total} players`;
 
     const isEmpty = rows.length === 0;
     document.getElementById("empty-msg").style.display = isEmpty ? "" : "none";
     document.getElementById("player-table").style.display = isEmpty ? "none" : "";
+    updateHeaderOffset();
   }
 
   function esc(str) {
@@ -487,6 +856,7 @@
 
   // Build header immediately so columns appear before data loads
   buildHeader();
+  updateHeaderOffset();
 </script>
 </body>
 </html>
