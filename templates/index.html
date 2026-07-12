@@ -17,13 +17,26 @@
     header {
       background: #161b22;
       border-bottom: 1px solid #30363d;
-      padding: 14px 24px;
+      padding: 14px 24px 10px;
       display: flex;
-      align-items: center;
-      gap: 16px;
+      flex-direction: column;
+      gap: 8px;
       position: sticky;
       top: 0;
       z-index: 10;
+    }
+
+    .header-row1 {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-row2, .header-row3 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       flex-wrap: wrap;
     }
 
@@ -83,6 +96,35 @@
     .tab-btn:hover { background: #1c2129; color: #e6edf3; }
     .tab-btn.active { background: #1f6feb; color: #ffffff; }
 
+    .pos-toggle-group {
+      display: flex;
+      gap: 4px;
+    }
+
+    .pos-toggle {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .pos-toggle.pos-C { color: #3fb950; border-color: #3fb950; }
+    .pos-toggle.pos-L { color: #58a6ff; border-color: #58a6ff; }
+    .pos-toggle.pos-R { color: #79c0ff; border-color: #79c0ff; }
+    .pos-toggle.pos-D { color: #d2a8ff; border-color: #d2a8ff; }
+    .pos-toggle.pos-G { color: #ffa657; border-color: #ffa657; }
+
+    .pos-toggle.pos-C.active { background: #3fb950; color: #0d1117; }
+    .pos-toggle.pos-L.active { background: #58a6ff; color: #0d1117; }
+    .pos-toggle.pos-R.active { background: #79c0ff; color: #0d1117; }
+    .pos-toggle.pos-D.active { background: #d2a8ff; color: #0d1117; }
+    .pos-toggle.pos-G.active { background: #ffa657; color: #0d1117; }
+
     .count {
       margin-left: auto;
       font-size: 13px;
@@ -114,7 +156,7 @@
       cursor: pointer;
       user-select: none;
       position: sticky;
-      top: 57px;
+      top: var(--thead-top, 57px);
     }
 
     thead th:hover { color: #e6edf3; background: #1c2129; }
@@ -188,30 +230,43 @@
 <body>
 
 <header>
-  <h1>🏒 NHL Players</h1>
-  <div class="controls">
-    <label for="team-filter">Team</label>
-    <select id="team-filter">
-      <option value="">All Teams</option>
-    </select>
+  <div class="header-row1">
+    <h1>🏒 NHL Players</h1>
+    <div class="controls">
+      <label for="team-filter">Team</label>
+      <select id="team-filter">
+        <option value="">All Teams</option>
+      </select>
 
-    <label for="season-filter">Season</label>
-    <select id="season-filter">
-      <option value="all">All Seasons (Career)</option>
-      <option value="20252026" selected>2025–26</option>
-      <option value="20242025">2024–25</option>
-      <option value="20232024">2023–24</option>
-      <option value="20222023">2022–23</option>
-      <option value="20212022">2021–22</option>
-      <option value="20202021">2020–21</option>
-    </select>
+      <label for="season-filter">Season</label>
+      <select id="season-filter">
+        <option value="all">All Seasons (Career)</option>
+        <option value="20252026" selected>2025–26</option>
+        <option value="20242025">2024–25</option>
+        <option value="20232024">2023–24</option>
+        <option value="20222023">2022–23</option>
+        <option value="20212022">2021–22</option>
+        <option value="20202021">2020–21</option>
+      </select>
 
-    <div class="tab-group">
-      <button class="tab-btn active" data-tab="bio">Bio</button>
-      <button class="tab-btn" data-tab="stats">Stats</button>
+      <div class="tab-group">
+        <button class="tab-btn active" data-tab="bio">Bio</button>
+        <button class="tab-btn" data-tab="stats">Stats</button>
+      </div>
+    </div>
+    <span class="count" id="count-label"></span>
+  </div>
+
+  <div class="header-row2" id="pos-filter-row">
+    <label>Position</label>
+    <div class="pos-toggle-group">
+      <button type="button" class="pos-toggle pos-C" data-pos="C">C</button>
+      <button type="button" class="pos-toggle pos-L" data-pos="L">L</button>
+      <button type="button" class="pos-toggle pos-R" data-pos="R">R</button>
+      <button type="button" class="pos-toggle pos-D" data-pos="D">D</button>
+      <button type="button" class="pos-toggle pos-G" data-pos="G">G</button>
     </div>
   </div>
-  <span class="count" id="count-label"></span>
 </header>
 
 <div class="table-wrap">
@@ -233,6 +288,7 @@
   let activeTab    = "bio";
   let activeSeason = "20252026";
   let activeTeam   = "";
+  let activePositions = new Set();
   let sortKey      = "last_name";
   let sortDir      = "asc";
 
@@ -314,6 +370,11 @@
       });
   }
 
+  function updateHeaderOffset() {
+    const header = document.querySelector("header");
+    document.documentElement.style.setProperty("--thead-top", `${header.offsetHeight}px`);
+  }
+
   // ─── Event listeners ──────────────────────────────────────────────────────────
   document.getElementById("team-filter").addEventListener("change", e => {
     activeTeam = e.target.value;
@@ -323,6 +384,16 @@
   document.getElementById("season-filter").addEventListener("change", e => {
     activeSeason = e.target.value;
     if (activeTab === "stats") loadStats(activeSeason);
+  });
+
+  document.querySelectorAll(".pos-toggle").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const pos = btn.dataset.pos;
+      if (activePositions.has(pos)) activePositions.delete(pos);
+      else activePositions.add(pos);
+      btn.classList.toggle("active");
+      render();
+    });
   });
 
   document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -439,9 +510,9 @@
     const cols = activeCols();
 
     // Filter
-    let rows = activeTeam
-      ? data.filter(p => p.team_abbrev === activeTeam)
-      : data;
+    let rows = data;
+    if (activeTeam) rows = rows.filter(p => p.team_abbrev === activeTeam);
+    if (activePositions.size > 0) rows = rows.filter(p => activePositions.has(p.position_code));
 
     // Sort
     const col = cols.find(c => c.key === sortKey);
@@ -476,6 +547,7 @@
     const isEmpty = rows.length === 0;
     document.getElementById("empty-msg").style.display = isEmpty ? "" : "none";
     document.getElementById("player-table").style.display = isEmpty ? "none" : "";
+    updateHeaderOffset();
   }
 
   function esc(str) {
@@ -487,6 +559,7 @@
 
   // Build header immediately so columns appear before data loads
   buildHeader();
+  updateHeaderOffset();
 </script>
 </body>
 </html>
