@@ -65,9 +65,14 @@ def _build_career_row(player_id, career_totals, position_code):
 
 
 def run(conn):
-    players = conn.execute(
-        "SELECT player_id, position_code FROM players WHERE is_active IS NULL ORDER BY player_id"
-    ).fetchall()
+    players = conn.execute("""
+        SELECT player_id, position_code FROM players
+        WHERE enriched_at IS NULL
+           OR height_inches IS NULL
+           OR position_code IS NULL
+           OR (is_active = 1 AND enriched_at < datetime('now', '-7 days'))
+        ORDER BY player_id
+    """).fetchall()
 
     total = len(players)
     if total == 0:
@@ -99,23 +104,31 @@ def run(conn):
         birth_state_raw = data.get("birthStateProvince")
         birth_state = birth_state_raw.get("default") if isinstance(birth_state_raw, dict) else birth_state_raw
 
+        api_position = data.get("position") or None
+
         database.upsert_player_enrichment(conn, {
-            "player_id":        player_id,
-            "draft_year":       draft.get("year"),
-            "draft_round":      draft.get("round"),
-            "draft_pick":       draft.get("pickInRound"),
-            "draft_overall":    draft.get("overallPick"),
-            "draft_team_abbrev": draft.get("teamAbbrev"),
-            "is_active":        1 if data.get("isActive") else 0,
-            "birth_city":       birth_city,
+            "player_id":           player_id,
+            "draft_year":          draft.get("year"),
+            "draft_round":         draft.get("round"),
+            "draft_pick":          draft.get("pickInRound"),
+            "draft_overall":       draft.get("overallPick"),
+            "draft_team_abbrev":   draft.get("teamAbbrev"),
+            "is_active":           1 if data.get("isActive") else 0,
+            "position_code":       api_position,
+            "birth_city":          birth_city,
             "birth_state_province": birth_state,
-            "headshot_url":     data.get("headshot"),
+            "headshot_url":        data.get("headshot"),
+            "height_inches":       data.get("heightInInches"),
+            "weight_pounds":       data.get("weightInPounds"),
+            "birth_date":          data.get("birthDate"),
+            "birth_country":       data.get("birthCountry"),
         })
 
         # ── Career totals ──────────────────────────────────────────────────
         career_totals = data.get("careerTotals") or {}
         if career_totals:
-            career_row = _build_career_row(player_id, career_totals, position_code or "")
+            effective_position = api_position or position_code or ""
+            career_row = _build_career_row(player_id, career_totals, effective_position)
             database.upsert_career_stats(conn, career_row)
 
         done += 1

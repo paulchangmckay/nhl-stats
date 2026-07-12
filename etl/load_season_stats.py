@@ -113,8 +113,15 @@ def _load_player_type(conn, season_id, game_type, player_type):
 def run(conn):
     print("Loading historical season stats (stats REST API)...")
     grand_total = 0
+    current_season = SEASONS[-1]  # always re-fetch the latest season
 
     for season_id in SEASONS:
+        if season_id != current_season:
+            synced_at = database.get_sync_record(conn, f"season_stats:{season_id}")
+            if synced_at:
+                print(f"  {season_id}: already synced ({synced_at}), skipping")
+                continue
+
         season_total = 0
         for game_type, label in GAME_TYPES.items():
             for player_type in ["skater", "goalie"]:
@@ -124,6 +131,8 @@ def run(conn):
                 time.sleep(0.3)
         print(f"  Season {season_id} total: {season_total} records")
         grand_total += season_total
+
+        database.set_sync_record(conn, f"season_stats:{season_id}", season_total)
 
     player_count = conn.execute("SELECT COUNT(*) FROM players").fetchone()[0]
     print(f"\n  Done. {grand_total} season-stat rows loaded.")

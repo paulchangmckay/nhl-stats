@@ -168,6 +168,14 @@ CREATE TABLE IF NOT EXISTS player_career_stats (
 );
 """
 
+CREATE_SYNC_LOG = """
+CREATE TABLE IF NOT EXISTS sync_log (
+    key          TEXT PRIMARY KEY,
+    synced_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    record_count INTEGER
+);
+"""
+
 _PLAYER_MIGRATIONS = [
     "ALTER TABLE players ADD COLUMN birth_city           TEXT",
     "ALTER TABLE players ADD COLUMN birth_state_province TEXT",
@@ -178,6 +186,7 @@ _PLAYER_MIGRATIONS = [
     "ALTER TABLE players ADD COLUMN draft_overall        INTEGER",
     "ALTER TABLE players ADD COLUMN draft_team_abbrev    TEXT",
     "ALTER TABLE players ADD COLUMN is_active            INTEGER",
+    "ALTER TABLE players ADD COLUMN enriched_at          TEXT",
 ]
 
 
@@ -201,11 +210,27 @@ def run_migrations(conn):
 def create_all_tables(conn):
     for sql in [CREATE_TEAMS, CREATE_SEASONS, CREATE_PLAYERS,
                 CREATE_GAMES, CREATE_PLAYER_GAME_STATS, CREATE_STANDINGS,
-                CREATE_PLAYER_SEASON_STATS, CREATE_PLAYER_CAREER_STATS]:
+                CREATE_PLAYER_SEASON_STATS, CREATE_PLAYER_CAREER_STATS,
+                CREATE_SYNC_LOG]:
         conn.execute(sql)
     run_migrations(conn)
     conn.commit()
     print("All tables created.")
+
+
+def get_sync_record(conn, key):
+    """Return the synced_at timestamp for a key, or None if not found."""
+    row = conn.execute("SELECT synced_at FROM sync_log WHERE key = ?", (key,)).fetchone()
+    return row["synced_at"] if row else None
+
+
+def set_sync_record(conn, key, record_count=None):
+    """Mark a sync key as complete with the current timestamp."""
+    conn.execute(
+        "INSERT OR REPLACE INTO sync_log (key, synced_at, record_count) VALUES (?, datetime('now'), ?)",
+        (key, record_count),
+    )
+    conn.commit()
 
 
 def upsert_team(conn, t):
@@ -270,20 +295,29 @@ def upsert_player_enrichment(conn, p):
     """UPDATE players with bio/draft data from the landing API."""
     conn.execute("""
         UPDATE players SET
-            draft_year        = ?,
-            draft_round       = ?,
-            draft_pick        = ?,
-            draft_overall     = ?,
-            draft_team_abbrev = ?,
-            is_active         = ?,
-            birth_city        = COALESCE(birth_city, ?),
+            draft_year           = ?,
+            draft_round          = ?,
+            draft_pick           = ?,
+            draft_overall        = ?,
+            draft_team_abbrev    = ?,
+            is_active            = ?,
+            position_code        = COALESCE(position_code, ?),
+            birth_city           = COALESCE(birth_city, ?),
             birth_state_province = COALESCE(birth_state_province, ?),
-            headshot_url      = COALESCE(headshot_url, ?)
+            headshot_url         = COALESCE(headshot_url, ?),
+            height_inches        = COALESCE(height_inches, ?),
+            weight_pounds        = COALESCE(weight_pounds, ?),
+            birth_date           = COALESCE(birth_date, ?),
+            birth_country        = COALESCE(birth_country, ?),
+            enriched_at          = datetime('now')
         WHERE player_id = ?
     """, (
         p.get("draft_year"), p.get("draft_round"), p.get("draft_pick"),
         p.get("draft_overall"), p.get("draft_team_abbrev"), p.get("is_active"),
+        p.get("position_code"),
         p.get("birth_city"), p.get("birth_state_province"), p.get("headshot_url"),
+        p.get("height_inches"), p.get("weight_pounds"), p.get("birth_date"),
+        p.get("birth_country"),
         p["player_id"],
     ))
 

@@ -17,13 +17,14 @@
     header {
       background: #161b22;
       border-bottom: 1px solid #30363d;
-      padding: 16px 24px;
+      padding: 14px 24px;
       display: flex;
       align-items: center;
-      gap: 20px;
+      gap: 16px;
       position: sticky;
       top: 0;
       z-index: 10;
+      flex-wrap: wrap;
     }
 
     header h1 {
@@ -53,15 +54,40 @@
       padding: 6px 10px;
       font-size: 13px;
       cursor: pointer;
-      min-width: 180px;
+      min-width: 160px;
     }
 
     select:focus { outline: none; border-color: #58a6ff; }
+
+    /* Tab toggle */
+    .tab-group {
+      display: flex;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .tab-btn {
+      background: #21262d;
+      color: #8b949e;
+      border: none;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      border-right: 1px solid #30363d;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .tab-btn:last-child { border-right: none; }
+    .tab-btn:hover { background: #1c2129; color: #e6edf3; }
+    .tab-btn.active { background: #1f6feb; color: #ffffff; }
 
     .count {
       margin-left: auto;
       font-size: 13px;
       color: #8b949e;
+      white-space: nowrap;
     }
 
     .table-wrap {
@@ -88,7 +114,7 @@
       cursor: pointer;
       user-select: none;
       position: sticky;
-      top: 57px; /* matches header height */
+      top: 57px;
     }
 
     thead th:hover { color: #e6edf3; background: #1c2129; }
@@ -99,10 +125,9 @@
     thead th.sort-desc { color: #58a6ff; }
 
     tbody tr { border-bottom: 1px solid #21262d; }
-    tbody tr:hover { background: #1c2129; }
+    tbody tr:hover { background: #1c2129 !important; }
     tbody tr:nth-child(even) { background: #0d1117; }
     tbody tr:nth-child(odd)  { background: #161b22; }
-    tbody tr:hover { background: #1c2129 !important; }
 
     td {
       padding: 9px 12px;
@@ -112,6 +137,8 @@
 
     td.num   { text-align: right; color: #8b949e; font-variant-numeric: tabular-nums; }
     td.name  { font-weight: 500; color: #e6edf3; }
+    td.stat  { text-align: right; font-variant-numeric: tabular-nums; }
+    td.stat-hi { text-align: right; font-variant-numeric: tabular-nums; color: #e6edf3; font-weight: 600; }
 
     .team-badge {
       display: inline-block;
@@ -149,6 +176,13 @@
       color: #8b949e;
       font-size: 14px;
     }
+
+    .loading-msg {
+      text-align: center;
+      padding: 48px;
+      color: #8b949e;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -160,38 +194,95 @@
     <select id="team-filter">
       <option value="">All Teams</option>
     </select>
+
+    <label for="season-filter">Season</label>
+    <select id="season-filter">
+      <option value="all">All Seasons (Career)</option>
+      <option value="20252026" selected>2025–26</option>
+      <option value="20242025">2024–25</option>
+      <option value="20232024">2023–24</option>
+      <option value="20222023">2022–23</option>
+      <option value="20212022">2021–22</option>
+      <option value="20202021">2020–21</option>
+    </select>
+
+    <div class="tab-group">
+      <button class="tab-btn active" data-tab="bio">Bio</button>
+      <button class="tab-btn" data-tab="stats">Stats</button>
+    </div>
   </div>
   <span class="count" id="count-label"></span>
 </header>
 
 <div class="table-wrap">
   <table id="player-table">
-    <thead>
-      <tr>
-        <th data-key="sweater_number" data-type="num">#</th>
-        <th data-key="first_name">First Name</th>
-        <th data-key="last_name">Last Name</th>
-        <th data-key="position_code">Pos</th>
-        <th data-key="shoots_catches">S/C</th>
-        <th data-key="height">Height</th>
-        <th data-key="weight_pounds" data-type="num">Weight</th>
-        <th data-key="birth_date">Birth Date</th>
-        <th data-key="birth_country">Country</th>
-        <th data-key="team_abbrev">Team</th>
-      </tr>
+    <thead id="player-thead">
+      <!-- rendered by JS -->
     </thead>
     <tbody id="player-tbody"></tbody>
   </table>
   <div id="empty-msg" style="display:none">No players found.</div>
+  <div id="loading-msg" class="loading-msg" style="display:none">Loading…</div>
 </div>
 
 <script>
-  let allPlayers = [];
-  let sortKey = "last_name";
-  let sortDir = "asc";
-  let activeTeam = "";
+  // ─── State ────────────────────────────────────────────────────────────────────
+  let bioData   = [];   // from /api/players
+  let statsData = {};   // keyed by season id → array
 
-  // ─── Fetch teams for dropdown ───────────────────────────────────────────────
+  let activeTab    = "bio";
+  let activeSeason = "20252026";
+  let activeTeam   = "";
+  let sortKey      = "last_name";
+  let sortDir      = "asc";
+
+  // ─── Column definitions ───────────────────────────────────────────────────────
+  const BIO_COLS = [
+    { key: "sweater_number", label: "#",         type: "num" },
+    { key: "first_name",     label: "First Name" },
+    { key: "last_name",      label: "Last Name" },
+    { key: "position_code",  label: "Pos",       render: "pos" },
+    { key: "shoots_catches", label: "S/C" },
+    { key: "height",         label: "Height" },
+    { key: "weight_pounds",  label: "Weight",    type: "num", suffix: " lbs" },
+    { key: "birth_date",     label: "Birth Date" },
+    { key: "birth_country",  label: "Country" },
+    { key: "team_abbrev",    label: "Team",      render: "team" },
+  ];
+
+  const STAT_COLS = [
+    { key: "last_name",     label: "Last Name" },
+    { key: "first_name",    label: "First Name" },
+    { key: "position_code", label: "Pos",   render: "pos" },
+    { key: "team_abbrev",   label: "Team",  render: "team" },
+    { key: "gp",            label: "GP",    type: "num" },
+    { key: "goals",         label: "G",     type: "num", highlight: true },
+    { key: "assists",       label: "A",     type: "num", highlight: true },
+    { key: "points",        label: "Pts",   type: "num", highlight: true },
+    { key: "plus_minus",    label: "+/-",   type: "num", render: "plusminus" },
+    { key: "pim",           label: "PIM",   type: "num" },
+    { key: "pp_goals",      label: "PPG",   type: "num" },
+    { key: "sh_goals",      label: "SHG",   type: "num" },
+    { key: "shots",         label: "Shots", type: "num" },
+    { key: "shooting_pct",  label: "SH%",   type: "num", render: "pct1" },
+    { key: "avg_toi",       label: "Avg TOI" },
+    { key: "wins",          label: "W",     type: "num", goalieOnly: true },
+    { key: "losses",        label: "L",     type: "num", goalieOnly: true },
+    { key: "ot_losses",     label: "OTL",   type: "num", goalieOnly: true },
+    { key: "shutouts",      label: "SO",    type: "num", goalieOnly: true },
+    { key: "save_pct",      label: "SV%",   type: "num", render: "savepct", goalieOnly: true },
+    { key: "gaa",           label: "GAA",   type: "num", render: "gaa",     goalieOnly: true },
+  ];
+
+  function activeCols() { return activeTab === "bio" ? BIO_COLS : STAT_COLS; }
+
+  // ─── Data loading ─────────────────────────────────────────────────────────────
+  function showLoading(on) {
+    document.getElementById("loading-msg").style.display = on ? "" : "none";
+    document.getElementById("player-table").style.display = on ? "none" : "";
+    document.getElementById("empty-msg").style.display = "none";
+  }
+
   fetch("/api/teams")
     .then(r => r.json())
     .then(teams => {
@@ -204,47 +295,157 @@
       });
     });
 
-  // ─── Fetch all players ───────────────────────────────────────────────────────
   fetch("/api/players")
     .then(r => r.json())
-    .then(players => {
-      allPlayers = players;
+    .then(data => {
+      bioData = data;
       render();
     });
 
-  // ─── Filter dropdown ─────────────────────────────────────────────────────────
+  function loadStats(season) {
+    if (statsData[season]) { render(); return; }
+    showLoading(true);
+    fetch(`/api/players/stats?season=${season}`)
+      .then(r => r.json())
+      .then(data => {
+        statsData[season] = data;
+        showLoading(false);
+        render();
+      });
+  }
+
+  // ─── Event listeners ──────────────────────────────────────────────────────────
   document.getElementById("team-filter").addEventListener("change", e => {
     activeTeam = e.target.value;
     render();
   });
 
-  // ─── Sort on header click ────────────────────────────────────────────────────
-  document.querySelectorAll("thead th").forEach(th => {
-    th.addEventListener("click", () => {
-      const key = th.dataset.key;
-      if (sortKey === key) {
-        sortDir = sortDir === "asc" ? "desc" : "asc";
+  document.getElementById("season-filter").addEventListener("change", e => {
+    activeSeason = e.target.value;
+    if (activeTab === "stats") loadStats(activeSeason);
+  });
+
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const tab = btn.dataset.tab;
+      if (tab === activeTab) return;
+      activeTab = tab;
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+      // reset sort sensibly for each tab
+      if (tab === "bio") {
+        sortKey = "last_name"; sortDir = "asc";
       } else {
-        sortKey = key;
-        sortDir = "asc";
+        sortKey = "points"; sortDir = "desc";
+        loadStats(activeSeason);
+        return;  // loadStats calls render when done
       }
-      document.querySelectorAll("thead th").forEach(h => {
-        h.classList.remove("sort-asc", "sort-desc");
-      });
-      th.classList.add(sortDir === "asc" ? "sort-asc" : "sort-desc");
+      buildHeader();
       render();
     });
   });
 
-  // ─── Render ──────────────────────────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────────────────────
+  function currentData() {
+    return activeTab === "bio" ? bioData : (statsData[activeSeason] || []);
+  }
+
+  function buildHeader() {
+    const thead = document.getElementById("player-thead");
+    const cols = activeCols();
+    const tr = document.createElement("tr");
+    cols.forEach(col => {
+      const th = document.createElement("th");
+      th.dataset.key = col.key;
+      if (col.type === "num") th.dataset.type = "num";
+      th.textContent = col.label;
+      if (col.key === sortKey) th.classList.add(sortDir === "asc" ? "sort-asc" : "sort-desc");
+      th.addEventListener("click", () => {
+        if (sortKey === col.key) {
+          sortDir = sortDir === "asc" ? "desc" : "asc";
+        } else {
+          sortKey = col.key;
+          sortDir = col.type === "num" ? "desc" : "asc";
+        }
+        document.querySelectorAll("thead th").forEach(h => h.classList.remove("sort-asc", "sort-desc"));
+        th.classList.add(sortDir === "asc" ? "sort-asc" : "sort-desc");
+        render();
+      });
+      tr.appendChild(th);
+    });
+    thead.innerHTML = "";
+    thead.appendChild(tr);
+  }
+
+  function renderCell(col, player) {
+    const val = player[col.key];
+    const td = document.createElement("td");
+    const DASH = "-";
+
+    if (col.render === "pos") {
+      if (!val) { td.textContent = DASH; return td; }
+      td.innerHTML = `<span class="pos-badge pos-${esc(val)}">${esc(val)}</span>`;
+      return td;
+    }
+    if (col.render === "team") {
+      if (!val) { td.textContent = DASH; return td; }
+      td.innerHTML = `<span class="team-badge" title="${esc(player.team_name)}">${esc(val)}</span>`;
+      return td;
+    }
+    if (col.render === "plusminus") {
+      td.className = "stat";
+      if (val == null) { td.textContent = DASH; return td; }
+      td.textContent = val > 0 ? `+${val}` : String(val);
+      return td;
+    }
+    if (col.render === "pct1") {
+      td.className = "stat";
+      td.textContent = val != null ? val + "%" : DASH;
+      return td;
+    }
+    if (col.render === "savepct") {
+      td.className = "stat";
+      td.textContent = val != null ? val.toFixed(3) : DASH;
+      return td;
+    }
+    if (col.render === "gaa") {
+      td.className = "stat";
+      td.textContent = val != null ? val.toFixed(2) : DASH;
+      return td;
+    }
+
+    if (col.key === "first_name" || col.key === "last_name") {
+      td.className = "name";
+      td.textContent = val || DASH;
+      return td;
+    }
+
+    if (col.type === "num") {
+      td.className = col.highlight ? "stat-hi" : "stat";
+      if (val == null) { td.textContent = DASH; return td; }
+      td.textContent = col.suffix ? val + col.suffix : val;
+      return td;
+    }
+
+    // Text fields — show dash for blank/null
+    const text = col.suffix && val ? val + col.suffix : (val ?? "");
+    td.textContent = text.trim() === "" ? DASH : text;
+    return td;
+  }
+
   function render() {
+    buildHeader();
+
+    const data = currentData();
+    const cols = activeCols();
+
     // Filter
     let rows = activeTeam
-      ? allPlayers.filter(p => p.team_abbrev === activeTeam)
-      : allPlayers;
+      ? data.filter(p => p.team_abbrev === activeTeam)
+      : data;
 
     // Sort
-    const isNum = document.querySelector(`th[data-key="${sortKey}"]`)?.dataset?.type === "num";
+    const col = cols.find(c => c.key === sortKey);
+    const isNum = col?.type === "num";
     rows = [...rows].sort((a, b) => {
       let va = a[sortKey], vb = b[sortKey];
       if (isNum) {
@@ -259,45 +460,33 @@
       return 0;
     });
 
-    // Render rows
     const tbody = document.getElementById("player-tbody");
     tbody.innerHTML = "";
     rows.forEach(p => {
       const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td class="num">${p.sweater_number ?? ""}</td>
-        <td class="name">${esc(p.first_name)}</td>
-        <td class="name">${esc(p.last_name)}</td>
-        <td><span class="pos-badge pos-${esc(p.position_code)}">${esc(p.position_code)}</span></td>
-        <td>${esc(p.shoots_catches)}</td>
-        <td>${esc(p.height)}</td>
-        <td class="num">${p.weight_pounds ? p.weight_pounds + " lbs" : ""}</td>
-        <td>${esc(p.birth_date)}</td>
-        <td>${esc(p.birth_country)}</td>
-        <td><span class="team-badge" title="${esc(p.team_name)}">${esc(p.team_abbrev)}</span></td>
-      `;
+      cols.forEach(col => tr.appendChild(renderCell(col, p)));
       tbody.appendChild(tr);
     });
 
-    // Count label
-    const total = allPlayers.length;
+    const total = data.length;
     const shown = rows.length;
     document.getElementById("count-label").textContent =
       activeTeam ? `${shown} of ${total} players` : `${total} players`;
 
-    // Empty state
-    document.getElementById("empty-msg").style.display = rows.length === 0 ? "" : "none";
-    document.getElementById("player-table").style.display = rows.length === 0 ? "none" : "";
+    const isEmpty = rows.length === 0;
+    document.getElementById("empty-msg").style.display = isEmpty ? "" : "none";
+    document.getElementById("player-table").style.display = isEmpty ? "none" : "";
   }
 
   function esc(str) {
     if (str == null) return "";
     return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
+
+  // Build header immediately so columns appear before data loads
+  buildHeader();
 </script>
 </body>
 </html>
