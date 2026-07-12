@@ -838,8 +838,10 @@
 
     const total = data.length;
     const shown = rows.length;
+    const filtersActive = !!activeTeam || activePositions.size > 0 || !!searchText ||
+      (activeTab === "stats" && Object.values(statMins).some(v => v != null));
     document.getElementById("count-label").textContent =
-      activeTeam ? `${shown} of ${total} players` : `${total} players`;
+      filtersActive ? `${shown} of ${total} players` : `${total} players`;
 
     const isEmpty = rows.length === 0;
     document.getElementById("empty-msg").style.display = isEmpty ? "" : "none";
