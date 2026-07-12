@@ -300,16 +300,10 @@
         <div class="popup-select-menu" id="team-popup-menu" style="display:none"></div>
       </div>
 
-      <label for="season-filter">Season</label>
-      <select id="season-filter">
-        <option value="all">All Seasons (Career)</option>
-        <option value="20252026" selected>2025–26</option>
-        <option value="20242025">2024–25</option>
-        <option value="20232024">2023–24</option>
-        <option value="20222023">2022–23</option>
-        <option value="20212022">2021–22</option>
-        <option value="20202021">2020–21</option>
-      </select>
+      <div class="popup-select" id="season-popup">
+        <button type="button" class="popup-select-btn" id="season-popup-btn">2025–26</button>
+        <div class="popup-select-menu" id="season-popup-menu" style="display:none"></div>
+      </div>
 
       <div class="tab-group">
         <button class="tab-btn active" data-tab="bio">Bio</button>
@@ -359,7 +353,16 @@
   let statsData = {};   // keyed by season id → array
 
   let activeTab    = "bio";
-  let activeSeason = "20252026";
+  let activeSeasons = ["20252026"];
+
+  const SEASONS = [
+    { id: "20252026", label: "2025–26" },
+    { id: "20242025", label: "2024–25" },
+    { id: "20232024", label: "2023–24" },
+    { id: "20222023", label: "2022–23" },
+    { id: "20212022", label: "2021–22" },
+    { id: "20202021", label: "2020–21" },
+  ];
   let activeTeam   = "";
   let activePositions = new Set();
   let statMins = { gp: null, goals: null, assists: null, points: null };
@@ -451,6 +454,59 @@
     render();
   }
 
+  function seasonButtonLabel() {
+    if (activeSeasons.includes("all")) return "All Seasons (Career)";
+    if (activeSeasons.length === 1) {
+      return SEASONS.find(s => s.id === activeSeasons[0])?.label || activeSeasons[0];
+    }
+    return `${activeSeasons.length} Seasons`;
+  }
+
+  function toggleSeason(id) {
+    if (id === "all") {
+      activeSeasons = activeSeasons.includes("all") ? ["20252026"] : ["all"];
+    } else if (activeSeasons.includes("all")) {
+      activeSeasons = [id];
+    } else if (activeSeasons.includes(id)) {
+      if (activeSeasons.length > 1) activeSeasons = activeSeasons.filter(s => s !== id);
+      // else: no-op — at least one season must always remain selected
+    } else {
+      activeSeasons = [...activeSeasons, id];
+    }
+    renderSeasonPopup();
+    document.getElementById("season-popup-btn").textContent = seasonButtonLabel();
+    if (activeTab === "stats") loadStats(activeSeasons);
+  }
+
+  function renderSeasonPopup() {
+    const menu = document.getElementById("season-popup-menu");
+    menu.innerHTML = "";
+
+    const allRow = document.createElement("div");
+    allRow.className = "popup-select-row";
+    const allCheck = document.createElement("input");
+    allCheck.type = "checkbox";
+    allCheck.checked = activeSeasons.includes("all");
+    allRow.appendChild(allCheck);
+    allRow.appendChild(document.createTextNode("All Seasons (Career)"));
+    allRow.addEventListener("click", () => toggleSeason("all"));
+    menu.appendChild(allRow);
+
+    SEASONS.forEach(s => {
+      const row = document.createElement("div");
+      row.className = "popup-select-row";
+      const check = document.createElement("input");
+      check.type = "checkbox";
+      check.checked = activeSeasons.includes(s.id);
+      row.appendChild(check);
+      row.appendChild(document.createTextNode(s.label));
+      row.addEventListener("click", () => toggleSeason(s.id));
+      menu.appendChild(row);
+    });
+  }
+
+  renderSeasonPopup();
+
   fetch("/api/teams")
     .then(r => r.json())
     .then(teams => {
@@ -465,13 +521,18 @@
       render();
     });
 
-  function loadStats(season) {
-    if (statsData[season]) { render(); return; }
+  function seasonsKey(seasons) {
+    return seasons.includes("all") ? "all" : [...seasons].sort().join(",");
+  }
+
+  function loadStats(seasons) {
+    const key = seasonsKey(seasons);
+    if (statsData[key]) { render(); return; }
     showLoading(true);
-    fetch(`/api/players/stats?season=${season}`)
+    fetch(`/api/players/stats?seasons=${seasons.join(",")}`)
       .then(r => r.json())
       .then(data => {
-        statsData[season] = data;
+        statsData[key] = data;
         showLoading(false);
         render();
       });
@@ -490,20 +551,21 @@
   });
 
   document.addEventListener("click", e => {
-    if (!e.target.closest("#team-popup")) {
-      document.getElementById("team-popup-menu").style.display = "none";
-    }
+    if (!e.target.closest("#team-popup")) document.getElementById("team-popup-menu").style.display = "none";
+    if (!e.target.closest("#season-popup")) document.getElementById("season-popup-menu").style.display = "none";
   });
 
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
       document.getElementById("team-popup-menu").style.display = "none";
+      document.getElementById("season-popup-menu").style.display = "none";
     }
   });
 
-  document.getElementById("season-filter").addEventListener("change", e => {
-    activeSeason = e.target.value;
-    if (activeTab === "stats") loadStats(activeSeason);
+  document.getElementById("season-popup-btn").addEventListener("click", e => {
+    e.stopPropagation();
+    const menu = document.getElementById("season-popup-menu");
+    menu.style.display = menu.style.display === "none" ? "" : "none";
   });
 
   document.querySelectorAll(".pos-toggle").forEach(btn => {
@@ -540,7 +602,7 @@
         sortKey = "last_name"; sortDir = "asc";
       } else {
         sortKey = "points"; sortDir = "desc";
-        loadStats(activeSeason);
+        loadStats(activeSeasons);
         return;  // loadStats calls render when done
       }
       buildHeader();
@@ -550,7 +612,7 @@
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   function currentData() {
-    return activeTab === "bio" ? bioData : (statsData[activeSeason] || []);
+    return activeTab === "bio" ? bioData : (statsData[seasonsKey(activeSeasons)] || []);
   }
 
   function buildHeader() {
