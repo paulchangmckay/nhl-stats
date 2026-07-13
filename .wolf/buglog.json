@@ -12,6 +12,18 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-11T00:00:00.000Z"
+    },
+    {
+      "id": "bug-002",
+      "timestamp": "2026-07-12T00:00:00.000Z",
+      "error_message": "Search suggestion click silently fails to show the selected player (e.g. Nathan MacKinnon)",
+      "file": "templates/index.html",
+      "root_cause": "selectSuggestion() only reset searchText before trying to scroll to the clicked player's row. It never reset activeTeam, activePositions, or statMins. If any of those three filters were still active from earlier browsing and excluded the selected player, render() never produced a <tr> for them, document.querySelector returned null, and the scroll-to-row guard (`if (!row) return;`) silently aborted — looking exactly like the player couldn't be found.",
+      "fix": "Added clearOtherFilters() (resets activeTeam, activePositions, statMins and syncs their DOM controls: team popup button text, .pos-toggle active classes, .stat-input field values) and call it from selectSuggestion() before render(). searchText reset behavior unchanged.",
+      "tags": ["frontend", "filter-state", "search", "ui"],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-12T00:00:00.000Z"
     }
   ]
 }
