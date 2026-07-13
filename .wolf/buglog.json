@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "bugs": [
+    {
+      "id": "bug-001",
+      "timestamp": "2026-07-11T00:00:00.000Z",
+      "error_message": "some players are missing positions now",
+      "file": "src/database.py",
+      "root_cause": "upsert_player_enrichment() never wrote position_code even though the landing API (/v1/player/{id}/landing) returns it. Affected 121 retired/inactive players whose only path into the players table was a stub (name + position only sometimes missing) later filled by enrichment, which silently skipped the position field. Same root-cause family as the earlier bio-data gap (missing enrichment fields), just for a different column.",
+      "fix": "Added position_code = COALESCE(position_code, ?) to upsert_player_enrichment()'s UPDATE (fill-only, never overwrites a known value). Extracted data.get(\"position\") in etl/enrich_players.py and passed it through. Added `OR position_code IS NULL` to the enrichment WHERE clause so previously-skipped players get picked up. Re-ran enrichment for the 121 affected players (0 errors) — confirmed 0/1776 players with null position_code afterward.",
+      "tags": ["etl", "enrichment", "data-gap", "null-guard"],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-11T00:00:00.000Z"
+    }
+  ]
+}
