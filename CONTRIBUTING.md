@@ -8,7 +8,9 @@ Solo learning project using GitHub Flow:
 2. Branch off `main`: `feature/…`, `fix/…`, or `chore/…`
 3. Commit as you go
 4. Push and open a pull request into `main`
-5. Wait for the CI check to pass (syntax/import check — see `.github/workflows/ci.yml`)
+5. Wait for the CI check to pass (syntax/import check, pytest suite, and a
+   dependency-audit + SAST gate via `scripts/audit.sh` — see
+   `.github/workflows/ci.yml`)
 6. Merge via "Squash and merge", then delete the branch
 
 `main` is protected — no direct pushes, even for the repo owner.
