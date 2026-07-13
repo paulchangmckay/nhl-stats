@@ -136,7 +136,7 @@ def api_players_stats():
         """).fetchall()
     else:
         placeholders = ",".join("?" for _ in seasons)
-        rows = conn.execute(f"""
+        query = f"""
             SELECT
                 p.player_id,
                 p.first_name,
@@ -167,7 +167,8 @@ def api_players_stats():
             WHERE s.season_id IN ({placeholders})
             GROUP BY p.player_id
             ORDER BY SUM(s.points) DESC
-        """, seasons).fetchall()
+        """  # nosec B608 -- placeholders is only "?,?,..."; values are bound via `seasons` below, never interpolated
+        rows = conn.execute(query, seasons).fetchall()
 
     conn.close()
     players = []
@@ -200,5 +201,9 @@ def api_players_stats():
     return jsonify(players)
 
 
+def _debug_enabled():
+    return os.environ.get("FLASK_DEBUG") == "1"
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=_debug_enabled())
