@@ -16,7 +16,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
 
       - name: Syntax check (all tracked .py files)
         run: git ls-files '*.py' | xargs -n1 python -m py_compile
@@ -33,3 +33,9 @@ jobs:
               importlib.import_module(m)
               print(f'OK: {m}')
           "
+
+      - name: Tests
+        run: python -m pytest tests/ -v
+
+      - name: Dependency audit + SAST (bandit, pip-audit)
+        run: ./scripts/audit.sh
