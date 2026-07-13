@@ -202,7 +202,7 @@ def run_migrations(conn):
     for sql in _PLAYER_MIGRATIONS:
         try:
             conn.execute(sql)
-        except Exception:
+        except sqlite3.OperationalError:
             pass  # column already exists
     conn.commit()
 

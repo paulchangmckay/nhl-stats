@@ -1,5 +1,7 @@
 # NHL Stats Database
 
+Last updated: 2026-07-12 11:37 PM CDT
+
 A learning project for building a local NHL stats database using the NHL's free public API and SQLite.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the branching workflow used in this repo.
@@ -33,6 +35,22 @@ python scripts/run_all_etl.py
 python scripts/query_examples.py
 ```
 
+## Testing & local checks
+
+```bash
+# Install dev dependencies (adds pytest, bandit, pip-audit on top of requirements.txt)
+pip install -r requirements-dev.txt
+
+# Run the test suite
+python -m pytest tests/ -v
+
+# Run the dependency-audit + SAST gate (same script CI runs)
+./scripts/audit.sh
+```
+
+By default the Flask dev server runs with the debugger off. Set `FLASK_DEBUG=1`
+before `python app.py` to enable it locally — never in a deployed environment.
+
 ## Database Schema
 
 | Table | Description |
@@ -49,6 +67,7 @@ python scripts/query_examples.py
 ```
 src/          — Core modules (API client, DB helpers, models)
 etl/          — One script per data type (teams, players, games, etc.)
-scripts/      — Runnable entry points (setup, ETL runner, query examples)
+scripts/      — Runnable entry points (setup, ETL runner, query examples, audit.sh)
+tests/        — pytest suite (pure-logic helpers + database upsert regression tests)
 data/         — SQLite database file (git-ignored)
 ```
