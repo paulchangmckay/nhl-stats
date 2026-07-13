@@ -520,9 +520,22 @@
     box.style.display = "";
   }
 
+  // Resets team, position, and stat-threshold filters (and their DOM controls), leaving
+  // searchText untouched — used by selectSuggestion() to guarantee a clicked player is
+  // visible, and reusable by a future "Clear Filters" control.
+  function clearOtherFilters() {
+    activeTeam = "";
+    document.getElementById("team-popup-btn").textContent = "All Teams";
+    activePositions.clear();
+    document.querySelectorAll(".pos-toggle").forEach(btn => btn.classList.remove("active"));
+    statMins = { gp: null, goals: null, assists: null, points: null };
+    document.querySelectorAll(".stat-input").forEach(input => { input.value = ""; });
+  }
+
   function selectSuggestion(player) {
     document.getElementById("search-input").value = "";
     searchText = "";
+    clearOtherFilters();
     document.getElementById("search-suggestions").style.display = "none";
     render();
     requestAnimationFrame(() => {
