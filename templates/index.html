@@ -500,14 +500,20 @@
     render();
   }
 
+  // Matches a query against first name, last name, or "first last" combined —
+  // so a full-name search like "Nathan MacKinnon" matches even though that
+  // string isn't a substring of either field alone.
+  function nameMatches(p, query) {
+    const q = query.toLowerCase();
+    const first = (p.first_name || "").toLowerCase();
+    const last = (p.last_name || "").toLowerCase();
+    return first.includes(q) || last.includes(q) || `${first} ${last}`.trim().includes(q);
+  }
+
   function renderSuggestions(query) {
     const box = document.getElementById("search-suggestions");
     if (!query) { box.style.display = "none"; box.innerHTML = ""; return; }
-    const q = query.toLowerCase();
-    const matches = bioData.filter(p =>
-      (p.first_name || "").toLowerCase().includes(q) ||
-      (p.last_name  || "").toLowerCase().includes(q)
-    ).slice(0, 8);
+    const matches = bioData.filter(p => nameMatches(p, query)).slice(0, 8);
     box.innerHTML = "";
     if (matches.length === 0) { box.style.display = "none"; return; }
     matches.forEach(p => {
@@ -808,11 +814,7 @@
     if (activeTeam) rows = rows.filter(p => p.team_abbrev === activeTeam);
     if (activePositions.size > 0) rows = rows.filter(p => activePositions.has(p.position_code));
     if (searchText) {
-      const q = searchText.toLowerCase();
-      rows = rows.filter(p =>
-        (p.first_name || "").toLowerCase().includes(q) ||
-        (p.last_name  || "").toLowerCase().includes(q)
-      );
+      rows = rows.filter(p => nameMatches(p, searchText));
     }
     if (activeTab === "stats") {
       if (statMins.gp      != null) rows = rows.filter(p => (p.gp      ?? 0) >= statMins.gp);
