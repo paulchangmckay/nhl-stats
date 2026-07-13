@@ -2,7 +2,7 @@
 
 > OpenWolf's learning memory. Updated automatically as the AI learns from interactions.
 > Do not edit manually unless correcting an error.
-> Last updated: 2026-07-02
+> Last updated: 2026-07-11
 >
 > Note: this project has not been fully `openwolf init`'d (no CLAUDE.md / `.claude/rules/openwolf.md` here yet), so this file isn't auto-loaded by hooks. It was created by migrating NHL-Stats-Project-specific entries out of `~/.claude/.wolf/cerebrum.md`, where they'd been accumulating because sessions were run from `~/.claude` with this project as an additional working directory. Run `openwolf init` in this directory to wire it up for automatic loading.
 
@@ -44,3 +44,6 @@
 - 2026-07-02: Branch protection config for a solo repo: `required_approving_review_count=0` (a human-review requirement would deadlock — the owner can't approve their own PR) + `enforce_admins=true` (protection applies to the owner too, not just external contributors) + required status check `CI / check`. General pattern for solo-repo GitHub Flow setups.
 - 2026-07-02: Added `enriched_at` timestamp + 7-day window for active player re-enrichment. Rationale: re-enriching all ~995 active players every sync = 8+ min; 7-day window staggers load to ~140 players/sync (~1 min). Retired players enriched once and never re-fetched.
 - 2026-07-02: Created `scripts/sync.py` (incremental) separate from `scripts/run_all_etl.py` (full rebuild). Clear use cases: sync for weekly maintenance, run_all_etl for initial load or DB reset after wipe.
+- 2026-07-11: Superseded `scripts/run_all_etl.py` + `scripts/sync.py` with a single `etl/pipeline.py` (`python -m etl.pipeline`), triggered identically by a Flask "Sync" button (spawns `subprocess.Popen`) and a weekly `launchd` job. Rationale from a grilling pass on the design spec: one entrypoint means the two triggers can never drift out of sync with each other.
+- 2026-07-11: Sync concurrency lock and live-progress status are the *same* JSON file (`data/sync_status.json`), not a `sync_log` DB table. Rationale: the pipeline runs as a separate process from Flask; keeping status out of SQLite avoids read/write lock contention between the writer (pipeline) and the poller (Flask, every ~2s). The lock is keyed on the pipeline subprocess's actual PID (not the Flask process that spawned it) and self-heals — any reader that finds `"state": "running"` with a dead PID rewrites it to a terminal failed state, so a hard crash can't leave the UI stuck showing a phantom in-progress sync forever.
+- 2026-07-11: Formalized a general "authoritative-overwrite vs. fill-only" rule for ETL fields, generalizing the `bug-001`/prior bio-data-gap pattern: rosters are authoritative and may overwrite, but diff-before-write must never let a `null` API value overwrite a non-null DB value already on that column, for any field a "authoritative" step writes. Being authoritative means "wins when it has real data," not "wins even when it returns nothing."
