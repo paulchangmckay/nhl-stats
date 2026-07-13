@@ -2,7 +2,7 @@
 
 > OpenWolf's learning memory. Updated automatically as the AI learns from interactions.
 > Do not edit manually unless correcting an error.
-> Last updated: 2026-07-11
+> Last updated: 2026-07-12
 >
 > Note: this project has not been fully `openwolf init`'d (no CLAUDE.md / `.claude/rules/openwolf.md` here yet), so this file isn't auto-loaded by hooks. It was created by migrating NHL-Stats-Project-specific entries out of `~/.claude/.wolf/cerebrum.md`, where they'd been accumulating because sessions were run from `~/.claude` with this project as an additional working directory. Run `openwolf init` in this directory to wire it up for automatic loading.
 
@@ -33,6 +33,8 @@
 - 2026-07-02: Do NOT start Flask dev server without first clearing port 5000 on macOS. Run `lsof -ti :5000 | xargs kill -9` before `python app.py`, especially in back-to-back test runs. AirPlay Receiver also binds to 5000 by default — disable it in System Settings > AirDrop & Handoff if it recurs.
 - 2026-07-02: Do NOT use `gh api -f nested.field=value` shorthand for boolean or nested-object fields (e.g. branch protection's `required_status_checks.strict`, `enforce_admins`). This `gh` CLI version serializes them as literal strings ("true"/"false"), causing a 422 "No subschema in anyOf matched" error. Use `gh api --input -` with a raw JSON heredoc for any endpoint with nested/boolean fields.
 - 2026-07-02: Do NOT use `INSERT OR REPLACE` for tables where multiple ETL phases write different columns to the same row. Use `ON CONFLICT(pk) DO UPDATE SET` and limit SET to only the columns that phase controls.
+- 2026-07-12: Do NOT edit `.wolf/` files directly in this repo's main working tree when it's checked out on a branch that isn't the one you're working on (e.g. another session's in-progress branch) — main is also fully protected (`enforce_admins=true`), so a direct edit there can't even be committed. Route any `.wolf/` metadata update (buglog, cerebrum) through a small dedicated worktree/branch/PR like any other change.
+- 2026-07-12: A PR can merge (via an external actor — human or automation watching the repo) between two of your own pushes to the same branch. Confirmed via `gh pr view <N> --json commits` showing fewer commits than were actually pushed. Don't assume a `git push` succeeding means its content landed in the merged PR — verify post-merge by diffing `origin/main` against what you intended to land, not just checking the push exit code.
 
 ## Decision Log
 
@@ -47,3 +49,4 @@
 - 2026-07-11: Superseded `scripts/run_all_etl.py` + `scripts/sync.py` with a single `etl/pipeline.py` (`python -m etl.pipeline`), triggered identically by a Flask "Sync" button (spawns `subprocess.Popen`) and a weekly `launchd` job. Rationale from a grilling pass on the design spec: one entrypoint means the two triggers can never drift out of sync with each other.
 - 2026-07-11: Sync concurrency lock and live-progress status are the *same* JSON file (`data/sync_status.json`), not a `sync_log` DB table. Rationale: the pipeline runs as a separate process from Flask; keeping status out of SQLite avoids read/write lock contention between the writer (pipeline) and the poller (Flask, every ~2s). The lock is keyed on the pipeline subprocess's actual PID (not the Flask process that spawned it) and self-heals — any reader that finds `"state": "running"` with a dead PID rewrites it to a terminal failed state, so a hard crash can't leave the UI stuck showing a phantom in-progress sync forever.
 - 2026-07-11: Formalized a general "authoritative-overwrite vs. fill-only" rule for ETL fields, generalizing the `bug-001`/prior bio-data-gap pattern: rosters are authoritative and may overwrite, but diff-before-write must never let a `null` API value overwrite a non-null DB value already on that column, for any field a "authoritative" step writes. Being authoritative means "wins when it has real data," not "wins even when it returns nothing."
+- 2026-07-12: Adopted the global `github-issue-first` policy (defined in `~/.claude/CLAUDE.md` + `~/.claude/skills/github-issue-first/`) in this repo: non-trivial changes get a GitHub issue filed before code, mirroring (not replacing) the local spec/plan docs. `CONTRIBUTING.md` updated to document the issue-number-in-branch-name convention this enables (`fix/42-...`).
