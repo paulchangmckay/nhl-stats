@@ -44,6 +44,9 @@ pip install -r requirements-dev.txt
 # Run the test suite
 python -m pytest tests/ -v
 
+# Run the JS unit tests (search/autocomplete matching logic)
+node --test tests/js/search.test.js
+
 # Run the dependency-audit + SAST gate (same script CI runs)
 ./scripts/audit.sh
 ```

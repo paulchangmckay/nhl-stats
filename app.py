@@ -50,9 +50,7 @@ def api_teams():
     return jsonify([{"abbrev": r["abbrev"], "common_name": r["common_name"]} for r in rows])
 
 
-@app.route("/api/players")
-def api_players():
-    conn = get_connection()
+def _fetch_players(conn):
     rows = conn.execute("""
         SELECT
             p.player_id,
@@ -66,29 +64,38 @@ def api_players():
             p.birth_date,
             p.birth_country,
             t.abbrev      AS team_abbrev,
-            t.common_name AS team_name
+            t.common_name AS team_name,
+            t.place_name  AS team_place_name
         FROM players p
         LEFT JOIN teams t ON p.current_team_id = t.team_id
         ORDER BY p.last_name, p.first_name
     """).fetchall()
-    conn.close()
 
     players = []
     for r in rows:
         players.append({
-            "player_id":      r["player_id"],
-            "sweater_number": r["sweater_number"],
-            "first_name":     r["first_name"],
-            "last_name":      r["last_name"],
-            "position_code":  r["position_code"] or "",
-            "shoots_catches": r["shoots_catches"] or "",
-            "height":         _height_str(r["height_inches"]),
-            "weight_pounds":  r["weight_pounds"],
-            "birth_date":     r["birth_date"] or "",
-            "birth_country":  r["birth_country"] or "",
-            "team_abbrev":    r["team_abbrev"] or "",
-            "team_name":      r["team_name"] or "",
+            "player_id":       r["player_id"],
+            "sweater_number":  r["sweater_number"],
+            "first_name":      r["first_name"],
+            "last_name":       r["last_name"],
+            "position_code":   r["position_code"] or "",
+            "shoots_catches":  r["shoots_catches"] or "",
+            "height":          _height_str(r["height_inches"]),
+            "weight_pounds":   r["weight_pounds"],
+            "birth_date":      r["birth_date"] or "",
+            "birth_country":   r["birth_country"] or "",
+            "team_abbrev":     r["team_abbrev"] or "",
+            "team_name":       r["team_name"] or "",
+            "team_place_name": r["team_place_name"] or "",
         })
+    return players
+
+
+@app.route("/api/players")
+def api_players():
+    conn = get_connection()
+    players = _fetch_players(conn)
+    conn.close()
     return jsonify(players)
 
 
