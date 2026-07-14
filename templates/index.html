@@ -392,6 +392,7 @@
   <div id="loading-msg" class="loading-msg" style="display:none">Loading…</div>
 </div>
 
+<script src="{{ url_for('static', filename='js/search.js') }}"></script>
 <script>
   // ─── State ────────────────────────────────────────────────────────────────────
   let bioData   = [];   // from /api/players
@@ -503,11 +504,7 @@
   function renderSuggestions(query) {
     const box = document.getElementById("search-suggestions");
     if (!query) { box.style.display = "none"; box.innerHTML = ""; return; }
-    const q = query.toLowerCase();
-    const matches = bioData.filter(p =>
-      (p.first_name || "").toLowerCase().includes(q) ||
-      (p.last_name  || "").toLowerCase().includes(q)
-    ).slice(0, 8);
+    const matches = bioData.filter(p => matchesQuery(p, query)).slice(0, 8);
     box.innerHTML = "";
     if (matches.length === 0) { box.style.display = "none"; return; }
     matches.forEach(p => {
@@ -808,11 +805,7 @@
     if (activeTeam) rows = rows.filter(p => p.team_abbrev === activeTeam);
     if (activePositions.size > 0) rows = rows.filter(p => activePositions.has(p.position_code));
     if (searchText) {
-      const q = searchText.toLowerCase();
-      rows = rows.filter(p =>
-        (p.first_name || "").toLowerCase().includes(q) ||
-        (p.last_name  || "").toLowerCase().includes(q)
-      );
+      rows = rows.filter(p => matchesQuery(p, searchText));
     }
     if (activeTab === "stats") {
       if (statMins.gp      != null) rows = rows.filter(p => (p.gp      ?? 0) >= statMins.gp);
