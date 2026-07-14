@@ -8,7 +8,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Pinned to a stable Actions runtime; doesn't need to match the local dev interpreter.
       - uses: actions/setup-python@v6
