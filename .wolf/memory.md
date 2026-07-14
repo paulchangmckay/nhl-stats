@@ -90,3 +90,20 @@
 | 21:33 | Edited app.py | modified _toi_str() | ~91 |
 | 21:34 | Edited app.py | inline fix | ~15 |
 | 21:36 | Edited templates/index.html | render() → buildHeader() | ~22 |
+
+## Session: 2026-07-13 00:11 (audit remediation, GitHub issue #7 → PRs #12/#13)
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 00:39 | Edited app.py | debug flag env-gated + B608 nosec query restructure | ~120 |
+| 00:39 | Edited src/database.py | narrowed except Exception → sqlite3.OperationalError | ~10 |
+| 00:39 | Created tests/conftest.py, test_app_helpers.py, test_database.py, test_enrich_players.py | 19 tests | ~700 |
+| 00:39 | Edited requirements.txt | pytest uncommented, then moved to requirements-dev.txt after review | ~30 |
+| 00:39 | Created requirements-dev.txt | bandit + pip-audit + pytest | ~20 |
+| 00:39 | Created scripts/audit.sh | pip-audit + bandit CI gate | ~60 |
+| 00:39 | Edited .github/workflows/ci.yml | added Tests + audit.sh steps | ~30 |
+| 00:39 | Created .github/dependabot.yml | pip + github-actions ecosystems | ~40 |
+| 00:39 | Edited README.md, CONTRIBUTING.md | documented new test/audit workflow | ~150 |
+| 00:50 | Merged PR #12 (squash) | audit remediation bundle (M1/L1/M2/L2) | — |
+| 00:52 | Merged PR #13 (squash) | stray cerebrum.md commit from chore/buglog-bug002 | — |
+| 00:53 | Deleted origin/Sync-catchup-testing | confirmed with user; would have regressed bug-002 fix | — |

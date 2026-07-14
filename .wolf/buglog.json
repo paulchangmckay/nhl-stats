@@ -24,6 +24,30 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-12T00:00:00.000Z"
+    },
+    {
+      "id": "bug-003",
+      "timestamp": "2026-07-13T00:00:00.000Z",
+      "error_message": "pip-audit flagged known CVEs in pinned deps: requests 2.32.3 (PYSEC-2026-1872, CVE-2026-25645), flask 3.1.1 (CVE-2026-27205), pytest 8.3.5 (PYSEC-2026-1845)",
+      "file": "requirements.txt",
+      "root_cause": "No dependency-audit tooling was gated in CI, so pinned versions silently aged past their patched releases with zero visibility (repo also had Dependabot alerts disabled — see project decision log).",
+      "fix": "Bumped requests to 2.33.0, flask to 3.1.3, pytest to 9.0.3 (moved to requirements-dev.txt). Added scripts/audit.sh (pip-audit + bandit) as a required CI gate so future drift fails the PR instead of going unnoticed.",
+      "tags": ["dependencies", "cve", "supply-chain", "ci"],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-13T00:00:00.000Z"
+    },
+    {
+      "id": "bug-004",
+      "timestamp": "2026-07-13T00:00:00.000Z",
+      "error_message": "Appending `# nosec B608` on the same physical line as an opening f\"\"\" corrupts the SQL string instead of suppressing the bandit finding",
+      "file": "app.py",
+      "root_cause": "A Python comment cannot appear on a line that also opens a triple-quoted string literal — everything after f\"\"\" until the closing \"\"\" is string content, not code. `rows = conn.execute(f\"\"\"  # nosec B608` silently embedded \"  # nosec B608\" as literal text inside the SQL sent to SQLite. Caught by inspection before running anything, then confirmed two ways: bandit still reported the finding (0 skipped) proving the nosec never registered, and it would have broken the query at runtime.",
+      "fix": "Extracted the f-string into a `query = f\"\"\"...\"\"\"` assignment so the closing `\"\"\"` and the `# nosec B608` comment could land on their own line, then called `conn.execute(query, seasons)` on the next line. Re-verified via py_compile + an end-to-end Flask test-client smoke test against a real SQLite DB.",
+      "tags": ["bandit", "sast", "python-syntax", "nosec"],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-13T00:00:00.000Z"
     }
   ]
 }

@@ -1,75 +1,53 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-07-12T04:00:01.153Z
-> Files: 514 tracked | Anatomy hits: 0 | Misses: 0
+> Auto-maintained by OpenWolf. Last scanned: 2026-07-13T04:56:26.810Z
+> Files: 511 tracked | Anatomy hits: 0 | Misses: 0
 
 ## ./
 
 - `.DS_Store` (~1640 tok)
 - `.gitignore` — Git ignore rules (~36 tok)
-- `app.py` — API router (~2258 tok)
-- `CONTRIBUTING.md` — Contributing (~98 tok)
+- `app.py` — API router (~2436 tok)
+- `CONTRIBUTING.md` — Contributing (~170 tok)
+- `README.md` — Project documentation (~523 tok)
+- `requirements-dev.txt` (~17 tok)
+- `requirements.txt` — Python dependencies (~20 tok)
+
+## .claude/worktrees/fix-full-name-search/
+
+- `.gitignore` — Git ignore rules (~36 tok)
+- `app.py` — API router (~2375 tok)
+- `CONTRIBUTING.md` — Contributing (~151 tok)
 - `README.md` — Project documentation (~377 tok)
 - `requirements.txt` — Python dependencies (~24 tok)
 
-## .claude/worktrees/advanced-filters/
-
-- `.gitignore` — Git ignore rules (~31 tok)
-- `app.py` — API router (~2317 tok)
-- `CONTRIBUTING.md` — Contributing (~98 tok)
-- `README.md` — Project documentation (~377 tok)
-- `requirements.txt` — Python dependencies (~24 tok)
-
-## .claude/worktrees/advanced-filters/.github/workflows/
+## .claude/worktrees/fix-full-name-search/.github/workflows/
 
 - `ci.yml` — CI: CI (~306 tok)
 - `summary.yml` — CI: Summarize new issues (~285 tok)
 
-## .claude/worktrees/advanced-filters/.superpowers/sdd/
-
-- `.gitignore` — Git ignore rules (~1 tok)
-- `progress.md` (~151 tok)
-- `review-22bb120..4215054.diff` — Review package: 22bb120..4215054 (~1084 tok)
-- `review-4215054..b919954.diff` — Review package: 4215054..b919954 (~2773 tok)
-- `review-b919954..a6261b2.diff` — Review package: b919954..a6261b2 (~1664 tok)
-- `review-fea15d4..22bb120.diff` — Review package: fea15d4..22bb120 (~239 tok)
-- `review-fea15d4..fea15d4.diff` — Review package: fea15d48f85df36154c4e10f4d8be95a62abd8c7..fea15d48f85df36154c4e10f4d8be95a62abd8c7 (~38 tok)
-- `task-1-brief.md` — ## Task 1: Backend — `/api/teams` alphabetical order (~346 tok)
-- `task-1-report.md` — Task 1: Backend — `/api/teams` alphabetical order — COMPLETED (~456 tok)
-- `task-2-brief.md` — ## Task 2: Backend — multi-season stats endpoint (~1397 tok)
-- `task-2-report.md` — Task 2 Report: Backend — multi-season stats endpoint (~1294 tok)
-- `task-3-brief.md` — ## Task 3: Frontend — header restructure + position filter (~2160 tok)
-- `task-3-report.md` — Task 3 Report — Frontend header restructure + position filter (~1638 tok)
-- `task-4-brief.md` — ## Task 4: Frontend — Stats-tab threshold filters (~1051 tok)
-- `task-4-report.md` — Task 4 Implementation Report: Frontend — Stats-tab threshold filters (~1362 tok)
-- `task-5-brief.md` — ## Task 5: Frontend — team popup dropdown (full names + logos) (~1464 tok)
-- `task-5-report.md` — Task 5 Report — Frontend: team popup dropdown (full names + logos) (~1369 tok)
-
-## .claude/worktrees/advanced-filters/__pycache__/
-
-- `app.cpython-314.pyc` (~2814 tok)
-
-## .claude/worktrees/advanced-filters/docs/superpowers/plans/
+## .claude/worktrees/fix-full-name-search/docs/superpowers/plans/
 
 - `2026-07-02-advanced-filters.md` — Advanced Player Filters Implementation Plan (~11727 tok)
+- `2026-07-02-etl-sync-behavior.md` — ETL & Sync Behavior Implementation Plan (~11815 tok)
 
-## .claude/worktrees/advanced-filters/docs/superpowers/specs/
+## .claude/worktrees/fix-full-name-search/docs/superpowers/specs/
 
 - `2026-07-02-advanced-filters-design.md` — Advanced Player Filters — Design (~2472 tok)
-- `2026-07-02-etl-sync-behavior-design.md` — ETL & Sync Behavior — Design (~2061 tok)
+- `2026-07-02-etl-sync-behavior-design.md` — ETL & Sync Behavior — Design (~2846 tok)
 
-## .claude/worktrees/advanced-filters/etl/
+## .claude/worktrees/fix-full-name-search/etl/
 
 - `__init__.py` (~0 tok)
-- `enrich_players.py` — run (~1276 tok)
+- `enrich_players.py` — run (~1450 tok)
 - `load_boxscores.py` — run (~969 tok)
 - `load_rosters.py` — run (~599 tok)
 - `load_schedule.py` — run (~361 tok)
-- `load_season_stats.py` — run (~1388 tok)
+- `load_season_stats.py` — run (~1505 tok)
 - `load_standings.py` — run (~638 tok)
 - `load_teams.py` — run (~438 tok)
 
-## .claude/worktrees/advanced-filters/files/
+## .claude/worktrees/fix-full-name-search/files/
 
 - `data_sources_template.md` — NHL Data Sources (~505 tok)
 - `database_schema.sql` — NHL Stats Database Schema (~1950 tok)
@@ -77,31 +55,31 @@
 - `roadmap_template.md` — NHL Stats Database - Project Roadmap (~997 tok)
 - `test_nhl_api_1.py` — Tests: teams_endpoint, schedule_endpoint, specific_team (~1270 tok)
 
-## .claude/worktrees/advanced-filters/scripts/
+## .claude/worktrees/fix-full-name-search/scripts/
 
 - `query_examples.py` (~1136 tok)
 - `run_all_etl.py` (~236 tok)
 - `setup_db.py` (~73 tok)
+- `sync.py` (~350 tok)
 
-## .claude/worktrees/advanced-filters/src/
+## .claude/worktrees/fix-full-name-search/src/
 
 - `__init__.py` (~0 tok)
 - `api_client.py` — get_standings, get_roster, get_schedule, get_boxscore + 3 more (~610 tok)
-- `database.py` — get_connection, run_migrations, create_all_tables, upsert_team + 6 more (~4064 tok)
+- `database.py` — get_connection, run_migrations, create_all_tables, get_sync_record + 8 more (~4450 tok)
 - `models.py` — Declares from (~1086 tok)
 
-## .claude/worktrees/advanced-filters/src/__pycache__/
+## .claude/worktrees/fix-full-name-search/templates/
 
-- `__init__.cpython-314.pyc` (~52 tok)
-- `database.cpython-314.pyc` — Declares INTEGER (~5195 tok)
+- `index.html` — NHL Players (~7604 tok)
 
-## .claude/worktrees/advanced-filters/templates/
+## .github/
 
-- `index.html` — NHL Players (~5858 tok)
+- `dependabot.yml` (~59 tok)
 
 ## .github/workflows/
 
-- `ci.yml` — CI: CI (~306 tok)
+- `ci.yml` — CI: CI (~351 tok)
 - `summary.yml` — CI: Summarize new issues (~285 tok)
 
 ## .venv/
@@ -741,6 +719,8 @@
 - `download.py` — Download files with progress indicators. (~3608 tok)
 - `lazy_wheel.py` — Lazy ZIP over HTTP (~2185 tok)
 - `session.py` — PipSession and supporting code, containing all pip-specific (~5588 tok)
+- `utils.py` — The following comments and HTTP headers were originally added by (~1169 tok)
+- `xmlrpc.py` — xmlrpclib.Transport implementation (~523 tok)
 
 ## .venv/lib/python3.14/site-packages/pip/_internal/network/__pycache__/
 
@@ -749,6 +729,23 @@
 - `cache.cpython-314.pyc` (~2729 tok)
 - `download.cpython-314.pyc` (~4970 tok)
 - `lazy_wheel.cpython-314.pyc` (~3790 tok)
+- `session.cpython-314.pyc` (~5974 tok)
+- `utils.cpython-314.pyc` (~770 tok)
+- `xmlrpc.cpython-314.pyc` (~913 tok)
+
+## .venv/lib/python3.14/site-packages/pip/_internal/operations/
+
+- `__init__.py` (~0 tok)
+- `check.py` — Validation of dependencies of packages (~1684 tok)
+- `freeze.py` — URL configuration (~2816 tok)
+- `prepare.py` — Prepares a distribution for installation (~8299 tok)
+
+## .venv/lib/python3.14/site-packages/pip/_internal/operations/__pycache__/
+
+- `__init__.cpython-314.pyc` (~57 tok)
+- `check.cpython-314.pyc` (~2183 tok)
+- `freeze.cpython-314.pyc` (~3060 tok)
+- `prepare.cpython-314.pyc` (~8169 tok)
 
 ## __pycache__/
 
