@@ -236,7 +236,8 @@
     }
 
     .table-wrap {
-      overflow-x: auto;
+      overflow: auto;
+      height: max(200px, calc(100vh - var(--toolbar-height, 57px)));
       padding: 0 24px 24px;
     }
 
@@ -259,7 +260,7 @@
       cursor: pointer;
       user-select: none;
       position: sticky;
-      top: var(--thead-top, 57px);
+      top: 0;
     }
 
     thead th:hover { color: #e6edf3; background: #1c2129; }
@@ -630,10 +631,11 @@
 
   function updateHeaderOffset() {
     const header = document.querySelector("header");
-    document.documentElement.style.setProperty("--thead-top", `${header.offsetHeight}px`);
+    document.documentElement.style.setProperty("--toolbar-height", `${header.offsetHeight}px`);
   }
 
   // ─── Event listeners ──────────────────────────────────────────────────────────
+  window.addEventListener("resize", updateHeaderOffset);
   document.getElementById("team-popup-btn").addEventListener("click", e => {
     const menu = document.getElementById("team-popup-menu");
     menu.style.display = menu.style.display === "none" ? "" : "none";
