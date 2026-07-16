@@ -48,6 +48,18 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-13T00:00:00.000Z"
+    },
+    {
+      "id": "bug-005",
+      "timestamp": "2026-07-14T00:00:00.000Z",
+      "error_message": "Searching a full name (e.g. \"Nathan MacKinnon\") returns zero results, though last-name-only search (\"MacKinnon\") works",
+      "file": "templates/index.html",
+      "root_cause": "renderSuggestions() and render()'s search filter both required the raw, unsplit query to be a substring of first_name OR last_name independently. A two-word query is longer than either field alone, so \"nathan mackinnon\" never matched \"nathan\" or \"mackinnon\" individually. Team names (team_name/team_abbrev) were never checked at all — team search was entirely unimplemented in the search box. Distinct from bug-002 (already-fixed filter-state bug on suggestion click) despite the same repro name.",
+      "fix": "Extracted a shared, tested matchesQuery(player, query) helper into a new static/js/search.js (tokenizes the query on whitespace, requires every token to be found via AND semantics across a concatenated first_name+last_name+team_name+team_abbrev+team_place_name haystack). Order-independent by construction (\"Nathan MacKinnon\" and \"MacKinnon Nathan\" both work) and gives team-name search for free once team fields are in the haystack. Added t.place_name AS team_place_name to /api/players (extracted into a new testable _fetch_players(conn) helper in app.py) so \"Colorado\" matches alongside \"Avalanche\"/\"COL\". Added tests/js/search.test.js (13 cases, Node's built-in node:test, zero new deps) and a pytest case for _fetch_players. Superseded an earlier partial fix (PR #11) that only handled forward-order names with no team search and no tests.",
+      "tags": ["frontend", "search", "autocomplete", "ui"],
+      "related_bugs": ["bug-002"],
+      "occurrences": 1,
+      "last_seen": "2026-07-14T00:00:00.000Z"
     }
   ]
 }
