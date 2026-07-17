@@ -213,4 +213,4 @@ def _debug_enabled():
 
 
 if __name__ == "__main__":
-    app.run(debug=_debug_enabled())
+    app.run(debug=_debug_enabled(), port=5099)
