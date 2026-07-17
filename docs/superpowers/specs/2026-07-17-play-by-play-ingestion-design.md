@@ -69,7 +69,12 @@ Out of scope (explicitly deferred to later specs):
   this backfill only targets already-completed historical seasons, essentially every
   row should resolve to `"OFF"`, but the mapping should be verified against a larger
   sample (and any non-`7` values investigated) during implementation rather than
-  assumed.
+  assumed. For any `gameStateId` without a known mapping, `load_historical_schedule.py`
+  stores the raw numeric value as a string in `game_state` (e.g. `"9"`) rather than
+  crashing or dropping the game, and logs a warning naming the game_id and the
+  unmapped value. The row and its data aren't lost; it simply won't match the
+  `game_state = 'OFF'` gating used downstream until the mapping is extended to cover
+  that value — the same practical effect as the game not existing yet.
 - Play-by-play: `GET https://api-web.nhle.com/v1/gamecenter/{game_id}/play-by-play`
   — `data["plays"]` is a list of events, each with `typeDescKey` (event type),
   `periodDescriptor`, `timeInPeriod`, `situationCode` (raw strength-state code),
@@ -159,7 +164,21 @@ Four ordered steps, each idempotent (safe to re-run, skips already-loaded data):
 All four are added to the `steps` list in `scripts/run_all_etl.py`, in the order
 above (schedule backfill first, since boxscores/events/shifts all depend on `games`
 rows existing; boxscores before events/shifts to match existing script ordering,
-though events/shifts do not actually depend on boxscore data).
+though events/shifts do not actually depend on boxscore data). Going forward this
+keeps new games' events/shifts current automatically as part of routine syncs — after
+the initial backfill (see Operability below), `NOT EXISTS` gating makes these steps
+fast no-ops on days with no new completed games.
+
+**Operability — initial backfill is a one-time manual step, not part of routine
+`run_all_etl.py` runs.** The existing steps in `run_all_etl.py` (teams, standings,
+rosters, schedule, boxscores) are fast, meant to be run routinely to stay in sync.
+The one-time 6-season backfill is ~15,000+ API calls and will realistically take
+hours. Rather than let a routine sync invocation silently balloon into an hours-long
+crawl the first time it's run against a cold DB, the initial backfill is a documented
+manual step: run `load_historical_schedule.py`, `load_play_by_play.py`, and
+`load_shifts.py` standalone (each already supports this via the existing
+`if __name__ == "__main__"` pattern) once, before folding all three into the regular
+`run_all_etl.py` chain for ongoing use.
 
 **Volume & runtime:** ~1,300 regular-season games × 6 seasons ≈ 7,800 games, plus
 playoff games. Each game needs 2 new API calls (play-by-play + shifts), so roughly
@@ -177,15 +196,25 @@ the next game rather than aborting the run. Rate-limit backoff (429 handling wit
 exponential wait) is already centralized in `src/api_client._get` and applies
 automatically to the new endpoint calls.
 
+**Proactive pacing:** unlike the existing loaders, which make at most a few dozen
+calls per run, `load_play_by_play.py` and `load_shifts.py` each make one call per
+pending game across a ~7,800+ game backfill. Rather than relying solely on reactive
+429 backoff, both loaders add a small fixed delay (e.g. `time.sleep(0.2)`) after each
+request in their pending-games loop, to keep steady-state load low and avoid tripping
+rate limits in the first place. This only applies to these two bulk loaders, not the
+existing lightweight steps.
+
 ## Testing Plan
 
 Following existing conventions (`tests/test_database.py`, `tests/test_enrich_players.py`):
 
-1. Unit tests for the JSON→row extraction functions (one per new ETL module) — given
-   a fixture play-by-play/shift-chart JSON blob (captured from a real API response,
-   not a live call), assert the extracted row dict(s) match expected values,
-   including edge cases: an event type with a sparse `details` object, a shot with
-   null coordinates, a shift with no `endTime` (ongoing at period end).
+1. Unit tests for the JSON→row extraction functions (one per new ETL module) — as
+   inline Python dict/list literals in the test file (trimmed excerpts of real API
+   response shapes), matching the existing convention in `tests/test_enrich_players.py`
+   and `tests/test_database.py` (no live API calls, no separate fixture files).
+   Assert the extracted row dict(s) match expected values, including edge cases: an
+   event type with a sparse `details` object, a shot with null coordinates, a shift
+   with no `endTime` (ongoing at period end).
 2. DB upsert regression tests for `game_events` and `player_shifts`, following the
    `test_upsert_player_enrichment_*` pattern in `tests/test_database.py` — confirm
    re-running ingestion for an already-loaded game does not duplicate rows (the
@@ -195,8 +224,10 @@ Following existing conventions (`tests/test_database.py`, `tests/test_enrich_pla
    confirming games from a fixture response upsert into `games` with the same shape
    `load_schedule.py` already produces (no divergence between the "current week" and
    "historical backfill" code paths in how a `Game` row is built).
-4. Manual verification: run `run_all_etl.py` against a small slice (one season) first,
-   spot-check `game_events` row counts against a known game's actual shot totals
-   (e.g. compare `SELECT COUNT(*) FROM game_events WHERE game_id = X AND event_type IN
-   ('shot-on-goal','missed-shot','blocked-shot')` against that game's boxscore SOG
-   totals) before running the full 6-season backfill.
+4. Manual verification: run the standalone loaders (`load_historical_schedule.py`,
+   `load_play_by_play.py`, `load_shifts.py`) against a single season first — not the
+   full 6-season backfill — and spot-check `game_events` row counts against a known
+   game's actual shot totals (e.g. compare `SELECT COUNT(*) FROM game_events WHERE
+   game_id = X AND event_type IN ('shot-on-goal','missed-shot','blocked-shot')`
+   against that game's boxscore SOG totals) before running the standalone loaders
+   across the remaining 5 seasons.
