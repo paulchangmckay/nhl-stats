@@ -1,106 +1,492 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-07-13T04:56:26.810Z
-> Files: 511 tracked | Anatomy hits: 0 | Misses: 0
+> Auto-maintained by OpenWolf. Last scanned: 2026-07-16T22:00:01.111Z
+> Files: 519 tracked | Anatomy hits: 0 | Misses: 0
 
 ## ./
 
-- `.DS_Store` (~1640 tok)
+- `.claudeignore` (~11 tok)
+- `.DS_Store` (~2732 tok)
 - `.gitignore` — Git ignore rules (~36 tok)
-- `app.py` — API router (~2436 tok)
+- `app.py` — API router (~2492 tok)
 - `CONTRIBUTING.md` — Contributing (~170 tok)
-- `README.md` — Project documentation (~523 tok)
+- `README.md` — Project documentation (~548 tok)
 - `requirements-dev.txt` (~17 tok)
 - `requirements.txt` — Python dependencies (~20 tok)
 
-## .claude/worktrees/fix-full-name-search/
+## .claude/
 
+- `settings.json` (~31 tok)
+
+## .claude/worktrees/26-desktop-launcher/
+
+- `.claudeignore` (~11 tok)
 - `.gitignore` — Git ignore rules (~36 tok)
-- `app.py` — API router (~2375 tok)
-- `CONTRIBUTING.md` — Contributing (~151 tok)
-- `README.md` — Project documentation (~377 tok)
-- `requirements.txt` — Python dependencies (~24 tok)
+- `app.py` — API router (~2492 tok)
+- `CONTRIBUTING.md` — Contributing (~170 tok)
+- `README.md` — Project documentation (~548 tok)
+- `requirements-dev.txt` (~17 tok)
+- `requirements.txt` — Python dependencies (~20 tok)
 
-## .claude/worktrees/fix-full-name-search/.github/workflows/
+## .claude/worktrees/26-desktop-launcher/.claude/
 
-- `ci.yml` — CI: CI (~306 tok)
-- `summary.yml` — CI: Summarize new issues (~285 tok)
+- `settings.json` (~31 tok)
 
-## .claude/worktrees/fix-full-name-search/docs/superpowers/plans/
-
-- `2026-07-02-advanced-filters.md` — Advanced Player Filters Implementation Plan (~11727 tok)
-- `2026-07-02-etl-sync-behavior.md` — ETL & Sync Behavior Implementation Plan (~11815 tok)
-
-## .claude/worktrees/fix-full-name-search/docs/superpowers/specs/
-
-- `2026-07-02-advanced-filters-design.md` — Advanced Player Filters — Design (~2472 tok)
-- `2026-07-02-etl-sync-behavior-design.md` — ETL & Sync Behavior — Design (~2846 tok)
-
-## .claude/worktrees/fix-full-name-search/etl/
-
-- `__init__.py` (~0 tok)
-- `enrich_players.py` — run (~1450 tok)
-- `load_boxscores.py` — run (~969 tok)
-- `load_rosters.py` — run (~599 tok)
-- `load_schedule.py` — run (~361 tok)
-- `load_season_stats.py` — run (~1505 tok)
-- `load_standings.py` — run (~638 tok)
-- `load_teams.py` — run (~438 tok)
-
-## .claude/worktrees/fix-full-name-search/files/
-
-- `data_sources_template.md` — NHL Data Sources (~505 tok)
-- `database_schema.sql` — NHL Stats Database Schema (~1950 tok)
-- `nhl_project_setup.md` — NHL Stats Database Project - Claude Project Setup (~1112 tok)
-- `roadmap_template.md` — NHL Stats Database - Project Roadmap (~997 tok)
-- `test_nhl_api_1.py` — Tests: teams_endpoint, schedule_endpoint, specific_team (~1270 tok)
-
-## .claude/worktrees/fix-full-name-search/scripts/
-
-- `query_examples.py` (~1136 tok)
-- `run_all_etl.py` (~236 tok)
-- `setup_db.py` (~73 tok)
-- `sync.py` (~350 tok)
-
-## .claude/worktrees/fix-full-name-search/src/
-
-- `__init__.py` (~0 tok)
-- `api_client.py` — get_standings, get_roster, get_schedule, get_boxscore + 3 more (~610 tok)
-- `database.py` — get_connection, run_migrations, create_all_tables, get_sync_record + 8 more (~4450 tok)
-- `models.py` — Declares from (~1086 tok)
-
-## .claude/worktrees/fix-full-name-search/templates/
-
-- `index.html` — NHL Players (~7604 tok)
-
-## .github/
+## .claude/worktrees/26-desktop-launcher/.github/
 
 - `dependabot.yml` (~59 tok)
 
-## .github/workflows/
+## .claude/worktrees/26-desktop-launcher/.github/workflows/
 
 - `ci.yml` — CI: CI (~351 tok)
 - `summary.yml` — CI: Summarize new issues (~285 tok)
 
-## .venv/
+## .claude/worktrees/26-desktop-launcher/.pytest_cache/
+
+- `.gitignore` — Git ignore rules (~10 tok)
+- `CACHEDIR.TAG` (~51 tok)
+- `README.md` — Project documentation (~76 tok)
+
+## .claude/worktrees/26-desktop-launcher/.pytest_cache/v/cache/
+
+- `nodeids` (~447 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/
 
 - `.gitignore` — Git ignore rules (~19 tok)
-- `pyvenv.cfg` (~85 tok)
+- `pyvenv.cfg` (~95 tok)
 
-## .venv/bin/
+## .claude/worktrees/26-desktop-launcher/.venv/bin/
 
-- `activate` — This file must be used with "source bin/activate" *from bash* (~590 tok)
-- `activate.csh` — This file must be used with "source bin/activate.csh" *from csh*. (~251 tok)
-- `activate.fish` — This file must be used with "source <venv>/bin/activate.fish" *from fish* (~590 tok)
+- `activate` — This file must be used with "source bin/activate" *from bash* (~611 tok)
+- `activate.csh` — This file must be used with "source bin/activate.csh" *from csh*. (~262 tok)
+- `activate.fish` — This file must be used with "source <venv>/bin/activate.fish" *from fish* (~600 tok)
 - `Activate.ps1` — Declares from (~2409 tok)
-- `flask` (~64 tok)
-- `idna` (~64 tok)
-- `normalizer` (~71 tok)
-- `pip` (~67 tok)
-- `pip3` (~67 tok)
-- `pip3.14` (~67 tok)
+- `bandit` (~76 tok)
+- `bandit-baseline` (~77 tok)
+- `bandit-config-generator` (~79 tok)
+- `doesitcache` (~76 tok)
+- `flask` (~74 tok)
+- `idna` (~74 tok)
+- `markdown-it` (~77 tok)
+- `normalizer` (~81 tok)
+- `pip` (~78 tok)
+- `pip-audit` (~76 tok)
+- `pip3` (~78 tok)
+- `pip3.14` (~78 tok)
+- `py.test` (~80 tok)
+- `pygmentize` (~76 tok)
+- `pytest` (~80 tok)
 
-## .venv/lib/python3.14/site-packages/blinker-1.9.0.dist-info/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/
+
+- `packaging_legacy_version.py` — This is a heavily streamlined subset of the packaging.version@21.3 to extract (~1455 tok)
+- `pip_requirements_parser.py` — portions Copyright (C) 2016 Jason R Coombs <jaraco@jaraco.com> (~27527 tok)
+- `py.py` — shim for pylib going away (~94 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/__pycache__/
+
+- `packaging_legacy_version.cpython-314.pyc` (~2891 tok)
+- `pip_requirements_parser.cpython-314.pyc` (~34517 tok)
+- `py.cpython-314.pyc` (~146 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_pytest/
+
+- `__init__.py` (~112 tok)
+- `_argcomplete.py` — Allow bash-completion for argparse with argcomplete if installed. (~1079 tok)
+- `_version.py` — file generated by vcs-versioning (~149 tok)
+- `cacheprovider.py` — Implementation of the cache provider. (~6465 tok)
+- `capture.py` — Per-test stdout/stderr capturing mechanism. (~10637 tok)
+- `compat.py` — Python version compatibility code and random general utilities. (~3037 tok)
+- `debugging.py` — Interactive debugging with PDB, the Python Debugger. (~3958 tok)
+- `deprecated.py` — Deprecation messages and bits of code used elsewhere in the codebase that (~1556 tok)
+- `doctest.py` — Discover and run doctests in modules and test files. (~7264 tok)
+- `faulthandler.py` — pytest_addoption, pytest_configure, pytest_unconfigure, get_stderr_fileno + 5 more (~1215 tok)
+- `fixtures.py` — mypy: allow-untyped-defs (~26541 tok)
+- `freeze_support.py` — Provides a function to report all internal modules for using freezing (~372 tok)
+- `helpconfig.py` — Version info, help messages, tracing configuration. (~2863 tok)
+- `hookspec.py` — Hook specifications for pytest plugins which are invoked by pytest itself (~11955 tok)
+- `junitxml.py` — Report test results in JUnit-XML format, for use with Jenkins and build (~7418 tok)
+- `legacypath.py` — Add backward compatibility support for the legacy py path type. (~4740 tok)
+- `logging.py` — Access and control log capturing. (~10316 tok)
+- `main.py` — Core implementation of the testing process: init, session, runtest loop. (~12221 tok)
+- `monkeypatch.py` — Monkeypatching and mocking functionality. (~4432 tok)
+- `nodes.py` — mypy: allow-untyped-defs (~7511 tok)
+- `outcomes.py` — Exception classes and constants handling test outcomes as well as (~2514 tok)
+- `pastebin.py` — Submit failure or test session information to a pastebin service. (~1224 tok)
+- `pathlib.py` — URL patterns: 1 routes (~10702 tok)
+- `py.typed` (~0 tok)
+- `pytester_assertions.py` — Helper plugin for pytester; should not be loaded on its own. (~644 tok)
+- `pytester.py` — (Disabled by default) support for testing pytest and pytest plugins. (~17973 tok)
+- `python_api.py` — mypy: allow-untyped-defs (~10278 tok)
+- `python.py` — Python test discovery, setup and run of test functions. (~19360 tok)
+- `raises.py` — of: raises, raises, raises, raises + 3 more (~17078 tok)
+- `recwarn.py` — Record warnings during test function execution. (~3965 tok)
+- `reports.py` — mypy: allow-untyped-defs (~6638 tok)
+- `runner.py` — Basic collect and runtest protocol implementations. (~5814 tok)
+- `scope.py` — Scope: next_lower, next_higher, from_user (~782 tok)
+- `setuponly.py` — pytest_addoption, pytest_fixture_setup, pytest_fixture_post_finalizer, pytest_cmdline_main (~905 tok)
+- `setupplan.py` — pytest_addoption, pytest_fixture_setup, pytest_cmdline_main (~339 tok)
+- `skipping.py` — Support for skip/xfail functions and markers. (~3083 tok)
+- `stash.py` — View: get (~883 tok)
+- `stepwise.py` — class: pytest_addoption, pytest_configure, pytest_sessionfinish, last_cache_date + 7 more (~2197 tok)
+- `subtests.py` — Builtin plugin that adds subtests support. (~3860 tok)
+- `terminal.py` — Terminal reporting of the full testing process. (~18708 tok)
+- `terminalprogress.py` — A plugin to register the TerminalProgressPlugin plugin. (~330 tok)
+- `threadexception.py` — ThreadExceptionMeta: collect_thread_exception, cleanup, thread_exception_hook, pytest_configure + 3 more (~1416 tok)
+- `timing.py` — Indirection for time functions. (~914 tok)
+- `tmpdir.py` — Support for providing temporary directories to test functions. (~3792 tok)
+- `tracemalloc.py` — tracemalloc_message (~223 tok)
+- `unittest.py` — Discover and run std-library "unittest" style tests. (~7194 tok)
+- `unraisableexception.py` — UnraisableMeta: gc_collect_harder, collect_unraisable, cleanup, unraisable_hook + 5 more (~1870 tok)
+- `warning_types.py` — PytestWarning: simple, format, warn_explicit_for (~1212 tok)
+- `warnings.py` — mypy: allow-untyped-defs (~1497 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_pytest/__pycache__/
+
+- `__init__.cpython-314.pyc` (~143 tok)
+- `_argcomplete.cpython-314.pyc` — Declares the (~1522 tok)
+- `_version.cpython-314.pyc` (~196 tok)
+- `cacheprovider.cpython-314.pyc` (~10055 tok)
+- `capture.cpython-314.pyc` (~19414 tok)
+- `compat.cpython-314.pyc` — Declares defined (~4433 tok)
+- `debugging.cpython-314.pyc` (~5610 tok)
+- `deprecated.cpython-314.pyc` — Declares or (~1331 tok)
+- `doctest.cpython-314.pyc` (~10538 tok)
+- `faulthandler.cpython-314.pyc` (~1729 tok)
+- `fixtures.cpython-314.pyc` — Declares scope (~29868 tok)
+- `freeze_support.cpython-314.pyc` — Declares to (~575 tok)
+- `helpconfig.cpython-314.pyc` (~3969 tok)
+- `hookspec.cpython-314.pyc` — Declares collection_path (~13136 tok)
+- `junitxml.cpython-314.pyc` (~10943 tok)
+- `legacypath.cpython-314.pyc` — Declares works (~8410 tok)
+- `logging.cpython-314.pyc` (~14896 tok)
+- `main.cpython-314.pyc` (~14582 tok)
+- `monkeypatch.cpython-314.pyc` — Declares or (~5100 tok)
+- `nodes.cpython-314.pyc` — Declares used (~9562 tok)
+- `outcomes.cpython-314.pyc` — Declares instances (~3310 tok)
+- `pastebin.cpython-314.pyc` (~1880 tok)
+- `pathlib.cpython-314.pyc` — Declares z (~13014 tok)
+- `pytester_assertions.cpython-314.pyc` (~725 tok)
+- `pytester.cpython-314.pyc` (~26869 tok)
+- `python_api.cpython-314.pyc` — Declares over (~12022 tok)
+- `python.cpython-314.pyc` — Declares discovery (~22890 tok)
+- `raises.cpython-314.pyc` — Declares call (~18547 tok)
+- `recwarn.cpython-314.pyc` — Declares execution (~5443 tok)
+- `reports.cpython-314.pyc` — Declares is (~8787 tok)
+- `runner.cpython-314.pyc` (~7878 tok)
+- `scope.cpython-314.pyc` — Declares object (~1132 tok)
+- `setuponly.cpython-314.pyc` (~1686 tok)
+- `setupplan.cpython-314.pyc` (~640 tok)
+- `skipping.cpython-314.pyc` — Declares with (~4292 tok)
+- `stash.cpython-314.pyc` — Declares must (~1470 tok)
+- `stepwise.cpython-314.pyc` (~3174 tok)
+- `subtests.cpython-314.pyc` (~5710 tok)
+- `terminal.cpython-314.pyc` — Declares of (~27375 tok)
+- `terminalprogress.cpython-314.pyc` (~368 tok)
+- `threadexception.cpython-314.pyc` (~1859 tok)
+- `timing.cpython-314.pyc` (~1534 tok)
+- `tmpdir.cpython-314.pyc` — Declares will (~4216 tok)
+- `tracemalloc.cpython-314.pyc` (~320 tok)
+- `unittest.cpython-314.pyc` — Declares cleanup (~8747 tok)
+- `unraisableexception.cpython-314.pyc` (~2245 tok)
+- `warning_types.cpython-314.pyc` — Declares for (~1993 tok)
+- `warnings.cpython-314.pyc` (~2171 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_pytest/_code/
+
+- `__init__.py` — Python inspection/code generation API. (~149 tok)
+- `code.py` — mypy: allow-untyped-defs (~16694 tok)
+- `source.py` — mypy: allow-untyped-defs (~2246 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_pytest/_code/__pycache__/
+
+- `__init__.cpython-314.pyc` (~194 tok)
+- `code.cpython-314.pyc` (~22640 tok)
+- `source.cpython-314.pyc` (~3959 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_pytest/_io/
+
+- `__init__.py` (~55 tok)
+- `pprint.py` — mypy: allow-untyped-defs (~5592 tok)
+- `saferepr.py` — SafeRepr: repr, repr_instance, repr_dict, safeformat + 2 more (~1406 tok)
+- `terminalwriter.py` — Helper functions for writing to terminals and files. (~2570 tok)
+- `wcwidth.py` — wcwidth, wcswidth (~369 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_pytest/_io/__pycache__/
+
+- `__init__.cpython-314.pyc` (~114 tok)
+- `pprint.cpython-314.pyc` — Declares for (~7495 tok)
+- `saferepr.cpython-314.pyc` — Declares is (~2288 tok)
+- `terminalwriter.cpython-314.pyc` (~3700 tok)
+- `wcwidth.cpython-314.pyc` (~552 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_pytest/_py/
+
+- `__init__.py` (~0 tok)
+- `error.py` — create errno-specific classes for IO or os calls. (~993 tok)
+- `path.py` — local path implementation. (~14066 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_pytest/_py/__pycache__/
+
+- `__init__.cpython-314.pyc` (~64 tok)
+- `error.cpython-314.pyc` — Declares EnvironmentError (~1600 tok)
+- `path.cpython-314.pyc` (~19438 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_pytest/assertion/
+
+- `__init__.py` — Support for presenting detailed information in failing assertions. (~2309 tok)
+- `_compare_any.py` — Declares or (~1417 tok)
+- `_compare_mapping.py` (~480 tok)
+- `_compare_sequence.py` (~842 tok)
+- `_compare_set.py` (~762 tok)
+- `_guards.py` — def: issequence, istext, ismapping, isset + 4 more (~550 tok)
+- `_typing.py` — Declares _HighlightFunc (~97 tok)
+- `compare_text.py` (~968 tok)
+- `highlight.py` — dummy_highlighter (~94 tok)
+- `rewrite.py` — .py" for example) we can't bail out based (~13640 tok)
+- `truncate.py` — Utilities for truncating assertion output. (~1474 tok)
+- `util.py` — Utilities for assertion debugging. (~2203 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_pytest/assertion/__pycache__/
+
+- `__init__.cpython-314.pyc` — Declares will (~3646 tok)
+- `_compare_any.cpython-314.pyc` (~1632 tok)
+- `_compare_mapping.cpython-314.pyc` (~815 tok)
+- `_compare_sequence.cpython-314.pyc` (~987 tok)
+- `_compare_set.cpython-314.pyc` (~1132 tok)
+- `_guards.cpython-314.pyc` — Declares and (~1164 tok)
+- `_typing.cpython-314.pyc` (~298 tok)
+- `compare_text.cpython-314.pyc` (~1514 tok)
+- `highlight.cpython-314.pyc` (~224 tok)
+- `rewrite.cpython-314.pyc` (~18712 tok)
+- `truncate.cpython-314.pyc` — Declares is (~1444 tok)
+- `util.cpython-314.pyc` — Declares and (~2586 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_pytest/config/
+
+- `__init__.py` — Command line options, config-file and conftest.py processing. (~23128 tok)
+- `argparsing.py` — mypy: allow-untyped-defs (~5084 tok)
+- `exceptions.py` — Declares UsageError (~90 tok)
+- `findpaths.py` — URL configuration (~3683 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_pytest/config/__pycache__/
+
+- `__init__.cpython-314.pyc` — Declares is (~29061 tok)
+- `argparsing.cpython-314.pyc` — Declares accepts (~7317 tok)
+- `exceptions.cpython-314.pyc` (~249 tok)
+- `findpaths.cpython-314.pyc` (~4110 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_pytest/mark/
+
+- `__init__.py` — Generic mechanism for marking and selecting python functions. (~2817 tok)
+- `expression.py` — TokenType: lex, accept, accept, accept + 10 more (~3215 tok)
+- `structures.py` — mypy: allow-untyped-defs (~7038 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_pytest/mark/__pycache__/
+
+- `__init__.cpython-314.pyc` — Declares id (~4156 tok)
+- `expression.cpython-314.pyc` (~5573 tok)
+- `structures.cpython-314.pyc` (~9271 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_yaml/
+
+- `__init__.py` — This is a stub package designed to roughly emulate the _yaml (~401 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/_yaml/__pycache__/
+
+- `__init__.cpython-314.pyc` (~248 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/bandit-1.9.4.dist-info/
+
+- `entry_points.txt` (~1039 tok)
+- `INSTALLER` (~2 tok)
+- `METADATA` (~1893 tok)
+- `pbr.json` (~14 tok)
+- `RECORD` (~2994 tok)
+- `REQUESTED` (~0 tok)
+- `top_level.txt` (~2 tok)
+- `WHEEL` (~25 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/bandit-1.9.4.dist-info/licenses/
+
+- `LICENSE` — Project license (~2705 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/bandit/
+
+- `__init__.py` — SPDX-License-Identifier: Apache-2.0 (~196 tok)
+- `__main__.py` — Bandit is a tool designed to find common security issues in Python code. (~164 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/bandit/__pycache__/
+
+- `__init__.cpython-314.pyc` (~222 tok)
+- `__main__.cpython-314.pyc` (~214 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/bandit/blacklists/
+
+- `__init__.py` (~0 tok)
+- `calls.py` — SPDX-License-Identifier: Apache-2.0 (~8390 tok)
+- `imports.py` — SPDX-License-Identifier: Apache-2.0 (~4934 tok)
+- `utils.py` — SPDX-License-Identifier: Apache-2.0 (~120 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/bandit/blacklists/__pycache__/
+
+- `__init__.cpython-314.pyc` (~65 tok)
+- `calls.cpython-314.pyc` — Declares calls (~7497 tok)
+- `imports.cpython-314.pyc` — Declares to (~4538 tok)
+- `utils.cpython-314.pyc` (~156 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/bandit/cli/
+
+- `__init__.py` (~0 tok)
+- `baseline.py` — Bandit is a tool designed to find common security issues in Python code. (~2241 tok)
+- `config_generator.py` — Bandit is a tool designed to find common security issues in Python code. (~1795 tok)
+- `main.py` — Bandit is a tool designed to find common security issues in Python code. (~5965 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/bandit/cli/__pycache__/
+
+- `__init__.cpython-314.pyc` (~63 tok)
+- `baseline.cpython-314.pyc` (~2283 tok)
+- `config_generator.cpython-314.pyc` (~2375 tok)
+- `main.cpython-314.pyc` (~6631 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/bandit/core/
+
+- `__init__.py` — SPDX-License-Identifier: Apache-2.0 (~160 tok)
+- `blacklisting.py` — SPDX-License-Identifier: Apache-2.0 (~795 tok)
+- `config.py` — SPDX-License-Identifier: Apache-2.0 (~2812 tok)
+- `constants.py` — SPDX-License-Identifier: Apache-2.0 (~349 tok)
+- `context.py` — SPDX-License-Identifier: Apache-2.0 (~3048 tok)
+- `docs_utils.py` — SPDX-License-Identifier: Apache-2.0 (~509 tok)
+- `extension_loader.py` — SPDX-License-Identifier: Apache-2.0 (~1154 tok)
+- `issue.py` — SPDX-License-Identifier: Apache-2.0 (~2020 tok)
+- `manager.py` — SPDX-License-Identifier: Apache-2.0 (~4939 tok)
+- `meta_ast.py` — SPDX-License-Identifier: Apache-2.0 (~325 tok)
+- `metrics.py` — SPDX-License-Identifier: Apache-2.0 (~987 tok)
+- `node_visitor.py` — SPDX-License-Identifier: Apache-2.0 (~3095 tok)
+- `test_properties.py` — SPDX-License-Identifier: Apache-2.0 (~602 tok)
+- `test_set.py` — SPDX-License-Identifier: Apache-2.0 (~1159 tok)
+- `tester.py` — SPDX-License-Identifier: Apache-2.0 (~1887 tok)
+- `utils.py` — SPDX-License-Identifier: Apache-2.0 (~3514 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/bandit/core/__pycache__/
+
+- `__init__.cpython-314.pyc` (~166 tok)
+- `blacklisting.cpython-314.pyc` (~974 tok)
+- `config.cpython-314.pyc` — Declares calls (~3177 tok)
+- `constants.cpython-314.pyc` (~224 tok)
+- `context.cpython-314.pyc` — Declares with (~3762 tok)
+- `docs_utils.cpython-314.pyc` (~519 tok)
+- `extension_loader.cpython-314.pyc` (~1567 tok)
+- `issue.cpython-314.pyc` — Declares determines (~2943 tok)
+- `manager.cpython-314.pyc` — Declares config (~5303 tok)
+- `meta_ast.cpython-314.pyc` (~539 tok)
+- `metrics.cpython-314.pyc` — Declares is (~1419 tok)
+- `node_visitor.cpython-314.pyc` — Declares name (~3969 tok)
+- `test_properties.cpython-314.pyc` — Declares to (~891 tok)
+- `test_set.cpython-314.pyc` — Declares checktype (~1641 tok)
+- `tester.cpython-314.pyc` — Declares of (~1864 tok)
+- `utils.cpython-314.pyc` (~4412 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/bandit/formatters/
+
+- `__init__.py` (~0 tok)
+- `csv.py` — SPDX-License-Identifier: Apache-2.0 (~661 tok)
+- `custom.py` — SPDX-License-Identifier: Apache-2.0 (~1533 tok)
+- `html.py` — SPDX-License-Identifier: Apache-2.0 (~2426 tok)
+- `json.py` — SPDX-License-Identifier: Apache-2.0 (~1238 tok)
+- `sarif.py` — SPDX-License-Identifier: Apache-2.0 (~3084 tok)
+- `screen.py` — SPDX-License-Identifier: Apache-2.0 (~1958 tok)
+- `text.py` — SPDX-License-Identifier: Apache-2.0 (~1708 tok)
+- `utils.py` — Utility functions for formatting plugins for Bandit. (~112 tok)
+- `xml.py` — SPDX-License-Identifier: Apache-2.0 (~787 tok)
+- `yaml.py` — SPDX-License-Identifier: Apache-2.0 (~990 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/bandit/formatters/__pycache__/
+
+- `__init__.cpython-314.pyc` (~65 tok)
+- `csv.cpython-314.pyc` (~734 tok)
+- `custom.cpython-314.pyc` (~2185 tok)
+- `html.cpython-314.pyc` (~2605 tok)
+- `json.cpython-314.pyc` (~1448 tok)
+- `sarif.cpython-314.pyc` (~3386 tok)
+- `screen.cpython-314.pyc` (~2706 tok)
+- `text.cpython-314.pyc` (~2471 tok)
+- `utils.cpython-314.pyc` (~193 tok)
+- `xml.cpython-314.pyc` (~1034 tok)
+- `yaml.cpython-314.pyc` (~1131 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/bandit/plugins/
+
+- `__init__.py` (~0 tok)
+- `app_debug.py` — SPDX-License-Identifier: Apache-2.0 (~645 tok)
+- `asserts.py` — SPDX-License-Identifier: Apache-2.0 (~659 tok)
+- `crypto_request_no_cert_validation.py` — SPDX-License-Identifier: Apache-2.0 (~760 tok)
+- `django_sql_injection.py` — SPDX-License-Identifier: Apache-2.0 (~1487 tok)
+- `django_xss.py` — SPDX-License-Identifier: Apache-2.0 (~2944 tok)
+- `exec.py` — SPDX-License-Identifier: Apache-2.0 (~388 tok)
+- `general_bad_file_permissions.py` — SPDX-License-Identifier: Apache-2.0 (~955 tok)
+- `general_bind_all_interfaces.py` — SPDX-License-Identifier: Apache-2.0 (~435 tok)
+- `general_hardcoded_password.py` — SPDX-License-Identifier: Apache-2.0 (~2506 tok)
+- `general_hardcoded_tmp.py` — SPDX-License-Identifier: Apache-2.0 (~658 tok)
+- `hashlib_insecure_functions.py` — SPDX-License-Identifier: Apache-2.0 (~1238 tok)
+- `huggingface_unsafe_download.py` — SPDX-License-Identifier: Apache-2.0 (~1686 tok)
+- `injection_paramiko.py` — SPDX-License-Identifier: Apache-2.0 (~586 tok)
+- `injection_shell.py` — SPDX-License-Identifier: Apache-2.0 (~7672 tok)
+- `injection_sql.py` — SPDX-License-Identifier: Apache-2.0 (~1394 tok)
+- `injection_wildcard.py` — SPDX-License-Identifier: Apache-2.0 (~1434 tok)
+- `insecure_ssl_tls.py` — SPDX-License-Identifier: Apache-2.0 (~2987 tok)
+- `jinja2_templates.py` — SPDX-License-Identifier: Apache-2.0 (~1659 tok)
+- `logging_config_insecure_listen.py` — SPDX-License-Identifier: Apache-2.0 (~556 tok)
+- `mako_templates.py` — SPDX-License-Identifier: Apache-2.0 (~729 tok)
+- `markupsafe_markup_xss.py` — SPDX-License-Identifier: Apache-2.0 (~1059 tok)
+- `pytorch_load.py` — SPDX-License-Identifier: Apache-2.0 (~764 tok)
+- `request_without_timeout.py` — SPDX-License-Identifier: Apache-2.0 (~882 tok)
+- `snmp_security_check.py` — SPDX-License-Identifier: Apache-2.0 (~1062 tok)
+- `ssh_no_host_key_verification.py` — SPDX-License-Identifier: Apache-2.0 (~781 tok)
+- `tarfile_unsafe_members.py` — SPDX-License-Identifier: Apache-2.0 (~1123 tok)
+- `trojansource.py` — SPDX-License-Identifier: Apache-2.0 (~692 tok)
+- `try_except_continue.py` — SPDX-License-Identifier: Apache-2.0 (~880 tok)
+- `try_except_pass.py` — SPDX-License-Identifier: Apache-2.0 (~832 tok)
+- `weak_cryptographic_key.py` — SPDX-License-Identifier: Apache-2.0 (~1584 tok)
+- `yaml_load.py` — SPDX-License-Identifier: Apache-2.0 (~687 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/bandit/plugins/__pycache__/
+
+- `__init__.cpython-314.pyc` (~64 tok)
+- `app_debug.cpython-314.pyc` (~753 tok)
+- `asserts.cpython-314.pyc` — Declares constraints (~798 tok)
+- `crypto_request_no_cert_validation.cpython-314.pyc` (~880 tok)
+- `django_sql_injection.cpython-314.pyc` (~1659 tok)
+- `django_xss.cpython-314.pyc` (~3910 tok)
+- `exec.cpython-314.pyc` (~526 tok)
+- `general_bad_file_permissions.cpython-314.pyc` (~1086 tok)
+- `general_bind_all_interfaces.cpython-314.pyc` (~542 tok)
+- `general_hardcoded_password.cpython-314.pyc` — Declares attribute (~3136 tok)
+- `general_hardcoded_tmp.cpython-314.pyc` (~851 tok)
+- `hashlib_insecure_functions.cpython-314.pyc` — Declares provides (~1523 tok)
+- `huggingface_unsafe_download.cpython-314.pyc` (~1733 tok)
+- `injection_paramiko.cpython-314.pyc` (~677 tok)
+- `injection_shell.cpython-314.pyc` — Declares of (~7239 tok)
+- `injection_sql.cpython-314.pyc` (~1591 tok)
+- `injection_wildcard.cpython-314.pyc` — Declares vulnerable (~1451 tok)
+- `insecure_ssl_tls.cpython-314.pyc` (~2792 tok)
+- `jinja2_templates.cpython-314.pyc` — Declares to (~1494 tok)
+- `logging_config_insecure_listen.cpython-314.pyc` — Declares provides (~673 tok)
+- `mako_templates.cpython-314.pyc` (~788 tok)
+- `markupsafe_markup_xss.cpython-314.pyc` (~1196 tok)
+- `pytorch_load.cpython-314.pyc` — Declares check (~856 tok)
+- `request_without_timeout.cpython-314.pyc` (~984 tok)
+- `snmp_security_check.cpython-314.pyc` (~1133 tok)
+- `ssh_no_host_key_verification.cpython-314.pyc` (~945 tok)
+- `tarfile_unsafe_members.cpython-314.pyc` — Declares that (~1430 tok)
+- `trojansource.cpython-314.pyc` (~828 tok)
+- `try_except_continue.cpython-314.pyc` (~1023 tok)
+- `try_except_pass.cpython-314.pyc` (~984 tok)
+- `weak_cryptographic_key.cpython-314.pyc` (~1696 tok)
+- `yaml_load.cpython-314.pyc` — Declares from (~829 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/blinker-1.9.0.dist-info/
 
 - `INSTALLER` (~2 tok)
 - `LICENSE.txt` (~264 tok)
@@ -108,20 +494,95 @@
 - `RECORD` (~222 tok)
 - `WHEEL` (~22 tok)
 
-## .venv/lib/python3.14/site-packages/blinker/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/blinker/
 
 - `__init__.py` (~91 tok)
 - `_utilities.py` — Symbol: make_id, make_ref (~479 tok)
 - `base.py` — Signal: receiver_connected, receiver_disconnected, connect, connect_via + 7 more (~5467 tok)
 - `py.typed` (~0 tok)
 
-## .venv/lib/python3.14/site-packages/blinker/__pycache__/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/blinker/__pycache__/
 
-- `__init__.cpython-314.pyc` (~135 tok)
-- `_utilities.cpython-314.pyc` (~980 tok)
-- `base.cpython-314.pyc` — Declares scope (~6674 tok)
+- `__init__.cpython-314.pyc` (~144 tok)
+- `_utilities.cpython-314.pyc` (~990 tok)
+- `base.cpython-314.pyc` — Declares scope (~6684 tok)
 
-## .venv/lib/python3.14/site-packages/certifi-2026.6.17.dist-info/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/boolean/
+
+- `__init__.py` (~188 tok)
+- `boolean.py` — ParseError: definition, symbols, parse, is_sym + 1 more (~15640 tok)
+- `test_boolean.py` — Tests: creation, parse_with_mixed_operators_multilines_and_custom_symbol, parse_recognizes_trueish_and_falsish_symbol_tokens, parse_can_use_iterabl... (~13436 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/boolean/__pycache__/
+
+- `__init__.cpython-314.pyc` (~268 tok)
+- `boolean.cpython-314.pyc` — Declares have (~17011 tok)
+- `test_boolean.cpython-314.pyc` (~21208 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/boolean_py-5.0.dist-info/
+
+- `INSTALLER` (~2 tok)
+- `METADATA` — Declares Dynamic (~625 tok)
+- `RECORD` (~290 tok)
+- `top_level.txt` (~2 tok)
+- `WHEEL` (~25 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/boolean_py-5.0.dist-info/licenses/
+
+- `CHANGELOG.rst` — Declares attribute (~759 tok)
+- `LICENSE.txt` (~331 tok)
+- `README.rst` — Declares that (~710 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/cachecontrol-0.14.4.dist-info/
+
+- `entry_points.txt` (~14 tok)
+- `INSTALLER` (~2 tok)
+- `METADATA` (~820 tok)
+- `RECORD` (~629 tok)
+- `WHEEL` (~21 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/cachecontrol-0.14.4.dist-info/licenses/
+
+- `LICENSE.txt` (~140 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/cachecontrol/
+
+- `__init__.py` — CacheControl import Interface. (~201 tok)
+- `_cmd.py` — SPDX-FileCopyrightText: 2015 Eric Larson (~478 tok)
+- `adapter.py` — SPDX-FileCopyrightText: 2015 Eric Larson (~1851 tok)
+- `cache.py` — SPDX-FileCopyrightText: 2015 Eric Larson (~558 tok)
+- `controller.py` — SPDX-FileCopyrightText: 2015 Eric Larson (~5438 tok)
+- `filewrapper.py` — SPDX-FileCopyrightText: 2015 Eric Larson (~1244 tok)
+- `heuristics.py` — SPDX-FileCopyrightText: 2015 Eric Larson (~1392 tok)
+- `py.typed` (~0 tok)
+- `serialize.py` — SPDX-FileCopyrightText: 2015 Eric Larson (~1460 tok)
+- `wrapper.py` — SPDX-FileCopyrightText: 2015 Eric Larson (~380 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/cachecontrol/__pycache__/
+
+- `__init__.cpython-314.pyc` (~276 tok)
+- `_cmd.cpython-314.pyc` (~854 tok)
+- `adapter.cpython-314.pyc` (~1994 tok)
+- `cache.cpython-314.pyc` (~1447 tok)
+- `controller.cpython-314.pyc` — Declares to (~5003 tok)
+- `filewrapper.cpython-314.pyc` — Declares uses (~1437 tok)
+- `heuristics.cpython-314.pyc` (~2280 tok)
+- `serialize.cpython-314.pyc` (~1630 tok)
+- `wrapper.cpython-314.pyc` (~469 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/cachecontrol/caches/
+
+- `__init__.py` — SPDX-FileCopyrightText: 2015 Eric Larson (~80 tok)
+- `file_cache.py` — SPDX-FileCopyrightText: 2015 Eric Larson (~1170 tok)
+- `redis_cache.py` — SPDX-FileCopyrightText: 2015 Eric Larson (~393 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/cachecontrol/caches/__pycache__/
+
+- `__init__.cpython-314.pyc` (~121 tok)
+- `file_cache.cpython-314.pyc` (~2408 tok)
+- `redis_cache.cpython-314.pyc` (~985 tok)
+
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/certifi-2026.6.17.dist-info/
 
 - `INSTALLER` (~2 tok)
 - `METADATA` (~660 tok)
@@ -129,11 +590,11 @@
 - `top_level.txt` (~2 tok)
 - `WHEEL` (~25 tok)
 
-## .venv/lib/python3.14/site-packages/certifi-2026.6.17.dist-info/licenses/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/certifi-2026.6.17.dist-info/licenses/
 
 - `LICENSE` — Project license (~264 tok)
 
-## .venv/lib/python3.14/site-packages/certifi/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/certifi/
 
 - `__init__.py` (~27 tok)
 - `__main__.py` (~70 tok)
@@ -141,74 +602,74 @@
 - `core.py` — URL patterns: 3 routes (~970 tok)
 - `py.typed` (~0 tok)
 
-## .venv/lib/python3.14/site-packages/certifi/__pycache__/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/certifi/__pycache__/
 
-- `__init__.cpython-314.pyc` (~87 tok)
-- `__main__.cpython-314.pyc` (~174 tok)
-- `core.cpython-314.pyc` (~728 tok)
+- `__init__.cpython-314.pyc` (~96 tok)
+- `__main__.cpython-314.pyc` (~184 tok)
+- `core.cpython-314.pyc` (~738 tok)
 
-## .venv/lib/python3.14/site-packages/charset_normalizer-3.4.7.dist-info/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/charset_normalizer-3.4.9.dist-info/
 
 - `entry_points.txt` (~17 tok)
 - `INSTALLER` (~2 tok)
-- `METADATA` (~10893 tok)
+- `METADATA` (~11093 tok)
 - `RECORD` (~766 tok)
 - `top_level.txt` (~12 tok)
 - `WHEEL` (~38 tok)
 
-## .venv/lib/python3.14/site-packages/charset_normalizer-3.4.7.dist-info/licenses/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/charset_normalizer-3.4.9.dist-info/licenses/
 
 - `LICENSE` — Project license (~286 tok)
 
-## .venv/lib/python3.14/site-packages/charset_normalizer/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/charset_normalizer/
 
 - `__init__.py` (~431 tok)
 - `__main__.py` (~32 tok)
-- `api.py` — from_bytes (~11098 tok)
-- `cd.py` — encoding_unicode_range, unicode_range_languages, encoding_languages, mb_encoding_languages + 5 more (~4334 tok)
-- `constant.py` — Contain for each eligible encoding a list of/item bytes SIG/BOM (~11979 tok)
-- `legacy.py` — ResultDict: detect (~761 tok)
-- `md.py` — CharInfo: final, update, feed_info, reset + 13 more (~8697 tok)
-- `models.py` — CharsetMatch: multi_byte_usage, add_submatch, encoding, encoding_aliases + 18 more (~3664 tok)
+- `api.py` — from_bytes (~12092 tok)
+- `cd.py` — encoding_unicode_range, unicode_range_languages, encoding_languages, mb_encoding_languages + 5 more (~4564 tok)
+- `constant.py` — Contain for each eligible encoding a list of/item bytes SIG/BOM (~12034 tok)
+- `legacy.py` — ResultDict: detect (~758 tok)
+- `md.py` — CharInfo: final, feed_info, reset, ratio + 12 more (~9326 tok)
+- `models.py` — CharsetMatch: multi_byte_usage, add_submatch, encoding, encoding_aliases + 18 more (~3666 tok)
 - `py.typed` (~0 tok)
-- `utils.py` — is_accentuated, remove_accent, unicode_range, is_latin + 24 more (~3509 tok)
+- `utils.py` — is_accentuated, remove_accent, unicode_range, is_latin + 24 more (~3868 tok)
 - `version.py` (~33 tok)
 
-## .venv/lib/python3.14/site-packages/charset_normalizer/__pycache__/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/charset_normalizer/__pycache__/
 
-- `__init__.cpython-314.pyc` (~451 tok)
-- `__main__.cpython-314.pyc` (~98 tok)
-- `api.cpython-314.pyc` — Declares will (~6701 tok)
-- `cd.cpython-314.pyc` — Declares does (~4350 tok)
-- `constant.cpython-314.pyc` (~12730 tok)
-- `legacy.cpython-314.pyc` — is: detect (~883 tok)
-- `md.cpython-314.pyc` — Declares used (~10023 tok)
-- `models.cpython-314.pyc` (~5956 tok)
-- `utils.cpython-314.pyc` (~5248 tok)
-- `version.cpython-314.pyc` (~103 tok)
+- `__init__.cpython-314.pyc` (~461 tok)
+- `__main__.cpython-314.pyc` (~108 tok)
+- `api.cpython-314.pyc` (~7005 tok)
+- `cd.cpython-314.pyc` — Declares does (~4371 tok)
+- `constant.cpython-314.pyc` (~12909 tok)
+- `legacy.cpython-314.pyc` — is: detect (~893 tok)
+- `md.cpython-314.pyc` — Declares used (~10437 tok)
+- `models.cpython-314.pyc` (~5966 tok)
+- `utils.cpython-314.pyc` (~5214 tok)
+- `version.cpython-314.pyc` (~113 tok)
 
-## .venv/lib/python3.14/site-packages/charset_normalizer/cli/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/charset_normalizer/cli/
 
 - `__init__.py` (~39 tok)
-- `__main__.py` — URL configuration (~3412 tok)
+- `__main__.py` — URL configuration (~3414 tok)
 
-## .venv/lib/python3.14/site-packages/charset_normalizer/cli/__pycache__/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/charset_normalizer/cli/__pycache__/
 
-- `__init__.cpython-314.pyc` (~93 tok)
-- `__main__.cpython-314.pyc` (~3966 tok)
+- `__init__.cpython-314.pyc` (~103 tok)
+- `__main__.cpython-314.pyc` (~3975 tok)
 
-## .venv/lib/python3.14/site-packages/click-8.4.2.dist-info/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/click-8.4.2.dist-info/
 
 - `INSTALLER` (~2 tok)
 - `METADATA` — Declares toolkit (~699 tok)
 - `RECORD` (~676 tok)
 - `WHEEL` (~22 tok)
 
-## .venv/lib/python3.14/site-packages/click-8.4.2.dist-info/licenses/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/click-8.4.2.dist-info/licenses/
 
 - `LICENSE.txt` (~369 tok)
 
-## .venv/lib/python3.14/site-packages/click/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/click/
 
 - `__init__.py` (~1324 tok)
 - `_compat.py` — URL configuration (~5394 tok)
@@ -229,524 +690,65 @@
 - `types.py` — ParamTypeInfoDict: to_info_dict, get_metavar, get_missing_message, convert + 11 more (~12797 tok)
 - `utils.py` — URL configuration (~5983 tok)
 
-## .venv/lib/python3.14/site-packages/click/__pycache__/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/click/__pycache__/
 
-- `__init__.cpython-314.pyc` (~1158 tok)
-- `_compat.cpython-314.pyc` — Declares needs (~8415 tok)
-- `_termui_impl.cpython-314.pyc` (~11347 tok)
-- `_textwrap.cpython-314.pyc` (~2254 tok)
-- `_utils.cpython-314.pyc` (~454 tok)
-- `_winconsole.cpython-314.pyc` (~4052 tok)
-- `core.cpython-314.pyc` — Declares for (~43064 tok)
-- `decorators.cpython-314.pyc` — Declares this (~7420 tok)
-- `exceptions.cpython-314.pyc` — Declares as (~5550 tok)
-- `formatting.cpython-314.pyc` — Declares that (~4492 tok)
-- `globals.cpython-314.pyc` — Declares is (~1016 tok)
-- `parser.cpython-314.pyc` — Declares handling (~6392 tok)
-- `shell_completion.cpython-314.pyc` — Declares completions (~7950 tok)
-- `termui.cpython-314.pyc` — Declares that (~10629 tok)
-- `testing.cpython-314.pyc` (~10850 tok)
-- `types.cpython-314.pyc` — Declares of (~18075 tok)
-- `utils.cpython-314.pyc` — Declares so (~8014 tok)
+- `__init__.cpython-314.pyc` (~1168 tok)
+- `_compat.cpython-314.pyc` — Declares needs (~8425 tok)
+- `_termui_impl.cpython-314.pyc` (~11357 tok)
+- `_textwrap.cpython-314.pyc` (~2264 tok)
+- `_utils.cpython-314.pyc` (~464 tok)
+- `_winconsole.cpython-314.pyc` (~4062 tok)
+- `core.cpython-314.pyc` — Declares for (~43074 tok)
+- `decorators.cpython-314.pyc` — Declares this (~7430 tok)
+- `exceptions.cpython-314.pyc` — Declares as (~5560 tok)
+- `formatting.cpython-314.pyc` — Declares that (~4502 tok)
+- `globals.cpython-314.pyc` — Declares is (~1026 tok)
+- `parser.cpython-314.pyc` — Declares handling (~6402 tok)
+- `shell_completion.cpython-314.pyc` — Declares completions (~7960 tok)
+- `termui.cpython-314.pyc` — Declares that (~10639 tok)
+- `testing.cpython-314.pyc` (~10860 tok)
+- `types.cpython-314.pyc` — Declares of (~18085 tok)
+- `utils.cpython-314.pyc` — Declares so (~8024 tok)
 
-## .venv/lib/python3.14/site-packages/flask-3.1.1.dist-info/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/cyclonedx/
 
-- `entry_points.txt` (~10 tok)
-- `INSTALLER` (~2 tok)
-- `METADATA` (~804 tok)
-- `RECORD` (~993 tok)
-- `REQUESTED` (~0 tok)
-- `WHEEL` (~22 tok)
+- `__init__.py` — This file is part of CycloneDX Python Library (~258 tok)
+- `py.typed` — Marker file for PEP 561.  This package uses inline types. (~41 tok)
+- `spdx.py` — This file is part of CycloneDX Python Library (~723 tok)
 
-## .venv/lib/python3.14/site-packages/flask-3.1.1.dist-info/licenses/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/cyclonedx/__pycache__/
 
-- `LICENSE.txt` (~369 tok)
+- `__init__.cpython-314.pyc` (~84 tok)
+- `spdx.cpython-314.pyc` (~890 tok)
 
-## .venv/lib/python3.14/site-packages/flask/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/cyclonedx/_internal/
 
-- `__init__.py` (~772 tok)
-- `__main__.py` (~9 tok)
-- `app.py` — Flask: get_send_file_max_age (~17642 tok)
-- `blueprints.py` — Flask blueprint (~1298 tok)
-- `cli.py` — URL configuration (~10624 tok)
-- `config.py` — ConfigAttribute: from_envvar, from_prefixed_env, from_pyfile, from_object + 3 more (~3777 tok)
-- `ctx.py` — View: get (~4320 tok)
-- `debughelpers.py` — UnexpectedUnicodeError: attach_enctype_error_multidict, explain_template_loading_attempts (~1738 tok)
-- `globals.py` (~490 tok)
-- `helpers.py` — API router (~6721 tok)
-- `logging.py` — wsgi_errors_stream, has_level_handler, create_logger (~680 tok)
-- `py.typed` (~0 tok)
-- `sessions.py` — View: get (~4428 tok)
-- `signals.py` — This namespace is only for signals provided by Flask itself. (~215 tok)
-- `templating.py` — Environment: get_source, list_templates, render_template, render_template_string + 3 more (~2154 tok)
-- `testing.py` — EnvironBuilder: json_dumps, session_transaction, open, invoke (~2896 tok)
-- `typing.py` — Declares of (~941 tok)
-- `views.py` — View: get, post (~1990 tok)
-- `wrappers.py` — URL configuration (~2688 tok)
+- `__init__.py` — This file is part of CycloneDX Python Library (~251 tok)
+- `bom_ref.py` — This file is part of CycloneDX Python Library (~439 tok)
+- `compare.py` — This file is part of CycloneDX Python Library (~718 tok)
+- `time.py` — This file is part of CycloneDX Python Library (~257 tok)
 
-## .venv/lib/python3.14/site-packages/flask/__pycache__/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/cyclonedx/_internal/__pycache__/
 
-- `__init__.cpython-314.pyc` (~719 tok)
-- `__main__.cpython-314.pyc` (~67 tok)
-- `app.cpython-314.pyc` — Declares used (~17104 tok)
-- `blueprints.cpython-314.pyc` — Declares used (~1443 tok)
-- `cli.cpython-314.pyc` — Declares raised (~13181 tok)
-- `config.cpython-314.pyc` — Declares to (~4664 tok)
-- `ctx.cpython-314.pyc` — Declares after (~6208 tok)
-- `debughelpers.cpython-314.pyc` — Declares for (~2850 tok)
-- `globals.cpython-314.pyc` (~514 tok)
-- `helpers.cpython-314.pyc` — Declares however (~7268 tok)
-- `logging.cpython-314.pyc` (~1031 tok)
-- `sessions.cpython-314.pyc` — Declares for (~5528 tok)
-- `signals.cpython-314.pyc` (~328 tok)
-- `templating.cpython-314.pyc` (~3210 tok)
-- `testing.cpython-314.pyc` — Declares refer (~4118 tok)
-- `typing.cpython-314.pyc` (~1243 tok)
-- `views.cpython-314.pyc` — Declares this (~2084 tok)
-- `wrappers.cpython-314.pyc` — Declares this (~3050 tok)
+- `__init__.cpython-314.pyc` (~92 tok)
+- `bom_ref.cpython-314.pyc` (~605 tok)
+- `compare.cpython-314.pyc` (~1010 tok)
+- `time.cpython-314.pyc` (~207 tok)
 
-## .venv/lib/python3.14/site-packages/flask/json/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/cyclonedx/builder/
 
-- `__init__.py` — dumps, dump, loads, load + 1 more (~1601 tok)
-- `provider.py` — JSONProvider: dumps, dump, loads, load + 4 more (~2192 tok)
-- `tag.py` — Serializer: for (~2652 tok)
+- `__init__.py` — This file is part of CycloneDX Python Library (~215 tok)
+- `this.py` — Representation of this very python library. (~623 tok)
 
-## .venv/lib/python3.14/site-packages/flask/json/__pycache__/
+## .claude/worktrees/26-desktop-launcher/.venv/lib/python3.14/site-packages/cyclonedx/builder/__pycache__/
 
-- `__init__.cpython-314.pyc` (~1911 tok)
-- `provider.cpython-314.pyc` — Declares this (~2860 tok)
-- `tag.cpython-314.pyc` — Declares TagOrderedDict (~5035 tok)
+- `__init__.cpython-314.pyc` (~84 tok)
+- `this.cpython-314.pyc` (~580 tok)
 
-## .venv/lib/python3.14/site-packages/flask/sansio/
+## .claude/worktrees/26-desktop-launcher/__pycache__/
 
-- `app.py` — Declares App (~10891 tok)
-- `blueprints.py` — Flask blueprint (~7040 tok)
-- `README.md` — Project documentation (~57 tok)
-- `scaffold.py` — View: get, post, put, delete (~8682 tok)
-
-## .venv/lib/python3.14/site-packages/flask/sansio/__pycache__/
-
-- `app.cpython-314.pyc` (~9823 tok)
-- `blueprints.cpython-314.pyc` — Declares is (~9546 tok)
-- `scaffold.cpython-314.pyc` — Declares to (~8978 tok)
-
-## .venv/lib/python3.14/site-packages/idna-3.18.dist-info/
-
-- `entry_points.txt` (~10 tok)
-- `INSTALLER` (~2 tok)
-- `METADATA` — Declares issue (~1615 tok)
-- `RECORD` (~476 tok)
-- `WHEEL` (~22 tok)
-
-## .venv/lib/python3.14/site-packages/idna-3.18.dist-info/licenses/
-
-- `LICENSE.md` (~386 tok)
-
-## .venv/lib/python3.14/site-packages/idna/
-
-- `__init__.py` (~248 tok)
-- `__main__.py` (~24 tok)
-- `cli.py` — Command-line interface for the :mod:`idna` package. (~1182 tok)
-- `codec.py` — Codec: encode, decode, search_function (~1440 tok)
-- `compat.py` — ToASCII, ToUnicode, nameprep (~387 tok)
-- `core.py` — IDNAError: valid_label_length, valid_string_length, check_bidi, check_initial_combiner + 5 more (~7051 tok)
-- `idnadata.py` — This file is automatically generated by tools/idna-data (~12818 tok)
-- `intranges.py` — intranges_from_list, intranges_contain (~529 tok)
-- `package_data.py` (~6 tok)
-- `py.typed` (~0 tok)
-- `uts46data.py` — This file is automatically generated by tools/idna-data (~64389 tok)
-
-## .venv/lib/python3.14/site-packages/idna/__pycache__/
-
-- `__init__.cpython-314.pyc` (~238 tok)
-- `__main__.cpython-314.pyc` (~97 tok)
-- `cli.cpython-314.pyc` — Declares for (~1842 tok)
-- `codec.cpython-314.pyc` — Declares registered (~2029 tok)
-- `compat.cpython-314.pyc` — Declares exists (~612 tok)
-- `core.cpython-314.pyc` (~8609 tok)
-- `idnadata.cpython-314.pyc` (~5897 tok)
-- `intranges.cpython-314.pyc` (~898 tok)
-- `package_data.cpython-314.pyc` (~60 tok)
-- `uts46data.cpython-314.pyc` (~23743 tok)
-
-## .venv/lib/python3.14/site-packages/itsdangerous-2.2.0.dist-info/
-
-- `INSTALLER` (~2 tok)
-- `LICENSE.txt` (~369 tok)
-- `METADATA` (~514 tok)
-- `RECORD` (~414 tok)
-- `WHEEL` (~22 tok)
-
-## .venv/lib/python3.14/site-packages/itsdangerous/
-
-- `__init__.py` (~408 tok)
-- `_json.py` — _CompactJSON: loads, dumps (~136 tok)
-- `encoding.py` — want_bytes, base64_encode, base64_decode, int_to_bytes + 1 more (~403 tok)
-- `exc.py` — Declares BadData (~915 tok)
-- `py.typed` (~0 tok)
-- `serializer.py` — _PDataSerializer: loads, dumps, is_text_serializer, secret_key + 5 more (~4458 tok)
-- `signer.py` — SigningAlgorithm: get_signature, verify_signature, get_signature, get_signature + 7 more (~2757 tok)
-- `timed.py` — TimestampSigner: get_timestamp, timestamp_to_datetime, sign, unsign + 6 more (~2310 tok)
-- `url_safe.py` — URLSafeSerializerMixin: load_payload, dump_payload (~716 tok)
-
-## .venv/lib/python3.14/site-packages/itsdangerous/__pycache__/
-
-- `__init__.cpython-314.pyc` (~475 tok)
-- `_json.cpython-314.pyc` (~419 tok)
-- `encoding.cpython-314.pyc` (~904 tok)
-- `exc.cpython-314.pyc` — Declares of (~1315 tok)
-- `serializer.cpython-314.pyc` — Declares to (~4778 tok)
-- `signer.cpython-314.pyc` — Declares to (~3600 tok)
-- `timed.cpython-314.pyc` — Declares must (~2669 tok)
-- `url_safe.cpython-314.pyc` (~1068 tok)
-
-## .venv/lib/python3.14/site-packages/jinja2-3.1.6.dist-info/
-
-- `entry_points.txt` (~15 tok)
-- `INSTALLER` (~2 tok)
-- `METADATA` (~766 tok)
-- `RECORD` (~966 tok)
-- `WHEEL` (~22 tok)
-
-## .venv/lib/python3.14/site-packages/jinja2-3.1.6.dist-info/licenses/
-
-- `LICENSE.txt` (~369 tok)
-
-## .venv/lib/python3.14/site-packages/jinja2/
-
-- `__init__.py` — Jinja is a template engine written in pure Python. It provides a (~551 tok)
-- `_identifier.py` (~277 tok)
-- `async_utils.py` — _IteratorToAsyncIterator: async_variant, decorator, is_async, is_async + 4 more (~810 tok)
-- `bccache.py` — The optional bytecode cache system. This is useful if you have very (~4018 tok)
-- `compiler.py` — Compiles nodes from the parser into Python code. (~21181 tok)
-- `constants.py` — : list of lorem ipsum words used by the lipsum() helper function (~410 tok)
-- `debug.py` — rewrite_traceback_stack, fake_traceback, get_template_locals (~1800 tok)
-- `defaults.py` (~362 tok)
-- `environment.py` — Classes for managing templates and their runtime and compile time (~17576 tok)
-- `exceptions.py` — TemplateError: message (~1449 tok)
-- `ext.py` — Extension API for adding custom tags and behavior. (~9108 tok)
-- `filters.py` — Built-in template filters used with the ``|`` operator. (~15775 tok)
-- `idtracking.py` — Symbols: find_symbols, symbols_for_node, analyze_node, find_load + 31 more (~3016 tok)
-- `lexer.py` — Implements a Jinja / Python combination lexer. The ``Lexer`` class (~8511 tok)
-- `loaders.py` — API and implementations for loading templates from different data (~6873 tok)
-- `meta.py` — Functions that expose information about templates that might be (~1257 tok)
-- `nativetypes.py` — NativeCodeGenerator: native_concat, render, render_async (~1203 tok)
-- `nodes.py` — AST nodes generated by the parser for the compiler. Also provides (~9880 tok)
-- `optimizer.py` — The optimizer tries to constant fold expressions and modify the AST (~472 tok)
-- `parser.py` — Parse tokens from the lexer into nodes for the compiler. (~11538 tok)
-- `py.typed` (~0 tok)
-- `runtime.py` — The runtime functions and state used by compiled templates. (~9786 tok)
-- `sandbox.py` — A sandbox layer that ensures unsafe operations cannot be performed. (~4289 tok)
-- `tests.py` — Built-in template tests used with the ``is`` operator. (~1694 tok)
-- `utils.py` — _MissingType: pass_context, pass_eval_context, pass_environment, from_obj + 13 more (~6894 tok)
-- `visitor.py` — API for traversing the AST nodes. Implemented by the compiler and (~1017 tok)
-
-## .venv/lib/python3.14/site-packages/jinja2/__pycache__/
-
-- `__init__.cpython-314.pyc` (~443 tok)
-- `_identifier.cpython-314.pyc` (~308 tok)
-- `async_utils.cpython-314.pyc` (~1698 tok)
-- `bccache.cpython-314.pyc` — Declares this (~6321 tok)
-- `compiler.cpython-314.pyc` (~33692 tok)
-- `constants.cpython-314.pyc` — Declares commodo (~418 tok)
-- `debug.cpython-314.pyc` (~1924 tok)
-- `defaults.cpython-314.pyc` (~563 tok)
-- `environment.cpython-314.pyc` — Declares to (~23940 tok)
-- `exceptions.cpython-314.pyc` — Declares for (~2531 tok)
-- `ext.cpython-314.pyc` (~13563 tok)
-- `filters.cpython-314.pyc` (~23437 tok)
-- `idtracking.cpython-314.pyc` (~6869 tok)
-- `lexer.cpython-314.pyc` — Declares is (~10344 tok)
-- `loaders.cpython-314.pyc` — Declares for (~10083 tok)
-- `meta.cpython-314.pyc` — Declares can (~1731 tok)
-- `nativetypes.cpython-314.pyc` — Declares from (~2282 tok)
-- `nodes.cpython-314.pyc` — Declares for (~20289 tok)
-- `optimizer.cpython-314.pyc` (~886 tok)
-- `parser.cpython-314.pyc` — Declares Jinja (~18742 tok)
-- `runtime.cpython-314.pyc` (~16733 tok)
-- `sandbox.cpython-314.pyc` — Declares or (~5913 tok)
-- `tests.cpython-314.pyc` (~3226 tok)
-- `utils.cpython-314.pyc` — Declares when (~11679 tok)
-- `visitor.cpython-314.pyc` — Declares name (~1722 tok)
-
-## .venv/lib/python3.14/site-packages/markupsafe-3.0.3.dist-info/
-
-- `INSTALLER` (~2 tok)
-- `METADATA` (~718 tok)
-- `RECORD` (~295 tok)
-- `top_level.txt` (~3 tok)
-- `WHEEL` (~37 tok)
-
-## .venv/lib/python3.14/site-packages/markupsafe-3.0.3.dist-info/licenses/
-
-- `LICENSE.txt` (~369 tok)
-
-## .venv/lib/python3.14/site-packages/markupsafe/
-
-- `__init__.py` — _HasHTML: escape, escape_silent, soft_str, join + 29 more (~3785 tok)
-- `_native.py` (~60 tok)
-- `_speedups.c` — include <Python.h> (~1237 tok)
-- `_speedups.pyi` (~11 tok)
-- `py.typed` (~0 tok)
-
-## .venv/lib/python3.14/site-packages/markupsafe/__pycache__/
-
-- `__init__.cpython-314.pyc` — Declares method (~7589 tok)
-- `_native.cpython-314.pyc` (~206 tok)
-
-## .venv/lib/python3.14/site-packages/pip/
-
-- `__init__.py` — main (~102 tok)
-- `__main__.py` — Remove '' and current working directory from the first entry (~250 tok)
-- `__pip-runner__.py` — Execute exactly this copy of pip, within a different environment. (~415 tok)
-- `py.typed` (~77 tok)
-
-## .venv/lib/python3.14/site-packages/pip/__pycache__/
-
-- `__init__.cpython-314.pyc` (~218 tok)
-- `__main__.cpython-314.pyc` (~247 tok)
-- `__pip-runner__.cpython-314.pyc` (~631 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/
-
-- `__init__.py` — init_logging() must be called before any call to logging.getLogger() (~146 tok)
-- `build_env.py` — Build Environment used for isolation during sdist building (~6261 tok)
-- `cache.py` — Cache Management (~2956 tok)
-- `configuration.py` — Configuration management setup (~4163 tok)
-- `exceptions.py` — Exceptions used throughout package. (~9188 tok)
-- `main.py` — main (~97 tok)
-- `pyproject.py` — URL configuration (~1302 tok)
-- `self_outdated_check.py` — View: get (~2314 tok)
-- `wheel_builder.py` — Orchestrator for building wheels from InstallRequirements. (~2575 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/__pycache__/
-
-- `__init__.cpython-314.pyc` (~243 tok)
-- `build_env.cpython-314.pyc` (~7958 tok)
-- `cache.cpython-314.pyc` (~4036 tok)
-- `configuration.cpython-314.pyc` — Declares to (~5894 tok)
-- `exceptions.cpython-314.pyc` (~13880 tok)
-- `main.cpython-314.pyc` (~212 tok)
-- `pyproject.cpython-314.pyc` (~1244 tok)
-- `self_outdated_check.cpython-314.pyc` (~3058 tok)
-- `wheel_builder.cpython-314.pyc` (~3232 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/cli/
-
-- `__init__.py` — Subpackage containing all of pip's command line interface related code (~38 tok)
-- `autocompletion.py` — Logic that powers autocompletion installed by ``pip completion``. (~2056 tok)
-- `base_command.py` — Base Command class, and related routines (~2737 tok)
-- `cmdoptions.py` — PipOption: raise_option_error, make_option_group, check_dist_restriction, check_build_constraints + 3 more (~10741 tok)
-- `command_context.py` — CommandContextMixIn: main_context, enter_context (~234 tok)
-- `index_command.py` — SessionCommandMixin: get_default_session, should_exclude_prerelease, pip_version_check (~2027 tok)
-- `main_parser.py` — A single place for constructing and exposing the main parser (~1258 tok)
-- `main.py` — Primary application entrypoint. (~897 tok)
-- `parser.py` — Base option parser setup (~3951 tok)
-- `progress_bars.py` — SQLAlchemy model (~1345 tok)
-- `req_command.py` — Contains the RequirementCommand base class. (~4996 tok)
-- `spinners.py` — SpinnerInterface: spin, finish, spin, finish + 9 more (~2104 tok)
-- `status_codes.py` (~34 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/cli/__pycache__/
-
-- `__init__.cpython-314.pyc` — Declares related (~78 tok)
-- `autocompletion.cpython-314.pyc` — Declares of (~2795 tok)
-- `base_command.cpython-314.pyc` (~3610 tok)
-- `cmdoptions.cpython-314.pyc` (~11335 tok)
-- `command_context.cpython-314.pyc` (~666 tok)
-- `index_command.cpython-314.pyc` — Declares mixin (~2770 tok)
-- `main_parser.cpython-314.pyc` (~1480 tok)
-- `main.cpython-314.pyc` (~649 tok)
-- `parser.cpython-314.pyc` — Declares options (~5745 tok)
-- `progress_bars.cpython-314.pyc` (~1901 tok)
-- `req_command.cpython-314.pyc` — Declares is (~4987 tok)
-- `spinners.cpython-314.pyc` (~3970 tok)
-- `status_codes.cpython-314.pyc` (~98 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/commands/
-
-- `__init__.py` — with: create_command, get_similar_commands (~1151 tok)
-- `cache.py` — URL configuration (~2612 tok)
-- `check.py` — CheckCommand: run (~642 tok)
-- `completion.py` — CompletionCommand: add_options, run (~1305 tok)
-- `configuration.py` — ConfigurationCommand: add_options, handler_map, run, list_values + 7 more (~2888 tok)
-- `debug.py` — DebugCommand: show_value, show_sys_implementation, create_vendor_txt_map, get_module_from_module_name + 7 more (~1870 tok)
-- `download.py` — URL configuration (~1480 tok)
-- `freeze.py` — URL configuration (~886 tok)
-- `hash.py` — HashCommand: add_options, run (~480 tok)
-- `help.py` — HelpCommand: run (~317 tok)
-- `index.py` — IndexCommand: add_options, handler_map, run, get_available_package_versions (~1576 tok)
-- `inspect.py` — URL configuration (~910 tok)
-- `install.py` — InstallCommand: add_options (~9638 tok)
-- `list.py` — URL configuration (~3897 tok)
-- `lock.py` — URL configuration (~1722 tok)
-- `search.py` — TransformedHit: add_options, run, search, transform_hits + 4 more (~1652 tok)
-- `show.py` — ShowCommand: normalize_project_url_label, add_options, run, search_packages_info + 1 more (~2305 tok)
-- `uninstall.py` — UninstallCommand: add_options, run (~1106 tok)
-- `wheel.py` — URL configuration (~1680 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/commands/__pycache__/
-
-- `__init__.cpython-314.pyc` — Declares with (~1196 tok)
-- `cache.cpython-314.pyc` — Declares since (~3688 tok)
-- `check.cpython-314.pyc` (~783 tok)
-- `completion.cpython-314.pyc` — directly: completions, completions, TabExpansion (~1588 tok)
-- `configuration.cpython-314.pyc` (~4281 tok)
-- `debug.cpython-314.pyc` (~3112 tok)
-- `download.cpython-314.pyc` (~2053 tok)
-- `freeze.cpython-314.pyc` (~1348 tok)
-- `hash.cpython-314.pyc` (~946 tok)
-- `help.cpython-314.pyc` (~524 tok)
-- `index.cpython-314.pyc` (~2224 tok)
-- `inspect.cpython-314.pyc` (~1232 tok)
-- `install.cpython-314.pyc` (~9907 tok)
-- `list.cpython-314.pyc` (~5347 tok)
-- `lock.cpython-314.pyc` (~2257 tok)
-- `search.cpython-314.pyc` (~2428 tok)
-- `show.cpython-314.pyc` (~3311 tok)
-- `uninstall.cpython-314.pyc` (~1381 tok)
-- `wheel.cpython-314.pyc` — Declares as (~2332 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/distributions/
-
-- `__init__.py` — make_distribution_for_install_requirement (~246 tok)
-- `base.py` — AbstractDistribution: build_tracker_id, get_metadata_distribution, prepare_distribution_metadata (~523 tok)
-- `installed.py` — InstalledDistribution: build_tracker_id, get_metadata_distribution, prepare_distribution_metadata (~266 tok)
-- `sdist.py` — SourceDistribution: build_tracker_id, get_metadata_distribution, prepare_distribution_metadata (~1894 tok)
-- `wheel.py` — WheelDistribution: build_tracker_id, get_metadata_distribution, prepare_distribution_metadata (~390 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/distributions/__pycache__/
-
-- `__init__.cpython-314.pyc` (~305 tok)
-- `base.cpython-314.pyc` — Declares for (~934 tok)
-- `installed.cpython-314.pyc` (~605 tok)
-- `sdist.cpython-314.pyc` (~2631 tok)
-- `wheel.cpython-314.pyc` (~753 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/index/
-
-- `__init__.py` — Index interaction code (~9 tok)
-- `collector.py` — URL configuration (~4613 tok)
-- `package_finder.py` — Routines related to PyPI, indexes (~11814 tok)
-- `sources.py` — URL configuration (~2469 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/index/__pycache__/
-
-- `__init__.cpython-314.pyc` (~66 tok)
-- `collector.cpython-314.pyc` — Declares is (~6772 tok)
-- `package_finder.cpython-314.pyc` — Declares representing (~13230 tok)
-- `sources.cpython-314.pyc` (~4243 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/locations/
-
-- `__init__.py` — URL configuration (~4007 tok)
-- `_distutils.py` — Locations where we look for configs, install stuff, etc (~1708 tok)
-- `_sysconfig.py` — get_scheme, get_bin_prefix, get_purelib, get_platlib (~2223 tok)
-- `base.py` — Application Directories (~729 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/locations/__pycache__/
-
-- `__init__.cpython-314.pyc` — Declares determines (~5008 tok)
-- `_distutils.cpython-314.pyc` (~2027 tok)
-- `_sysconfig.cpython-314.pyc` (~2487 tok)
-- `base.cpython-314.pyc` (~1153 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/metadata/
-
-- `__init__.py` — Backend: select_backend, get_default_environment, get_environment, get_directory_distribution + 2 more (~1664 tok)
-- `_json.py` — Extracted from https://github.com/pfmoore/pkg_metadata (~775 tok)
-- `base.py` — URL configuration (~7263 tok)
-- `pkg_resources.py` — URL configuration (~3013 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/metadata/__pycache__/
-
-- `__init__.cpython-314.pyc` — Declares is (~2090 tok)
-- `_json.cpython-314.pyc` (~907 tok)
-- `base.cpython-314.pyc` (~11147 tok)
-- `pkg_resources.cpython-314.pyc` (~5485 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/metadata/importlib/
-
-- `__init__.py` (~39 tok)
-- `_compat.py` — BadMetadata: name, parent, get_info_location, parse_name_and_version_from_info_directory + 1 more (~802 tok)
-- `_dists.py` — URL patterns: 1 routes (~2489 tok)
-- `_envs.py` — URL configuration (~1524 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/metadata/importlib/__pycache__/
-
-- `__init__.cpython-314.pyc` (~100 tok)
-- `_compat.cpython-314.pyc` — Declares hints (~1413 tok)
-- `_dists.cpython-314.pyc` (~4350 tok)
-- `_envs.cpython-314.pyc` — Declares is (~2562 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/models/
-
-- `__init__.py` — A package that contains models that represent entities. (~18 tok)
-- `candidate.py` — Declares from (~206 tok)
-- `direct_url.py` — PEP 610 (~270 tok)
-- `format_control.py` — FormatControl: handle_mutual_excludes, get_allowed_formats, disallow_binaries (~706 tok)
-- `index.py` — URL patterns: 2 routes (~295 tok)
-- `installation_report.py` — InstallationReport: to_dict (~814 tok)
-- `link.py` — URL configuration (~6284 tok)
-- `release_control.py` — ReleaseControl: handle_mutual_excludes, get_ordered_args, allows_prereleases (~962 tok)
-- `scheme.py` — Declares SCHEME_KEYS (~160 tok)
-- `search_scope.py` — URL configuration (~1275 tok)
-- `selection_prefs.py` — Declares from (~430 tok)
-- `target_python.py` — TargetPython: format_given, get_sorted_tags, get_unsorted_tags (~1213 tok)
-- `wheel.py` — Represents a wheel file and provides access to the various parts of the (~835 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/models/__pycache__/
-
-- `__init__.cpython-314.pyc` (~75 tok)
-- `candidate.cpython-314.pyc` (~595 tok)
-- `direct_url.cpython-314.pyc` (~700 tok)
-- `format_control.cpython-314.pyc` (~1372 tok)
-- `index.cpython-314.pyc` (~576 tok)
-- `installation_report.cpython-314.pyc` (~804 tok)
-- `link.cpython-314.pyc` — Declares parses (~8907 tok)
-- `release_control.cpython-314.pyc` (~1224 tok)
-- `scheme.cpython-314.pyc` (~351 tok)
-- `search_scope.cpython-314.pyc` (~1610 tok)
-- `selection_prefs.cpython-314.pyc` (~481 tok)
-- `target_python.cpython-314.pyc` — Declares as (~1413 tok)
-- `wheel.cpython-314.pyc` (~1430 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/network/
-
-- `__init__.py` — Contains purely network-related utilities. (~14 tok)
-- `auth.py` — Network Authentication Helpers (~5956 tok)
-- `cache.py` — HTTP cache implementation. (~1390 tok)
-- `download.py` — Download files with progress indicators. (~3608 tok)
-- `lazy_wheel.py` — Lazy ZIP over HTTP (~2185 tok)
-- `session.py` — PipSession and supporting code, containing all pip-specific (~5588 tok)
-- `utils.py` — The following comments and HTTP headers were originally added by (~1169 tok)
-- `xmlrpc.py` — xmlrpclib.Transport implementation (~523 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/network/__pycache__/
-
-- `__init__.cpython-314.pyc` (~72 tok)
-- `auth.cpython-314.pyc` — Declares which (~7054 tok)
-- `cache.cpython-314.pyc` (~2729 tok)
-- `download.cpython-314.pyc` (~4970 tok)
-- `lazy_wheel.cpython-314.pyc` (~3790 tok)
-- `session.cpython-314.pyc` (~5974 tok)
-- `utils.cpython-314.pyc` (~770 tok)
-- `xmlrpc.cpython-314.pyc` (~913 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/operations/
-
-- `__init__.py` (~0 tok)
-- `check.py` — Validation of dependencies of packages (~1684 tok)
-- `freeze.py` — URL configuration (~2816 tok)
-- `prepare.py` — Prepares a distribution for installation (~8299 tok)
-
-## .venv/lib/python3.14/site-packages/pip/_internal/operations/__pycache__/
-
-- `__init__.cpython-314.pyc` (~57 tok)
-- `check.cpython-314.pyc` (~2183 tok)
-- `freeze.cpython-314.pyc` (~3060 tok)
-- `prepare.cpython-314.pyc` (~8169 tok)
+- `app.cpython-314.pyc` (~3008 tok)
 
 ## __pycache__/
 
-- `app.cpython-314.pyc` (~2648 tok)
+- `app.cpython-314.pyc` (~2924 tok)

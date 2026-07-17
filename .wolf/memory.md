@@ -107,3 +107,14 @@
 | 00:50 | Merged PR #12 (squash) | audit remediation bundle (M1/L1/M2/L2) | — |
 | 00:52 | Merged PR #13 (squash) | stray cerebrum.md commit from chore/buglog-bug002 | — |
 | 00:53 | Deleted origin/Sync-catchup-testing | confirmed with user; would have regressed bug-002 fix | — |
+
+## Session: 2026-07-13 21:52 (sticky column-header bug fix, GitHub issue #20 → PR #22)
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 21:52 | Filed GitHub issue #20 | — | root-cause summary before code touched | ~250 |
+| 21:52 | Created worktree .claude/worktrees/fix-20-sticky-headers | branch fix/20-sticky-column-headers | isolated from main | — |
+| 21:53 | Edited templates/index.html | .table-wrap bounded scroll pane + thead th top:0 + --toolbar-height rename + resize listener | ~120 |
+| 21:58 | Code review (subagent) | templates/index.html | 1 Important finding: missing height floor | — |
+| 21:58 | Edited templates/index.html | added max(200px, ...) floor to .table-wrap height | ~15 |
+| 21:59 | Pushed branch + opened PR #22 | Closes #20 | — |

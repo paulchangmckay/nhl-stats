@@ -84,6 +84,18 @@
       "related_bugs": ["bug-006"],
       "occurrences": 1,
       "last_seen": "2026-07-16T00:00:00.000Z"
+    },
+    {
+      "id": "bug-008",
+      "timestamp": "2026-07-14T00:00:00.000Z",
+      "error_message": "Column header row renders displaced into the player row list (e.g. appearing as the 3rd row, between two data rows) instead of pinned at the top, on both Bio and Stats tabs; also does not stay pinned while scrolling.",
+      "file": "templates/index.html",
+      "root_cause": "`.table-wrap` set only `overflow-x: auto`, leaving `overflow-y` unset. Per the CSS overflow spec, the browser computes the unset axis to `auto` too, making `.table-wrap` its own scroll container and the sticky-positioning containing block for `thead th`, instead of the page viewport. Since `.table-wrap` was never actually scrolled internally (the page itself scrolled via `<body>`), the `top: var(--thead-top)` sticky offset (~150-250px, the toolbar's real height) permanently displaced the header down by that amount from `.table-wrap`'s own top edge, even at scroll offset 0 — confirmed against a screenshot showing the header rendered as the 3rd row.",
+      "fix": "Gave `.table-wrap` an explicit bounded height (`max(200px, calc(100vh - var(--toolbar-height, 57px)))`) and real `overflow: auto`, making it an intentional scroll pane. Changed `thead th`'s sticky `top` from `var(--thead-top)` to `0` (now correctly relative to `.table-wrap`'s own scrollport). Renamed the CSS var `--thead-top` to `--toolbar-height` to match its new purpose, and added a `resize` listener so the pane stays sized correctly. The 200px floor (added after code review) prevents the calc() from going negative and collapsing the pane to zero height on short viewports.",
+      "tags": ["css", "sticky-positioning", "frontend", "layout"],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-14T00:00:00.000Z"
     }
   ]
 }
