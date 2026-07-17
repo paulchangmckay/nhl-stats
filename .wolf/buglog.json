@@ -60,6 +60,30 @@
       "related_bugs": ["bug-002"],
       "occurrences": 1,
       "last_seen": "2026-07-14T00:00:00.000Z"
+    },
+    {
+      "id": "bug-006",
+      "timestamp": "2026-07-16T00:00:00.000Z",
+      "error_message": "Code review flagged two failure paths in scripts/launch_app.sh that could silently exit with no macOS alert dialog shown, defeating the launcher's core promise that any failure surfaces via osascript since there's no visible Terminal to read",
+      "file": "scripts/launch_app.sh",
+      "root_cause": "mkdir -p \"$LOG_DIR\" and source \"$PROJECT_DIR/.venv/bin/activate\" were not wrapped in their own if-guard + alert() the way every other risky step was, so under `set -euo pipefail` either one failing would exit the script immediately with no dialog. Separately, the `.venv` existence check only tested `[ -d .venv ]`, not that `.venv/bin/activate` actually existed, so a `.venv` left half-built by an interrupted prior run (crash, disk full, killed mid-creation) would skip re-creation and then fail silently at the unguarded `source` line. Also flagged: `is_up()`'s `curl -s -o /dev/null` treats any completed HTTP response (200, 404, 500) as \"already running,\" the same class of false-positive health check that motivated the port 5000->5099 move in the first place.",
+      "fix": "Added `trap 'alert \"Unexpected error...\"' ERR` as a catch-all so any unguarded command failure still shows a dialog. Changed the venv check to `[ ! -f \"$PROJECT_DIR/.venv/bin/activate\" ]` so a half-built venv gets recreated instead of silently failing at source. Changed `is_up()` to `curl -sf` so only an actual 2xx/3xx response counts as \"up.\" Re-verified cold start, warm start, and (new) a deliberately broken requirements.txt to confirm the alert dialog fires correctly and the script exits non-zero rather than hanging or failing silently.",
+      "tags": ["shell", "error-handling", "code-review", "macos", "launcher"],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-16T00:00:00.000Z"
+    },
+    {
+      "id": "bug-007",
+      "timestamp": "2026-07-16T00:00:00.000Z",
+      "error_message": "User double-clicked ~/Desktop/NHL Stats.app and nothing happened — no browser opened, no error dialog shown",
+      "file": "scripts/launch_app.applescript",
+      "root_cause": "Two layers. (1) Expected/sequencing: PR #27 (adding scripts/launch_app.sh and the port-5099 app.py change) hadn't merged yet, so the compiled app's hardcoded absolute path (/Users/paulmckay/Desktop/NHL Stats Project/scripts/launch_app.sh) didn't exist on `main` at the time of testing. (2) Real design gap, empirically confirmed via an isolated osascript test: a bare `try / do shell script quoted form of \"<path>\" / end try` swallows ALL errors from `do shell script`, including \"no such file\" — not just the non-zero-exit case the try/end try was designed to suppress (where launch_app.sh's own osascript alert already fires). When do shell script can't even invoke the target (missing file, not executable, etc.), the user gets zero feedback: no dialog, no browser, nothing.",
+      "fix": "Added a pre-flight `do shell script \"test -x \" & quoted form of scriptPath` check in launch_app.applescript before the real invocation. If that fails, an explicit `display dialog` fires naming the missing path, instead of relying on the bare try/end try to (incorrectly) let launch_app.sh's own error handling cover this case. Verified via an isolated /tmp osascript test that the on-error branch fires correctly for a missing/non-executable file and is a no-op for a real one, then re-verified the real compiled ~/Desktop/NHL Stats.app end-to-end (happy path: 200 response; failure path: script chmod -x'd, confirmed the app didn't silently start nothing).",
+      "tags": ["applescript", "error-handling", "macos", "launcher", "silent-failure"],
+      "related_bugs": ["bug-006"],
+      "occurrences": 1,
+      "last_seen": "2026-07-16T00:00:00.000Z"
     }
   ]
 }
