@@ -13,8 +13,10 @@ alert() {
   osascript -e "display dialog \"$1\" with title \"NHL Stats Launcher\" buttons {\"OK\"} default button 1 with icon caution"
 }
 
+trap 'alert "Unexpected error starting the app. See '"$LOG_FILE"' for details."' ERR
+
 is_up() {
-  curl -s -o /dev/null -m 1 "$URL"
+  curl -sf -o /dev/null -m 1 "$URL"
 }
 
 open_browser() {
@@ -28,7 +30,7 @@ fi
 
 mkdir -p "$LOG_DIR"
 
-if [ ! -d "$PROJECT_DIR/.venv" ]; then
+if [ ! -f "$PROJECT_DIR/.venv/bin/activate" ]; then
   if ! python3 -m venv "$PROJECT_DIR/.venv" >> "$LOG_FILE" 2>&1; then
     alert "Failed to create the virtual environment. See $LOG_FILE for details."
     exit 1

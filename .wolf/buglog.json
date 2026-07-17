@@ -60,6 +60,18 @@
       "related_bugs": ["bug-002"],
       "occurrences": 1,
       "last_seen": "2026-07-14T00:00:00.000Z"
+    },
+    {
+      "id": "bug-006",
+      "timestamp": "2026-07-16T00:00:00.000Z",
+      "error_message": "Code review flagged two failure paths in scripts/launch_app.sh that could silently exit with no macOS alert dialog shown, defeating the launcher's core promise that any failure surfaces via osascript since there's no visible Terminal to read",
+      "file": "scripts/launch_app.sh",
+      "root_cause": "mkdir -p \"$LOG_DIR\" and source \"$PROJECT_DIR/.venv/bin/activate\" were not wrapped in their own if-guard + alert() the way every other risky step was, so under `set -euo pipefail` either one failing would exit the script immediately with no dialog. Separately, the `.venv` existence check only tested `[ -d .venv ]`, not that `.venv/bin/activate` actually existed, so a `.venv` left half-built by an interrupted prior run (crash, disk full, killed mid-creation) would skip re-creation and then fail silently at the unguarded `source` line. Also flagged: `is_up()`'s `curl -s -o /dev/null` treats any completed HTTP response (200, 404, 500) as \"already running,\" the same class of false-positive health check that motivated the port 5000->5099 move in the first place.",
+      "fix": "Added `trap 'alert \"Unexpected error...\"' ERR` as a catch-all so any unguarded command failure still shows a dialog. Changed the venv check to `[ ! -f \"$PROJECT_DIR/.venv/bin/activate\" ]` so a half-built venv gets recreated instead of silently failing at source. Changed `is_up()` to `curl -sf` so only an actual 2xx/3xx response counts as \"up.\" Re-verified cold start, warm start, and (new) a deliberately broken requirements.txt to confirm the alert dialog fires correctly and the script exits non-zero rather than hanging or failing silently.",
+      "tags": ["shell", "error-handling", "code-review", "macos", "launcher"],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-16T00:00:00.000Z"
     }
   ]
 }
