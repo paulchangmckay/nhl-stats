@@ -84,6 +84,42 @@
       "related_bugs": ["bug-006"],
       "occurrences": 1,
       "last_seen": "2026-07-16T00:00:00.000Z"
+    },
+    {
+      "id": "bug-008",
+      "timestamp": "2026-07-14T00:00:00.000Z",
+      "error_message": "Column header row renders displaced into the player row list (e.g. appearing as the 3rd row, between two data rows) instead of pinned at the top, on both Bio and Stats tabs; also does not stay pinned while scrolling.",
+      "file": "templates/index.html",
+      "root_cause": "`.table-wrap` set only `overflow-x: auto`, leaving `overflow-y` unset. Per the CSS overflow spec, the browser computes the unset axis to `auto` too, making `.table-wrap` its own scroll container and the sticky-positioning containing block for `thead th`, instead of the page viewport. Since `.table-wrap` was never actually scrolled internally (the page itself scrolled via `<body>`), the `top: var(--thead-top)` sticky offset (~150-250px, the toolbar's real height) permanently displaced the header down by that amount from `.table-wrap`'s own top edge, even at scroll offset 0 — confirmed against a screenshot showing the header rendered as the 3rd row.",
+      "fix": "Gave `.table-wrap` an explicit bounded height (`max(200px, calc(100vh - var(--toolbar-height, 57px)))`) and real `overflow: auto`, making it an intentional scroll pane. Changed `thead th`'s sticky `top` from `var(--thead-top)` to `0` (now correctly relative to `.table-wrap`'s own scrollport). Renamed the CSS var `--thead-top` to `--toolbar-height` to match its new purpose, and added a `resize` listener so the pane stays sized correctly. The 200px floor (added after code review) prevents the calc() from going negative and collapsing the pane to zero height on short viewports.",
+      "tags": ["css", "sticky-positioning", "frontend", "layout"],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-14T00:00:00.000Z"
+    },
+    {
+      "id": "bug-009",
+      "timestamp": "2026-07-17T00:00:00.000Z",
+      "error_message": "sqlite3.IntegrityError: FOREIGN KEY constraint failed when calling insert_game_event/insert_player_shift in the task-1-brief's own verbatim test code (test_insert_game_event_is_idempotent, test_insert_player_shift_is_idempotent)",
+      "file": "tests/test_database.py",
+      "root_cause": "game_events.game_id and player_shifts.game_id are both `INTEGER NOT NULL REFERENCES games(game_id)`. The shared `conn` pytest fixture goes through database.get_connection(), which sets `PRAGMA foreign_keys = ON`, so FK enforcement is active in tests. The task-1-brief's test code stubs the player_id FK via ensure_player_stub()/_stub_player() but never inserts a games row for game_id=100 before inserting a game_events/player_shifts row referencing it — SQLite's `INSERT OR IGNORE` only suppresses UNIQUE/PK/NOT NULL/CHECK conflicts, not FOREIGN KEY violations (confirmed via an isolated repro), so the insert raises IntegrityError instead of being silently skipped.",
+      "fix": "Added a `_stub_game(conn, game_id)` test helper in tests/test_database.py (mirrors the existing `_stub_player` convention) that calls database.insert_game() with a minimal games row (only game_date is NOT NULL in the games table; season_id/team ids can be None since NULL FK values are never checked). Called `_stub_game(conn, 100)` at the top of both idempotency tests before the game_events/player_shifts inserts. Schema and insert_game_event/insert_player_shift/ensure_player_stub implementations in src/database.py were NOT changed — this was purely a missing test-setup step.",
+      "tags": ["sqlite", "foreign-key", "test-setup", "database"],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-17T00:00:00.000Z"
+    },
+    {
+      "id": "bug-010",
+      "timestamp": "2026-07-17T00:00:00.000Z",
+      "error_message": "sqlite3.IntegrityError: FOREIGN KEY constraint failed when calling insert_game_event from etl.load_play_by_play.run() in the task-4-brief's own verbatim idempotency test (test_run_does_not_duplicate_events_on_second_invocation)",
+      "file": "tests/test_load_play_by_play.py",
+      "root_cause": "game_events.event_owner_team_id is `INTEGER REFERENCES teams(team_id)`, a separate FK from the game_id one bug-009 already covered. The task-4-brief's fake_plays test fixture sets `eventOwnerTeamId: 1` in the play details, which _extract_event carries through to event_owner_team_id=1 on the row passed to insert_game_event. The conn fixture's fresh test db (PRAGMA foreign_keys=ON) has no teams row for team_id=1 — unlike production, where load_teams.py always populates the teams table before load_play_by_play.py runs — so the FK check fails on the very first insert_game_event call inside run(). _ensure_referenced_players() only stubs player_id FKs (shooting/blocking/goalie/assist1/assist2) via database.ensure_player_stub(); there is no analogous ensure_team_stub() helper, and none was needed since only test data references an unseeded team.",
+      "fix": "Added `database.upsert_team(conn, {\"team_id\": 1, \"abbrev\": \"TST\", \"common_name\": \"Test\", \"place_name\": \"Test\", \"conference\": None, \"division\": None})` as a setup step at the top of the idempotency test, before insert_game/run(). upsert_team already existed in src/database.py (used by etl/load_teams.py) and needed no changes. etl/load_play_by_play.py's production code was NOT changed — this was purely a missing test-setup step, same class of gap as bug-009 but on a different FK column.",
+      "tags": ["sqlite", "foreign-key", "test-setup", "database", "play-by-play"],
+      "related_bugs": ["bug-009"],
+      "occurrences": 1,
+      "last_seen": "2026-07-17T00:00:00.000Z"
     }
   ]
 }

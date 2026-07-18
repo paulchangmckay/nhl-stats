@@ -35,6 +35,27 @@ python scripts/run_all_etl.py
 python scripts/query_examples.py
 ```
 
+### One-time historical backfill (play-by-play & shifts)
+
+`run_all_etl.py` keeps `game_events` and `player_shifts` current for new
+games automatically. The *first* time you populate these tables, though,
+there are ~7,800+ historical games (6 seasons, regular season + playoffs)
+to backfill — realistically hours, not the seconds `run_all_etl.py`'s other
+steps take. Run this once, standalone, before your first `run_all_etl.py`
+run against a fresh database:
+
+```bash
+python -m etl.load_historical_schedule
+python -m etl.load_boxscores
+python -m etl.load_play_by_play
+python -m etl.load_shifts
+```
+
+Each script is idempotent and resumable (safe to re-run or interrupt
+partway through — already-loaded games are skipped). After this completes
+once, `python scripts/run_all_etl.py` is sufficient going forward; the
+same three steps run as fast no-ops when there's nothing new to load.
+
 ## Testing & local checks
 
 ```bash
