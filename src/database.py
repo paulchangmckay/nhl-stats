@@ -510,7 +510,15 @@ def ensure_team_stub(conn, team_id, abbrev="UNK", common_name="Unknown", place_n
     roster seed) don't fail. A later load_teams run does not overwrite this
     stub (upsert_team uses INSERT OR REPLACE keyed only on team_id, so if
     load_teams ever adds this ID with real data it will correctly replace
-    the stub — but until then the placeholder satisfies the FK)."""
+    the stub — but until then the placeholder satisfies the FK).
+
+    wolf-debt: rows joining through an unresolved stub render as
+    abbrev='UNK'/common_name='Unknown' with no warning, including for an
+    active team that load_teams unexpectedly fails to seed (not just
+    relocated/historical ones) -- upgrade trigger: when a reporting/metrics
+    layer starts querying teams by name, seed real historical team data
+    (e.g. via a static relocation table) or add a `WHERE abbrev='UNK'`
+    reconciliation check to surface any stub that's still unresolved."""
     conn.execute(
         "INSERT OR IGNORE INTO teams (team_id, abbrev, common_name, place_name) VALUES (?, ?, ?, ?)",
         (team_id, abbrev, common_name, place_name),
