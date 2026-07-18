@@ -168,6 +168,56 @@ CREATE TABLE IF NOT EXISTS player_career_stats (
 );
 """
 
+CREATE_GAME_EVENTS = """
+CREATE TABLE IF NOT EXISTS game_events (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id             INTEGER NOT NULL REFERENCES games(game_id),
+    event_id            INTEGER NOT NULL,
+    period              INTEGER NOT NULL,
+    time_in_period      TEXT,
+    situation_code      TEXT,
+    event_type          TEXT NOT NULL,
+    zone_code           TEXT,
+    x_coord             INTEGER,
+    y_coord             INTEGER,
+    shot_type           TEXT,
+    event_owner_team_id INTEGER REFERENCES teams(team_id),
+    shooting_player_id  INTEGER REFERENCES players(player_id),
+    blocking_player_id  INTEGER REFERENCES players(player_id),
+    goalie_in_net_id    INTEGER REFERENCES players(player_id),
+    assist1_player_id   INTEGER REFERENCES players(player_id),
+    assist2_player_id   INTEGER REFERENCES players(player_id),
+    details_json        TEXT,
+    created_at          TEXT DEFAULT (datetime('now')),
+    UNIQUE (game_id, event_id)
+);
+"""
+
+CREATE_GAME_EVENTS_INDEXES = [
+    "CREATE INDEX IF NOT EXISTS idx_game_events_team_type ON game_events(event_owner_team_id, event_type)",
+    "CREATE INDEX IF NOT EXISTS idx_game_events_shooter ON game_events(shooting_player_id)",
+]
+
+CREATE_PLAYER_SHIFTS = """
+CREATE TABLE IF NOT EXISTS player_shifts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id    INTEGER NOT NULL REFERENCES games(game_id),
+    shift_id   INTEGER NOT NULL,
+    player_id  INTEGER NOT NULL REFERENCES players(player_id),
+    team_id    INTEGER REFERENCES teams(team_id),
+    period     INTEGER NOT NULL,
+    start_time TEXT,
+    end_time   TEXT,
+    duration   TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE (game_id, shift_id)
+);
+"""
+
+CREATE_PLAYER_SHIFTS_INDEXES = [
+    "CREATE INDEX IF NOT EXISTS idx_player_shifts_player_game ON player_shifts(player_id, game_id)",
+]
+
 CREATE_SYNC_LOG = """
 CREATE TABLE IF NOT EXISTS sync_log (
     key          TEXT PRIMARY KEY,
@@ -211,7 +261,9 @@ def create_all_tables(conn):
     for sql in [CREATE_TEAMS, CREATE_SEASONS, CREATE_PLAYERS,
                 CREATE_GAMES, CREATE_PLAYER_GAME_STATS, CREATE_STANDINGS,
                 CREATE_PLAYER_SEASON_STATS, CREATE_PLAYER_CAREER_STATS,
-                CREATE_SYNC_LOG]:
+                CREATE_GAME_EVENTS, CREATE_PLAYER_SHIFTS, CREATE_SYNC_LOG]:
+        conn.execute(sql)
+    for sql in CREATE_GAME_EVENTS_INDEXES + CREATE_PLAYER_SHIFTS_INDEXES:
         conn.execute(sql)
     run_migrations(conn)
     conn.commit()
@@ -410,4 +462,64 @@ def insert_standings_snapshot(conn, s):
         (s["snapshot_date"], s["season_id"], s["team_id"], s["games_played"],
          s["wins"], s["losses"], s["ot_losses"], s["points"], s["regulation_wins"],
          s["goal_for"], s["goal_against"], s["point_pct"], s["streak_code"], s["streak_count"]),
+    )
+
+
+def insert_game_event(conn, e):
+    conn.execute(
+        "INSERT OR IGNORE INTO game_events "
+        "(game_id, event_id, period, time_in_period, situation_code, event_type, "
+        "zone_code, x_coord, y_coord, shot_type, event_owner_team_id, "
+        "shooting_player_id, blocking_player_id, goalie_in_net_id, "
+        "assist1_player_id, assist2_player_id, details_json) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (e["game_id"], e["event_id"], e["period"], e["time_in_period"],
+         e["situation_code"], e["event_type"], e["zone_code"], e["x_coord"],
+         e["y_coord"], e["shot_type"], e["event_owner_team_id"],
+         e["shooting_player_id"], e["blocking_player_id"], e["goalie_in_net_id"],
+         e["assist1_player_id"], e["assist2_player_id"], e["details_json"]),
+    )
+
+
+def insert_player_shift(conn, s):
+    conn.execute(
+        "INSERT OR IGNORE INTO player_shifts "
+        "(game_id, shift_id, player_id, team_id, period, start_time, end_time, duration) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (s["game_id"], s["shift_id"], s["player_id"], s["team_id"], s["period"],
+         s["start_time"], s["end_time"], s["duration"]),
+    )
+
+
+def ensure_player_stub(conn, player_id, first_name="Unknown", last_name=""):
+    """Inserts a minimal placeholder player row if player_id isn't already
+    present, so FK-constrained inserts (game_events, player_shifts) referencing
+    a not-yet-seen player don't fail. enrich_players.py's landing-API pass
+    (gated on position_code IS NULL) picks up any such stub and fills in the
+    real name/bio on its next run."""
+    conn.execute(
+        "INSERT OR IGNORE INTO players (player_id, first_name, last_name) VALUES (?, ?, ?)",
+        (player_id, first_name, last_name),
+    )
+
+
+def ensure_team_stub(conn, team_id, abbrev="UNK", common_name="Unknown", place_name="Unknown"):
+    """Inserts a minimal placeholder team row if team_id isn't already
+    present, so FK-constrained inserts referencing a relocated/historical
+    team (e.g. Arizona Coyotes, team_id 53, absent from load_teams' active-
+    roster seed) don't fail. A later load_teams run does not overwrite this
+    stub (upsert_team uses INSERT OR REPLACE keyed only on team_id, so if
+    load_teams ever adds this ID with real data it will correctly replace
+    the stub — but until then the placeholder satisfies the FK).
+
+    wolf-debt: rows joining through an unresolved stub render as
+    abbrev='UNK'/common_name='Unknown' with no warning, including for an
+    active team that load_teams unexpectedly fails to seed (not just
+    relocated/historical ones) -- upgrade trigger: when a reporting/metrics
+    layer starts querying teams by name, seed real historical team data
+    (e.g. via a static relocation table) or add a `WHERE abbrev='UNK'`
+    reconciliation check to surface any stub that's still unresolved."""
+    conn.execute(
+        "INSERT OR IGNORE INTO teams (team_id, abbrev, common_name, place_name) VALUES (?, ?, ?, ?)",
+        (team_id, abbrev, common_name, place_name),
     )
