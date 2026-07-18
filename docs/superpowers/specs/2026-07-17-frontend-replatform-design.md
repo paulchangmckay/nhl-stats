@@ -47,6 +47,12 @@ In scope:
    new design language, keeping the dark theme and the existing
    position-color-coding (C/L/R/D/G accent colors) as the palette carried
    forward, rather than pixel-matching every current CSS rule.
+6. Fetch-failure handling for all three API calls (`/api/teams`,
+   `/api/players`, `/api/players/stats`) — today's app leaves the page stuck
+   on "Loading…" forever on a network error. Fixed as part of this replatform
+   (see Frontend Design → Error handling) since the fetch logic is being
+   rebuilt regardless — not new functionality, a latent bug fixed in code
+   already being touched.
 
 Out of scope (explicitly not part of this project):
 - Any change to `app.py` or the three JSON API routes (`/api/teams`,
@@ -108,6 +114,26 @@ Out of scope (explicitly not part of this project):
   (API, :5099) and `npm run dev` in `frontend/` (Vite dev server, proxies
   `/api/*` to Flask). Production: `npm run build` once, then `python app.py`
   alone serves everything (same-origin, no proxy needed).
+- **`scripts/dev.sh`**: new convenience script (matches the project's existing
+  `scripts/*.sh` pattern, e.g. `scripts/audit.sh`, `scripts/launch_app.sh`)
+  that starts `python app.py` in the background, then runs `npm run dev`
+  (in `frontend/`) in the foreground, trapping exit to kill the backgrounded
+  Flask process on Ctrl+C. Documented in `README.md` as the one-command way
+  to run the app locally during development.
+- **Dark mode**: the app is always dark (no light/dark toggle exists or is
+  planned). shadcn's standard `init` still sets up its normal dual-palette
+  CSS-variable system (light + dark, toggled via a `.dark` class) — kept
+  as-is rather than hand-rolling a dark-only variant, so every future
+  `npx shadcn add <component>` drop-in stays compatible with zero edits.
+  The `.dark` class is simply hard-coded onto `<html>` in the shell
+  (`frontend/index.html` / `main.tsx`) and never toggled — light mode is
+  wired up but never activated.
+- **Node / package manager**: npm (matches the spec's existing `npm ci`/
+  `npm run build` references), Node 22 LTS pinned explicitly via
+  `actions/setup-node` in CI — same "pin the CI runtime explicitly" pattern
+  already used for Python (`python-version: "3.12"`). `frontend/package-lock.json`
+  is committed for reproducible installs. An `engines` field in
+  `package.json` (or a `.nvmrc`) documents the expected local Node version.
 
 ## Frontend Design
 
@@ -127,6 +153,22 @@ Out of scope (explicitly not part of this project):
   regression-tested behavior from `tests/js/search.test.js`'s 10 cases (name
   order, team abbrev/name/place matching, empty-query, non-match), which
   become the first Vitest suite ported over unchanged in intent.
+- **No runtime response validation** (no Zod/io-ts) — plain TypeScript
+  interfaces in `lib/types.ts` are the only contract check, enforced at
+  compile time only. This is a single-repo, single-maintainer project where
+  frontend and backend change together in the same PR, so the drift risk
+  Zod protects against barely exists here, and the failure mode if it did
+  drift (a blank cell, not a crash) is low-severity and easy to spot in a
+  tool with one user.
+
+### Error handling
+
+Each of the three fetches (`/api/teams`, `/api/players`,
+`/api/players/stats`) wraps in a `try/catch`. On failure, the affected
+section renders a shadcn `Alert` (destructive variant) with the error and a
+"Retry" button that re-runs the failed fetch — replacing today's behavior of
+an indefinite, unexplained "Loading…" state. This is a fix to latent
+behavior in code being rewritten regardless, not new functionality.
 
 ### Component-by-component mapping (today → replatformed)
 
@@ -163,14 +205,45 @@ the Bio card feature, not added to the table.
   build` as a required step before `python app.py`, mirroring the existing
   Python venv setup step.
 
+## Rollout Plan
+
+Four sequential PRs (each its own branch/worktree, each independently green
+in CI, `main` deployable after every one — not just the last):
+
+1. **Scaffold**: `frontend/` init (Vite + React + TS + Tailwind v4 + shadcn
+   `init`), empty `App.tsx` rendering a placeholder, `frontend` CI job added
+   and green, `scripts/dev.sh` added. Proves the build pipeline works before
+   any real component exists. Old vanilla app untouched and still live.
+2. **Toolbar components**: search/autocomplete, team picker, season picker,
+   position toggle, stat filters — built against static/mock data (not yet
+   wired to the real API). Old vanilla app still untouched and still what
+   Flask actually serves.
+3. **PlayerTable + real data**: wired to the actual `/api/teams`,
+   `/api/players`, `/api/players/stats` endpoints, sorting, error handling
+   (Alert + retry) implemented. The React app is now fully feature-complete,
+   but Flask still serves the old vanilla `index.html` — the new app is
+   reachable only via `npm run dev` for review/testing, not yet live.
+4. **Cutover**: delete `templates/index.html`'s old markup/inline script,
+   `static/js/search.js`, `tests/js/search.test.js`; replace with the minimal
+   Flask shell serving the built React app. Single commit/PR so there's no
+   window where both versions are half-live.
+
 ## Testing Plan
 
+- **Fetch mocking**: plain `vi.fn()`/`vi.stubGlobal('fetch', ...)` per test,
+  returning canned fixture JSON — no MSW. The three endpoints have no
+  request-matching complexity (no query-string routing logic to fake), so
+  MSW's network-layer interception is more infrastructure than this suite
+  needs.
 - **Vitest unit tests**: `lib/search.ts` — direct port of all 10 existing
   `search.test.js` cases.
 - **Vitest + React Testing Library component tests**:
   - `PlayerTable` sorts correctly on header click, toggles asc/desc on
     repeat click, renders goalie-specific columns only for `position_code
     === "G"` rows.
+  - Each of the three fetches renders the Alert+Retry error state on a
+    stubbed rejection, and recovers (re-fetches and renders data) when Retry
+    is clicked and the stub then resolves.
   - `Toolbar` filters (search, team, season, position, stat minimums) each
     narrow the rendered row set correctly in isolation and in combination
     (mirrors the 2026-07-02 spec's manual test plan items 1-2, now
