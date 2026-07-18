@@ -43,6 +43,12 @@ def run(conn):
     total = 0
 
     for season_id in SEASONS:
+        database.upsert_season(conn, {
+            "season_id": season_id,
+            "start_year": int(season_id[:4]),
+            "end_year": int(season_id[4:]),
+        })
+
         for game_type in GAME_TYPES:
             try:
                 games = api_client.get_season_games(season_id, game_type)
@@ -55,8 +61,12 @@ def run(conn):
                 if g.get("gameStateId") not in _GAME_STATE_MAP:
                     print(f"  Warning: game {g.get('id')} has unmapped "
                           f"gameStateId {g.get('gameStateId')!r}")
-                game = _extract_game(g)
-                database.insert_game(conn, game.__dict__)
+                try:
+                    game = _extract_game(g)
+                    database.insert_game(conn, game.__dict__)
+                except Exception as e:
+                    print(f"  Warning: could not insert game {g.get('id')}: {e}")
+                    continue
                 total += 1
 
             conn.commit()
