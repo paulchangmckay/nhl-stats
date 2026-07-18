@@ -1,5 +1,14 @@
 # Player Bio Card — Design
 
+> **Superseded 2026-07-17.** During spec review, scope expanded to a full
+> frontend replatform onto React + Tailwind + shadcn/ui (not just the modal).
+> Sequencing decision: replatform first as its own sub-project
+> (`docs/superpowers/specs/2026-07-17-frontend-replatform-design.md`), then
+> redo this Bio card design to build natively on the new stack instead of as
+> an isolated React island in a vanilla page. Kept here for history — the
+> "Decision reversal," "Build Pipeline," and "isolated modal" framing below no
+> longer reflect the intended approach.
+
 ## Context
 
 The player table (`templates/index.html`) currently has a Bio/Stats tab toggle:
