@@ -41,6 +41,12 @@ def _ensure_referenced_players(conn, row):
             database.ensure_player_stub(conn, player_id)
 
 
+def _ensure_referenced_team(conn, row):
+    team_id = row.get("event_owner_team_id")
+    if team_id is not None:
+        database.ensure_team_stub(conn, team_id)
+
+
 def run(conn):
     print("Loading play-by-play events for completed games...")
 
@@ -64,10 +70,15 @@ def run(conn):
             continue
 
         for play in data.get("plays", []):
-            event = _extract_event(game_id, play)
-            _ensure_referenced_players(conn, event)
-            database.insert_game_event(conn, event)
-            total_events += 1
+            try:
+                event = _extract_event(game_id, play)
+                _ensure_referenced_players(conn, event)
+                _ensure_referenced_team(conn, event)
+                database.insert_game_event(conn, event)
+                total_events += 1
+            except Exception as e:
+                print(f"  Warning: could not insert play-by-play event for game {game_id}: {e}")
+                continue
 
         conn.commit()
         time.sleep(REQUEST_DELAY_SECONDS)

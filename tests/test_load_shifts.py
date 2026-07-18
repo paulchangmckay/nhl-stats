@@ -71,3 +71,38 @@ def test_run_does_not_duplicate_shifts_on_second_invocation(conn, monkeypatch):
 
     count = conn.execute("SELECT COUNT(*) AS c FROM player_shifts").fetchone()["c"]
     assert count == 1
+
+
+def test_run_stubs_unseeded_shift_team_before_insert(conn, monkeypatch):
+    """Regression for Finding 1: player_shifts.team_id is FK-referenced
+    (teams) but a relocated/historical team (e.g. Arizona Coyotes, team_id
+    53) may not yet be in the teams table. run() must stub it before
+    insert_player_shift, or the FK constraint raises and the game is
+    dropped."""
+    database.insert_game(conn, {
+        "game_id": 2020020001, "season_id": None, "game_type": 2,
+        "game_date": "2020-10-04", "venue": None, "home_team_id": None,
+        "away_team_id": None, "home_score": 1, "away_score": 4,
+        "last_period_type": "REG", "game_state": "OFF",
+    })
+    conn.commit()
+
+    fake_shifts = [{
+        "id": 14376602, "playerId": 8474593, "teamId": 53, "period": 1,
+        "startTime": "00:00", "endTime": "17:15", "duration": "17:15",
+        "firstName": "Jacob", "lastName": "Markstrom",
+    }]
+
+    import etl.load_shifts as module
+    monkeypatch.setattr(module.api_client, "get_shift_chart", lambda gid: fake_shifts)
+    monkeypatch.setattr(module.time, "sleep", lambda s: None)
+
+    module.run(conn)  # must not raise IntegrityError
+
+    team_row = conn.execute("SELECT 1 FROM teams WHERE team_id = ?", (53,)).fetchone()
+    shift_row = conn.execute(
+        "SELECT team_id FROM player_shifts WHERE game_id = ?", (2020020001,)
+    ).fetchone()
+    assert team_row is not None
+    assert shift_row is not None
+    assert shift_row["team_id"] == 53

@@ -44,14 +44,21 @@ def run(conn):
             continue
 
         for shift in shifts:
-            database.ensure_player_stub(
-                conn, shift["playerId"],
-                first_name=shift.get("firstName", "Unknown"),
-                last_name=shift.get("lastName", ""),
-            )
-            record = _extract_shift(game_id, shift)
-            database.insert_player_shift(conn, record)
-            total_shifts += 1
+            try:
+                database.ensure_player_stub(
+                    conn, shift["playerId"],
+                    first_name=shift.get("firstName", "Unknown"),
+                    last_name=shift.get("lastName", ""),
+                )
+                team_id = shift.get("teamId")
+                if team_id is not None:
+                    database.ensure_team_stub(conn, team_id)
+                record = _extract_shift(game_id, shift)
+                database.insert_player_shift(conn, record)
+                total_shifts += 1
+            except Exception as e:
+                print(f"  Warning: could not insert shift for game {game_id}: {e}")
+                continue
 
         conn.commit()
         time.sleep(REQUEST_DELAY_SECONDS)

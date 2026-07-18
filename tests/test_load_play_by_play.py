@@ -111,3 +111,38 @@ def test_run_does_not_duplicate_events_on_second_invocation(conn, monkeypatch):
 
     count = conn.execute("SELECT COUNT(*) AS c FROM game_events").fetchone()["c"]
     assert count == 1
+
+
+def test_run_stubs_unseeded_event_owner_team_before_insert(conn, monkeypatch):
+    """Regression for Finding 1: event_owner_team_id is FK-referenced (teams)
+    but a relocated/historical team (e.g. Arizona Coyotes, team_id 53) may
+    not yet be in the teams table. run() must stub it before
+    insert_game_event, or the FK constraint raises and the game is dropped."""
+    database.insert_game(conn, {
+        "game_id": 2020020001, "season_id": None, "game_type": 2,
+        "game_date": "2020-10-04", "venue": None, "home_team_id": None,
+        "away_team_id": None, "home_score": 1, "away_score": 4,
+        "last_period_type": "REG", "game_state": "OFF",
+    })
+    conn.commit()
+
+    fake_plays = {"plays": [{
+        "eventId": 103, "periodDescriptor": {"number": 1}, "timeInPeriod": "00:08",
+        "situationCode": "1551", "typeDescKey": "shot-on-goal",
+        "details": {"xCoord": 56, "yCoord": -39, "shootingPlayerId": 8483495,
+                     "eventOwnerTeamId": 53},
+    }]}
+
+    import etl.load_play_by_play as module
+    monkeypatch.setattr(module.api_client, "get_play_by_play", lambda gid: fake_plays)
+    monkeypatch.setattr(module.time, "sleep", lambda s: None)
+
+    module.run(conn)  # must not raise IntegrityError
+
+    team_row = conn.execute("SELECT 1 FROM teams WHERE team_id = ?", (53,)).fetchone()
+    event_row = conn.execute(
+        "SELECT event_owner_team_id FROM game_events WHERE game_id = ?", (2020020001,)
+    ).fetchone()
+    assert team_row is not None
+    assert event_row is not None
+    assert event_row["event_owner_team_id"] == 53

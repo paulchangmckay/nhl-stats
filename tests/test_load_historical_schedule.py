@@ -1,4 +1,4 @@
-from etl.load_historical_schedule import _map_game_state, _extract_game
+from etl.load_historical_schedule import _map_game_state, _extract_game, run
 from src import database
 
 
@@ -73,3 +73,32 @@ def test_insert_game_succeeds_for_unseeded_season_when_seeded_first(conn):
     assert season_row is not None
     assert game_row is not None
     assert game_row["season_id"] == season_id
+
+
+def test_run_stubs_unseeded_team_before_inserting_game(conn, monkeypatch):
+    """Regression for Finding 1: team_id 53 (Arizona Coyotes) played in the
+    backfill seasons but is absent from load_teams' active-roster seed.
+    run() must stub home/away team ids before insert_game, or the FK
+    constraint silently drops every game for a relocated/historical team."""
+    fake_game = {
+        "id": 2020020001, "season": 20202021, "gameType": 2,
+        "gameDate": "2020-10-04", "homeTeamId": 53, "visitingTeamId": 7,
+        "homeScore": 1, "visitingScore": 4, "gameStateId": 7,
+    }
+
+    import etl.load_historical_schedule as module
+    monkeypatch.setattr(module.api_client, "get_season_games", lambda season_id, game_type: [fake_game])
+
+    run(conn)
+
+    team_53 = conn.execute("SELECT 1 FROM teams WHERE team_id = ?", (53,)).fetchone()
+    team_7 = conn.execute("SELECT 1 FROM teams WHERE team_id = ?", (7,)).fetchone()
+    game_row = conn.execute(
+        "SELECT home_team_id, away_team_id FROM games WHERE game_id = ?", (2020020001,)
+    ).fetchone()
+
+    assert team_53 is not None
+    assert team_7 is not None
+    assert game_row is not None
+    assert game_row["home_team_id"] == 53
+    assert game_row["away_team_id"] == 7

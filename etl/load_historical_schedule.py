@@ -63,6 +63,10 @@ def run(conn):
                           f"gameStateId {g.get('gameStateId')!r}")
                 try:
                     game = _extract_game(g)
+                    if game.home_team_id is not None:
+                        database.ensure_team_stub(conn, game.home_team_id)
+                    if game.away_team_id is not None:
+                        database.ensure_team_stub(conn, game.away_team_id)
                     database.insert_game(conn, game.__dict__)
                 except Exception as e:
                     print(f"  Warning: could not insert game {g.get('id')}: {e}")

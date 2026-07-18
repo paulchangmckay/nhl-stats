@@ -501,3 +501,17 @@ def ensure_player_stub(conn, player_id, first_name="Unknown", last_name=""):
         "INSERT OR IGNORE INTO players (player_id, first_name, last_name) VALUES (?, ?, ?)",
         (player_id, first_name, last_name),
     )
+
+
+def ensure_team_stub(conn, team_id, abbrev="UNK", common_name="Unknown", place_name="Unknown"):
+    """Inserts a minimal placeholder team row if team_id isn't already
+    present, so FK-constrained inserts referencing a relocated/historical
+    team (e.g. Arizona Coyotes, team_id 53, absent from load_teams' active-
+    roster seed) don't fail. A later load_teams run does not overwrite this
+    stub (upsert_team uses INSERT OR REPLACE keyed only on team_id, so if
+    load_teams ever adds this ID with real data it will correctly replace
+    the stub — but until then the placeholder satisfies the FK)."""
+    conn.execute(
+        "INSERT OR IGNORE INTO teams (team_id, abbrev, common_name, place_name) VALUES (?, ?, ?, ?)",
+        (team_id, abbrev, common_name, place_name),
+    )

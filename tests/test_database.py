@@ -128,3 +128,59 @@ def test_ensure_player_stub_does_not_overwrite_existing_player(conn):
     ).fetchone()
     assert row["first_name"] == "Test"  # from _stub_player, unchanged
     assert row["position_code"] == "C"
+
+
+def test_ensure_team_stub_creates_placeholder_when_missing(conn):
+    database.ensure_team_stub(conn, 999, abbrev="ARI", common_name="Coyotes", place_name="Arizona")
+    conn.commit()
+
+    row = conn.execute(
+        "SELECT abbrev, common_name, place_name FROM teams WHERE team_id = ?", (999,)
+    ).fetchone()
+    assert row["abbrev"] == "ARI"
+    assert row["common_name"] == "Coyotes"
+    assert row["place_name"] == "Arizona"
+
+
+def test_ensure_team_stub_does_not_overwrite_existing_team(conn):
+    database.upsert_team(conn, {
+        "team_id": 5, "abbrev": "BUF", "common_name": "Sabres", "place_name": "Buffalo",
+        "conference": "Eastern", "division": "Atlantic",
+    })
+    conn.commit()
+
+    database.ensure_team_stub(conn, 5, abbrev="XXX", common_name="Should", place_name="NotApply")
+    conn.commit()
+
+    row = conn.execute(
+        "SELECT abbrev, common_name, place_name FROM teams WHERE team_id = ?", (5,)
+    ).fetchone()
+    assert row["abbrev"] == "BUF"  # from upsert_team, unchanged
+    assert row["common_name"] == "Sabres"
+    assert row["place_name"] == "Buffalo"
+
+
+def test_insert_game_succeeds_for_relocated_team_when_stubbed_first(conn):
+    """Regression for Finding 1: team_id 53 (Arizona Coyotes) is absent from
+    load_teams' active-roster seed. ensure_team_stub must let insert_game
+    succeed for a game referencing it instead of raising IntegrityError."""
+    database.ensure_team_stub(conn, 53, abbrev="ARI", common_name="Coyotes", place_name="Arizona")
+    database.ensure_team_stub(conn, 7, abbrev="BUF", common_name="Sabres", place_name="Buffalo")
+    conn.commit()
+
+    database.insert_game(conn, {
+        "game_id": 2021020001, "season_id": None, "game_type": 2,
+        "game_date": "2021-10-04", "venue": None,
+        "home_team_id": 53, "away_team_id": 7,
+        "home_score": None, "away_score": None,
+        "last_period_type": None, "game_state": None,
+    })  # must not raise IntegrityError
+    conn.commit()
+
+    game_row = conn.execute(
+        "SELECT game_id, home_team_id, away_team_id FROM games WHERE game_id = ?",
+        (2021020001,),
+    ).fetchone()
+    assert game_row is not None
+    assert game_row["home_team_id"] == 53
+    assert game_row["away_team_id"] == 7
