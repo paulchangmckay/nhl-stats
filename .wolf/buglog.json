@@ -108,6 +108,18 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-17T00:00:00.000Z"
+    },
+    {
+      "id": "bug-010",
+      "timestamp": "2026-07-17T00:00:00.000Z",
+      "error_message": "sqlite3.IntegrityError: FOREIGN KEY constraint failed when calling insert_game_event from etl.load_play_by_play.run() in the task-4-brief's own verbatim idempotency test (test_run_does_not_duplicate_events_on_second_invocation)",
+      "file": "tests/test_load_play_by_play.py",
+      "root_cause": "game_events.event_owner_team_id is `INTEGER REFERENCES teams(team_id)`, a separate FK from the game_id one bug-009 already covered. The task-4-brief's fake_plays test fixture sets `eventOwnerTeamId: 1` in the play details, which _extract_event carries through to event_owner_team_id=1 on the row passed to insert_game_event. The conn fixture's fresh test db (PRAGMA foreign_keys=ON) has no teams row for team_id=1 — unlike production, where load_teams.py always populates the teams table before load_play_by_play.py runs — so the FK check fails on the very first insert_game_event call inside run(). _ensure_referenced_players() only stubs player_id FKs (shooting/blocking/goalie/assist1/assist2) via database.ensure_player_stub(); there is no analogous ensure_team_stub() helper, and none was needed since only test data references an unseeded team.",
+      "fix": "Added `database.upsert_team(conn, {\"team_id\": 1, \"abbrev\": \"TST\", \"common_name\": \"Test\", \"place_name\": \"Test\", \"conference\": None, \"division\": None})` as a setup step at the top of the idempotency test, before insert_game/run(). upsert_team already existed in src/database.py (used by etl/load_teams.py) and needed no changes. etl/load_play_by_play.py's production code was NOT changed — this was purely a missing test-setup step, same class of gap as bug-009 but on a different FK column.",
+      "tags": ["sqlite", "foreign-key", "test-setup", "database", "play-by-play"],
+      "related_bugs": ["bug-009"],
+      "occurrences": 1,
+      "last_seen": "2026-07-17T00:00:00.000Z"
     }
   ]
 }
