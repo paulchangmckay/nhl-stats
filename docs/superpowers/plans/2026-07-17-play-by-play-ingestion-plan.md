@@ -870,6 +870,15 @@ def test_run_does_not_duplicate_shifts_on_second_invocation(conn, monkeypatch):
     })
     conn.commit()
 
+    # player_shifts.team_id is also FK-referenced (teams); seed it here since
+    # this test's fake data uses a real teamId (bug-010 in .wolf/buglog.json
+    # covers the identical gap found in Task 4's own idempotency test).
+    database.upsert_team(conn, {
+        "team_id": 1, "abbrev": "NJD", "common_name": "Devils",
+        "place_name": "New Jersey", "conference": "Eastern", "division": "Metropolitan",
+    })
+    conn.commit()
+
     fake_shifts = [{
         "id": 14376602, "playerId": 8474593, "teamId": 1, "period": 1,
         "startTime": "00:00", "endTime": "17:15", "duration": "17:15",
