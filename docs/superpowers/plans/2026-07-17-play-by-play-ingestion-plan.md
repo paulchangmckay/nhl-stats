@@ -669,10 +669,14 @@ from src import database
 
 
 def test_run_does_not_duplicate_events_on_second_invocation(conn, monkeypatch):
+    # season_id/home_team_id/away_team_id are FK-referenced (seasons/teams)
+    # under the conn fixture's PRAGMA foreign_keys=ON; left None here since
+    # this test only needs a valid, pending games row to exist (bug-009 in
+    # .wolf/buglog.json covers the same gap found in Task 1's own tests).
     database.insert_game(conn, {
-        "game_id": 2024020001, "season_id": "20242025", "game_type": 2,
-        "game_date": "2024-10-04", "venue": None, "home_team_id": 7,
-        "away_team_id": 1, "home_score": 1, "away_score": 4,
+        "game_id": 2024020001, "season_id": None, "game_type": 2,
+        "game_date": "2024-10-04", "venue": None, "home_team_id": None,
+        "away_team_id": None, "home_score": 1, "away_score": 4,
         "last_period_type": "REG", "game_state": "OFF",
     })
     conn.commit()
@@ -854,10 +858,14 @@ from src import database
 
 
 def test_run_does_not_duplicate_shifts_on_second_invocation(conn, monkeypatch):
+    # season_id/home_team_id/away_team_id are FK-referenced (seasons/teams)
+    # under the conn fixture's PRAGMA foreign_keys=ON; left None here since
+    # this test only needs a valid, pending games row to exist (bug-009 in
+    # .wolf/buglog.json covers the same gap found in Task 1's own tests).
     database.insert_game(conn, {
-        "game_id": 2024020001, "season_id": "20242025", "game_type": 2,
-        "game_date": "2024-10-04", "venue": None, "home_team_id": 7,
-        "away_team_id": 1, "home_score": 1, "away_score": 4,
+        "game_id": 2024020001, "season_id": None, "game_type": 2,
+        "game_date": "2024-10-04", "venue": None, "home_team_id": None,
+        "away_team_id": None, "home_score": 1, "away_score": 4,
         "last_period_type": "REG", "game_state": "OFF",
     })
     conn.commit()
