@@ -35,6 +35,27 @@ python scripts/run_all_etl.py
 python scripts/query_examples.py
 ```
 
+### Frontend (React + Vite)
+
+Install once:
+```bash
+cd frontend && npm install
+```
+
+Run both the Flask API and the Vite dev server with one command:
+```bash
+./scripts/dev.sh
+```
+This starts Flask on `http://127.0.0.1:5099` and the Vite dev server on
+`http://localhost:5173` (which proxies `/api/*` to Flask). Ctrl+C stops both.
+
+For a production-style run, build the frontend once and let Flask serve
+everything:
+```bash
+cd frontend && npm run build
+cd .. && python app.py
+```
+
 ## Testing & local checks
 
 ```bash
