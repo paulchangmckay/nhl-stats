@@ -96,6 +96,18 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-14T00:00:00.000Z"
+    },
+    {
+      "id": "bug-009",
+      "timestamp": "2026-07-17T00:00:00.000Z",
+      "error_message": "sqlite3.IntegrityError: FOREIGN KEY constraint failed when calling insert_game_event/insert_player_shift in the task-1-brief's own verbatim test code (test_insert_game_event_is_idempotent, test_insert_player_shift_is_idempotent)",
+      "file": "tests/test_database.py",
+      "root_cause": "game_events.game_id and player_shifts.game_id are both `INTEGER NOT NULL REFERENCES games(game_id)`. The shared `conn` pytest fixture goes through database.get_connection(), which sets `PRAGMA foreign_keys = ON`, so FK enforcement is active in tests. The task-1-brief's test code stubs the player_id FK via ensure_player_stub()/_stub_player() but never inserts a games row for game_id=100 before inserting a game_events/player_shifts row referencing it — SQLite's `INSERT OR IGNORE` only suppresses UNIQUE/PK/NOT NULL/CHECK conflicts, not FOREIGN KEY violations (confirmed via an isolated repro), so the insert raises IntegrityError instead of being silently skipped.",
+      "fix": "Added a `_stub_game(conn, game_id)` test helper in tests/test_database.py (mirrors the existing `_stub_player` convention) that calls database.insert_game() with a minimal games row (only game_date is NOT NULL in the games table; season_id/team ids can be None since NULL FK values are never checked). Called `_stub_game(conn, 100)` at the top of both idempotency tests before the game_events/player_shifts inserts. Schema and insert_game_event/insert_player_shift/ensure_player_stub implementations in src/database.py were NOT changed — this was purely a missing test-setup step.",
+      "tags": ["sqlite", "foreign-key", "test-setup", "database"],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-17T00:00:00.000Z"
     }
   ]
 }
