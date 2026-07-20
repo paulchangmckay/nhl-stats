@@ -5,3 +5,13 @@ import "@testing-library/jest-dom/vitest";
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
+
+// jsdom doesn't implement ResizeObserver — cmdk's Command primitive (used by
+// TeamPicker, Task 9) observes item sizes on mount and throws without it.
+if (!window.ResizeObserver) {
+  window.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
