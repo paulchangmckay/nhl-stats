@@ -4,7 +4,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.database import get_connection
 from etl import (
-    load_teams, load_standings, load_rosters, load_schedule, load_boxscores,
+    load_teams, load_standings, load_rosters, load_schedule,
+    load_historical_schedule, load_boxscores, load_play_by_play, load_shifts,
     load_season_stats, enrich_players,
 )
 
@@ -15,7 +16,10 @@ steps = [
     ("Standings", load_standings),
     ("Rosters / Players", load_rosters),
     ("Schedule / Games", load_schedule),
+    ("Historical Schedule Backfill", load_historical_schedule),
     ("Boxscores / Player Stats", load_boxscores),
+    ("Play-by-Play Events", load_play_by_play),
+    ("Shift Charts", load_shifts),
     ("Season Stats (historical)", load_season_stats),
     ("Player Enrichment (bio / draft / career)", enrich_players),
 ]

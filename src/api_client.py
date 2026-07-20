@@ -66,3 +66,21 @@ def get_season_stats(season_id, game_type, player_type, limit=100, start=0):
 def get_player_landing(player_id):
     """Full player profile including draft info, bio, and career totals."""
     return _get(f"{BASE_WEB}/player/{player_id}/landing")
+
+
+def get_season_games(season_id, game_type):
+    """Returns every game for a season/gameType in one unpaginated call."""
+    url = f"{BASE_STATS}/game?cayenneExp=season={season_id}%20and%20gameType={game_type}"
+    data = _get(url)
+    return data.get("data", [])
+
+
+def get_play_by_play(game_id):
+    """Returns the full play-by-play feed for a game; caller reads data['plays']."""
+    return _get(f"{BASE_WEB}/gamecenter/{game_id}/play-by-play")
+
+
+def get_shift_chart(game_id):
+    """Returns per-player shift records for a game."""
+    data = _get(f"{BASE_STATS}/shiftcharts?cayenneExp=gameId={game_id}")
+    return data.get("data", [])
