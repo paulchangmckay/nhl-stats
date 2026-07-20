@@ -14,3 +14,4 @@ env/
 .ipynb_checkpoints/
 .claude/worktrees/
 .run/
+node_modules/

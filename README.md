@@ -56,6 +56,20 @@ partway through — already-loaded games are skipped). After this completes
 once, `python scripts/run_all_etl.py` is sufficient going forward; the
 same three steps run as fast no-ops when there's nothing new to load.
 
+### Frontend (React + Vite)
+
+Install once:
+```bash
+cd frontend && npm install
+```
+
+Run both the Flask API and the Vite dev server with one command:
+```bash
+./scripts/dev.sh
+```
+This starts Flask on `http://127.0.0.1:5099` and the Vite dev server on
+`http://localhost:5173` (which proxies `/api/*` to Flask). Ctrl+C stops both.
+
 ## Testing & local checks
 
 ```bash
