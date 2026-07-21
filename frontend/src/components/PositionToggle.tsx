@@ -3,11 +3,11 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 const POSITIONS = ["C", "L", "R", "D", "G"] as const;
 
 const POSITION_CLASSES: Record<(typeof POSITIONS)[number], string> = {
-  C: "text-green-500 data-[state=on]:bg-green-500 data-[state=on]:text-background",
-  L: "text-blue-400 data-[state=on]:bg-blue-400 data-[state=on]:text-background",
-  R: "text-sky-300 data-[state=on]:bg-sky-300 data-[state=on]:text-background",
-  D: "text-purple-300 data-[state=on]:bg-purple-300 data-[state=on]:text-background",
-  G: "text-orange-400 data-[state=on]:bg-orange-400 data-[state=on]:text-background",
+  C: "text-green-500 aria-pressed:bg-green-500 aria-pressed:text-background",
+  L: "text-blue-400 aria-pressed:bg-blue-400 aria-pressed:text-background",
+  R: "text-sky-300 aria-pressed:bg-sky-300 aria-pressed:text-background",
+  D: "text-purple-300 aria-pressed:bg-purple-300 aria-pressed:text-background",
+  G: "text-orange-400 aria-pressed:bg-orange-400 aria-pressed:text-background",
 };
 
 interface PositionToggleProps {
