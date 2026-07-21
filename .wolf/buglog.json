@@ -132,6 +132,42 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-20T00:00:00.000Z"
+    },
+    {
+      "id": "bug-012",
+      "timestamp": "2026-07-20T00:00:00.000Z",
+      "error_message": "userEvent.type() on a fully-controlled <Input value={prop} onChange={...}> only ever registers the final keystroke (e.g. typing \"20\" into StatFilters produces onChange({...gp: 0}) instead of gp: 20; typing \"McDavid\" into Toolbar's search box leaves filters.search stuck at one character)",
+      "file": "frontend/src/components/StatFilters.tsx, frontend/src/components/Toolbar.tsx",
+      "root_cause": "Both components' task briefs specified a naive fully-controlled input (value={someProp}, onChange calls the parent's setter and nothing else). This works fine against a REAL stateful parent (which re-renders with the updated value before the next keystroke), but fails against a test that passes a stateless vi.fn() mock as onChange — the DOM input's value prop never advances between keystrokes, so each keystroke event fires against a stale prop value and overwrites rather than accumulates. Confirmed empirically both times by reverting to the brief's literal naive code and rerunning the test (deterministic failure, not flaky).",
+      "fix": "Added local useState seeded from the prop, synced back to the prop's value via a useEffect keyed on the prop (so external resets/clears still take effect), with onChange updating both local state and calling the parent's handler. Same pattern applied independently in both components since neither was aware of the other's fix at review time — worth extracting to a shared useControlledInput-style hook if a third text input appears in this codebase.",
+      "tags": ["frontend", "react", "controlled-input", "testing", "vitest"],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-07-20T00:00:00.000Z"
+    },
+    {
+      "id": "bug-013",
+      "timestamp": "2026-07-20T00:00:00.000Z",
+      "error_message": "PositionToggle's active/selected position chip renders generic muted-gray instead of its intended per-position color (green for C, blue for L, etc.) — not caught by npm test or npm run build, only by a whole-branch visual review",
+      "file": "frontend/src/components/PositionToggle.tsx",
+      "root_cause": "POSITION_CLASSES styled the active state via `data-[state=on]:bg-{color}` — a Radix Toggle attribute. This project's shadcn primitives are Base UI-backed (see bug-011), and Base UI's Toggle never emits `data-state`; it exposes pressed state via `aria-pressed` instead (confirmed by shadcn's own toggle.tsx base variant already pairing `aria-pressed:bg-muted` alongside the vestigial `data-[state=on]:bg-muted`). Since the toggle still functioned (onChange fired correctly, tests only checked click behavior and button presence, never computed CSS), this was invisible to every automated gate — caught only when a whole-branch review specifically looked for other latent Radix-idiom survivors after bug-011.",
+      "fix": "Swapped `data-[state=on]:` to `aria-pressed:` for all five position color rules. Verified visually via a headless Playwright check against the live dev server (confirmed aria-pressed=\"true\" plus the correct background-color on click) since jsdom/Vitest cannot observe computed CSS from data-attribute vs aria-attribute selectors.",
+      "tags": ["frontend", "css", "base-ui", "visual-regression", "tailwind"],
+      "related_bugs": ["bug-011"],
+      "occurrences": 1,
+      "last_seen": "2026-07-20T00:00:00.000Z"
+    },
+    {
+      "id": "bug-014",
+      "timestamp": "2026-07-20T00:00:00.000Z",
+      "error_message": "PlayerTable's sticky column header silently fails to stay pinned when scrolling the surrounding bounded-height table pane — reintroduces bug-008's exact symptom, only visible in a real browser (jsdom cannot render position:sticky layout)",
+      "file": "frontend/src/components/ui/table.tsx",
+      "root_cause": "shadcn's generated Table wrapper set `overflow-x-auto` on its inner `table-container` div without setting `overflow-y`. Per the CSS Overflow spec, an unset axis defaults to `visible`, but when the OTHER axis is anything other than `visible`, the browser computes BOTH axes as `auto` — so `table-container` silently became its own scroll container / sticky-positioning containing block, even though it has no bounded height of its own (it grows to fit content). The actual bounded-height, user-visible scroll pane is the OUTER `table-wrap` div (App.tsx, ported from bug-008's original fix). PlayerTable's `sticky top-0` header thus anchored to the wrong (non-scrolling) container and scrolled away with the rest of the table content instead of staying pinned. No automated test caught this — jsdom cannot evaluate position:sticky against real scroll geometry — it surfaced only via a whole-branch review's explicit instruction to verify layout claims in a real browser.",
+      "fix": "Removed `overflow-x-auto` from table-container's className (now just `relative w-full`), leaving table-wrap as the sole scroll container on both axes (it already has overflow-auto covering horizontal scroll too). Verified via Playwright against the real API with 1038 rows: header bounding-box y-position moved -500px in lockstep with a 500px scroll before the fix, stayed fixed at the same y after.",
+      "tags": ["frontend", "css", "sticky-header", "shadcn", "visual-regression", "table"],
+      "related_bugs": ["bug-008"],
+      "occurrences": 1,
+      "last_seen": "2026-07-20T00:00:00.000Z"
     }
   ]
 }
