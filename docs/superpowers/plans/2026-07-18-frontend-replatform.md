@@ -18,7 +18,8 @@
 - **Fetch mocking in tests**: plain `vi.fn()` / `vi.stubGlobal('fetch', ...)` with canned fixture JSON. No MSW.
 - **No new dependencies beyond what each task lists.** No icon library beyond shadcn's `lucide-react`, no state-management library, no CSS-in-JS.
 - **Four-phase rollout, each its own branch/PR:** Phase 1 (Tasks 1-4) scaffold, Phase 2 (Tasks 5-11) toolbar components against mock data, Phase 3 (Tasks 12-15) real data + error handling, Phase 4 (Tasks 16-17) cutover. The old vanilla app stays exactly as-is and is what Flask actually serves until Task 16 — Phases 1-3 are additive only, never touching `templates/index.html`, `static/js/search.js`, or `tests/js/search.test.js`.
-- **Every ported behavior must match today's exactly**: the 10 existing `tests/js/search.test.js` cases, the season-multi-select mutual-exclusivity rule, the sticky-header bounded-scroll-container technique (`bug-008` fix, `.wolf/buglog.json`), and the goalie-vs-skater column set.
+- **Every ported behavior must match today's exactly**: the 10 existing `tests/js/search.test.js` cases, the season-multi-select mutual-exclusivity rule, and the sticky-header bounded-scroll-container technique (`bug-008` fix, `.wolf/buglog.json`).
+- **Goalie-vs-skater column set is intentionally trimmed, not a pixel-for-pixel port.** `PlayerTable` (Task 12) renders 16 columns, not the vanilla table's 21 — PPG/SHG/Shots (skaters) and OTL/SO (goalies) are dropped — and goalie-only columns (W/L/SV%/GAA) are hidden entirely when no goalie is present in the current view, rather than always rendered. Confirmed as the intended Phase 3 design (decided 2026-07-21, during Phase 3's final whole-branch review) — the reduced set was flagged as a "match today's exactly" conflict and explicitly kept over restoring full parity.
 
 ---
 
