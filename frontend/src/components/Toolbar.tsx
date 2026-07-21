@@ -51,7 +51,7 @@ export function Toolbar({
     : [];
 
   return (
-    <div className="flex flex-col gap-3 border-b border-border bg-card p-4">
+    <div data-toolbar className="flex flex-col gap-3 border-b border-border bg-card p-4">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-semibold">NHL Players</h1>
         <div className="relative">

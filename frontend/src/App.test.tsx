@@ -95,4 +95,14 @@ describe("App", () => {
       expect(row).toHaveClass("row-highlight");
     });
   });
+
+  it("wraps the table in a single bounded-height scroll container (bug-008 regression guard)", async () => {
+    render(<App />);
+    await screen.findByText("MacKinnon");
+    const wrap = document.querySelector('[data-testid="table-wrap"]');
+    expect(wrap).not.toBeNull();
+    const style = wrap!.getAttribute("style") || "";
+    expect(style).toMatch(/height/);
+    expect(wrap).toHaveClass("overflow-auto");
+  });
 });

@@ -65,6 +65,21 @@ export default function App() {
   useEffect(loadPlayers, []);
   useEffect(() => loadStats(seasons), [seasons]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    function updateToolbarHeight() {
+      const toolbar = document.querySelector("[data-toolbar]");
+      if (toolbar) {
+        document.documentElement.style.setProperty(
+          "--toolbar-height",
+          `${toolbar.getBoundingClientRect().height}px`
+        );
+      }
+    }
+    updateToolbarHeight();
+    window.addEventListener("resize", updateToolbarHeight);
+    return () => window.removeEventListener("resize", updateToolbarHeight);
+  }, [filters, seasons]);
+
   const rows = useMemo(() => {
     if (playersState.status !== "ready") return [];
     const stats = statsCache[seasonsKey(seasons)] ?? [];
@@ -174,7 +189,13 @@ export default function App() {
           <Button onClick={() => loadStats(seasons)} className="mt-2">Retry</Button>
         </Alert>
       ) : (
-        <PlayerTable rows={rows} sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+        <div
+          data-testid="table-wrap"
+          className="overflow-auto"
+          style={{ height: "max(200px, calc(100vh - var(--toolbar-height, 120px)))" }}
+        >
+          <PlayerTable rows={rows} sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+        </div>
       )}
     </div>
   );
