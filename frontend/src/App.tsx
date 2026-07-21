@@ -192,7 +192,7 @@ export default function App() {
         <div
           data-testid="table-wrap"
           className="overflow-auto"
-          style={{ height: "max(200px, calc(100vh - var(--toolbar-height, 120px)))" }}
+          style={{ height: "max(200px, calc(100vh - var(--toolbar-height, 57px)))" }}
         >
           <PlayerTable rows={rows} sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
         </div>
