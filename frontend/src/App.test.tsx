@@ -63,6 +63,35 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByText("MacKinnon")).toBeInTheDocument());
   });
 
+  it("shows an error alert with a retry button when the teams fetch fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        url.includes("/api/teams")
+          ? Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) } as Response)
+          : mockFetchOnce(url)
+      )
+    );
+    render(<App />);
+    expect(await screen.findByText(/failed to load teams/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+  });
+
+  it("shows an inline error alert with a retry button when the stats fetch fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        url.includes("/api/players/stats")
+          ? Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) } as Response)
+          : mockFetchOnce(url)
+      )
+    );
+    render(<App />);
+    await screen.findByText("NHL Players");
+    expect(await screen.findByText(/failed to load stats/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+  });
+
   it("narrows rows when a search query is typed", async () => {
     render(<App />);
     await screen.findByText("MacKinnon");
