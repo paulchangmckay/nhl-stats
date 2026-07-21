@@ -120,6 +120,18 @@
       "related_bugs": ["bug-009"],
       "occurrences": 1,
       "last_seen": "2026-07-17T00:00:00.000Z"
+    },
+    {
+      "id": "bug-011",
+      "timestamp": "2026-07-20T00:00:00.000Z",
+      "error_message": "npm run build fails: src/components/PositionToggle.tsx(27,18): error TS2322: Type '{ children: Element[]; type: string; value: string[]; }' is not assignable to type ... Property 'type' does not exist on type ...",
+      "file": "frontend/src/components/PositionToggle.tsx",
+      "root_cause": "PositionToggle.tsx used `<ToggleGroup type=\"multiple\" value={Array.from(active)}>`, a Radix ToggleGroup idiom (Radix needs `type` to pick single- vs multi-select mode). This project's shadcn primitive (frontend/src/components/ui/toggle-group.tsx) wraps @base-ui/react's ToggleGroup, not Radix's, and Base UI's ToggleGroupProps (frontend/node_modules/@base-ui/react/toggle-group/ToggleGroup.d.ts) has no `type` prop at all — it has value/defaultValue/onValueChange/disabled/orientation/loopFocus/multiple instead. The Task 7 review only ran Vitest (which doesn't type-check JSX prop shapes against Radix vs Base UI signatures), not `npm run build`/`tsc`, so the invalid prop slipped through. Verified via ToggleGroup.js/Toggle.js source that each item's pressed/on state derives purely from `groupContext.value.indexOf(itemValue) > -1` (i.e. the externally controlled `value` array), independent of Base UI's own `multiple` flag — so PositionToggle's existing pattern of driving all state via each ToggleGroupItem's onClick plus a controlled `value` array needed no further changes once `type` was removed.",
+      "fix": "Deleted the `type=\"multiple\"` prop from the `<ToggleGroup>` element in PositionToggle.tsx, leaving `<ToggleGroup value={Array.from(active)}>`. No other prop changes needed (confirmed Base UI's `multiple` flag only affects its own internal setGroupValue/onValueChange bookkeeping, not the read-side pressed-state derivation, which already comes from the controlled `value` array). `npm run build` now exits 0; `npm test` (vitest run) still passes all 28 tests across 5 files, including PositionToggle.test.tsx's 3 cases, unchanged.",
+      "tags": ["frontend", "typescript", "base-ui", "toggle-group", "build-break"],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-20T00:00:00.000Z"
     }
   ]
 }

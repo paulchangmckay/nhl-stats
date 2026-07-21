@@ -24,7 +24,7 @@ export function PositionToggle({ active, onChange }: PositionToggleProps) {
   }
 
   return (
-    <ToggleGroup type="multiple" value={Array.from(active)}>
+    <ToggleGroup value={Array.from(active)}>
       {POSITIONS.map((pos) => (
         <ToggleGroupItem
           key={pos}
