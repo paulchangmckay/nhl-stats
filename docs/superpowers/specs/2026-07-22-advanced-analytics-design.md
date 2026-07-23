@@ -170,10 +170,14 @@ Per pending game:
 
 Season/career aggregation and percentile computation run as later steps in the
 same module, after per-game rows exist for the relevant seasons. Percentiles rank
-players within position group (`players.position_code` mapped to F/D), excluding
-anyone below a minimum TOI/GP floor for that season/strength-state (exact
-threshold TBD during implementation — the plan should pick a defensible value,
-e.g. modeled on the ~40-game floor commonly used by public sites).
+players within position group (`players.position_code` mapped to F/D), computed
+only for the five primary strength states (5v5, 5v4, 4v5, 4v4, 3v3 — never
+`other`), excluding anyone below a **10-games-played floor** for that
+season/strength-state (a deliberately low bar: excludes single-game call-ups and
+emergency goalie-type noise without excluding legitimate depth players; not a
+literature-derived constant, just a defensible starting default that can be
+tuned later without a schema change since it's a query-time filter, not a stored
+value). PDO is never percentiled — see Frontend section.
 
 ## Operability
 
@@ -218,9 +222,15 @@ separate concern, not folded into the box-score-stats query shape.
   convention.
 - Layout adapted from the JFresh-Hockey-style reference card supplied by the
   user (`~/Desktop/head-shot-example/`): player name/headshot/team header, a row
-  of color-coded percentile boxes (one per metric: CF%, FF%, HDCF%, PDO, Primary
-  Points), and a season-over-season line chart per metric — using this phase's
-  metrics in place of the reference's WAR/percentile-of-forwards fields.
+  of color-coded percentile boxes (CF%, FF%, HDCF%, Primary Points — each ranked
+  within position group per the Computation Algorithm section), and a
+  season-over-season line chart per metric — using this phase's metrics in place
+  of the reference's WAR/percentile-of-forwards fields. **PDO is shown as a
+  separate plain value box (the player's team's PDO for the selected
+  season/strength-state), not color-coded by percentile** — since PDO is
+  team-level by design (Data Model section) and ranking a player by their team's
+  luck-driven shooting%+save% isn't a meaningful individual skill signal, unlike
+  the other four boxes.
 - A strength-state selector within the panel (default `5v5`) switches which cut
   of the boxes/charts is shown, rather than displaying all six strength states
   simultaneously.
