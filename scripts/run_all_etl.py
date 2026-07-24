@@ -6,7 +6,7 @@ from src.database import get_connection
 from etl import (
     load_teams, load_standings, load_rosters, load_schedule,
     load_historical_schedule, load_boxscores, load_play_by_play, load_shifts,
-    load_season_stats, enrich_players,
+    load_season_stats, enrich_players, compute_advanced_stats,
 )
 
 conn = get_connection()
@@ -20,6 +20,7 @@ steps = [
     ("Boxscores / Player Stats", load_boxscores),
     ("Play-by-Play Events", load_play_by_play),
     ("Shift Charts", load_shifts),
+    ("Advanced Stats (Corsi/Fenwick/HDSC/PDO/Primary Points)", compute_advanced_stats),
     ("Season Stats (historical)", load_season_stats),
     ("Player Enrichment (bio / draft / career)", enrich_players),
 ]
