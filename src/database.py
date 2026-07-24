@@ -239,6 +239,10 @@ _PLAYER_MIGRATIONS = [
     "ALTER TABLE players ADD COLUMN enriched_at          TEXT",
 ]
 
+_GAME_EVENTS_MIGRATIONS = [
+    "ALTER TABLE game_events ADD COLUMN home_team_defending_side TEXT",
+]
+
 
 def get_connection(db_path=DB_PATH):
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -249,7 +253,7 @@ def get_connection(db_path=DB_PATH):
 
 
 def run_migrations(conn):
-    for sql in _PLAYER_MIGRATIONS:
+    for sql in _PLAYER_MIGRATIONS + _GAME_EVENTS_MIGRATIONS:
         try:
             conn.execute(sql)
         except sqlite3.OperationalError:
@@ -466,18 +470,36 @@ def insert_standings_snapshot(conn, s):
 
 
 def insert_game_event(conn, e):
+    # ON CONFLICT DO UPDATE (not INSERT OR IGNORE) is deliberate here: the
+    # one-time home_team_defending_side gap-fill (backfill_defending_side.py)
+    # re-inserts already-loaded events solely to populate that one column,
+    # and needs the update to actually take effect on a second call for the
+    # same (game_id, event_id).
     conn.execute(
-        "INSERT OR IGNORE INTO game_events "
+        "INSERT INTO game_events "
         "(game_id, event_id, period, time_in_period, situation_code, event_type, "
         "zone_code, x_coord, y_coord, shot_type, event_owner_team_id, "
         "shooting_player_id, blocking_player_id, goalie_in_net_id, "
-        "assist1_player_id, assist2_player_id, details_json) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "assist1_player_id, assist2_player_id, details_json, home_team_defending_side) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(game_id, event_id) DO UPDATE SET "
+        "period=excluded.period, time_in_period=excluded.time_in_period, "
+        "situation_code=excluded.situation_code, event_type=excluded.event_type, "
+        "zone_code=excluded.zone_code, x_coord=excluded.x_coord, y_coord=excluded.y_coord, "
+        "shot_type=excluded.shot_type, event_owner_team_id=excluded.event_owner_team_id, "
+        "shooting_player_id=excluded.shooting_player_id, "
+        "blocking_player_id=excluded.blocking_player_id, "
+        "goalie_in_net_id=excluded.goalie_in_net_id, "
+        "assist1_player_id=excluded.assist1_player_id, "
+        "assist2_player_id=excluded.assist2_player_id, "
+        "details_json=excluded.details_json, "
+        "home_team_defending_side=excluded.home_team_defending_side",
         (e["game_id"], e["event_id"], e["period"], e["time_in_period"],
          e["situation_code"], e["event_type"], e["zone_code"], e["x_coord"],
          e["y_coord"], e["shot_type"], e["event_owner_team_id"],
          e["shooting_player_id"], e["blocking_player_id"], e["goalie_in_net_id"],
-         e["assist1_player_id"], e["assist2_player_id"], e["details_json"]),
+         e["assist1_player_id"], e["assist2_player_id"], e["details_json"],
+         e.get("home_team_defending_side")),
     )
 
 
