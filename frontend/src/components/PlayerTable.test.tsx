@@ -30,4 +30,20 @@ describe("PlayerTable", () => {
     render(<PlayerTable rows={[]} sortKey="points" sortDir="desc" onSort={() => {}} />);
     expect(screen.getByText(/no players found/i)).toBeInTheDocument();
   });
+
+  it("calls onOpenAdvanced with the player id when the CF% (5v5) cell is clicked", async () => {
+    const onOpenAdvanced = vi.fn();
+    render(
+      <PlayerTable
+        rows={MOCK_STATS}
+        sortKey="points"
+        sortDir="desc"
+        onSort={() => {}}
+        onOpenAdvanced={onOpenAdvanced}
+      />
+    );
+    const cell = screen.getAllByTestId("cf-pct-5v5-cell")[0];
+    await userEvent.click(cell);
+    expect(onOpenAdvanced).toHaveBeenCalledWith(MOCK_STATS[0].player_id);
+  });
 });

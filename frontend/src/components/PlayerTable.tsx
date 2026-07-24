@@ -34,6 +34,7 @@ const COLUMNS: Column[] = [
   { key: "losses", label: "L", numeric: true, goalieOnly: true },
   { key: "save_pct", label: "SV%", numeric: true, goalieOnly: true },
   { key: "gaa", label: "GAA", numeric: true, goalieOnly: true },
+  { key: "cf_pct_5v5", label: "CF% (5v5)", numeric: true, skaterOnly: true },
 ];
 
 function cellValue(col: Column, row: PlayerStats): string {
@@ -42,6 +43,7 @@ function cellValue(col: Column, row: PlayerStats): string {
   if (col.key === "save_pct") return Number(val).toFixed(3);
   if (col.key === "gaa") return Number(val).toFixed(2);
   if (col.key === "shooting_pct") return `${val}%`;
+  if (col.key === "cf_pct_5v5") return `${val}%`;
   if (col.key === "plus_minus") return Number(val) > 0 ? `+${val}` : String(val);
   return String(val);
 }
@@ -51,9 +53,10 @@ interface PlayerTableProps {
   sortKey: string;
   sortDir: SortDirection;
   onSort: (key: string) => void;
+  onOpenAdvanced?: (playerId: number) => void;
 }
 
-export function PlayerTable({ rows, sortKey, sortDir, onSort }: PlayerTableProps) {
+export function PlayerTable({ rows, sortKey, sortDir, onSort, onOpenAdvanced }: PlayerTableProps) {
   if (rows.length === 0) {
     return <div className="p-12 text-center text-sm text-muted-foreground">No players found.</div>;
   }
@@ -83,17 +86,32 @@ export function PlayerTable({ rows, sortKey, sortDir, onSort }: PlayerTableProps
       <TableBody>
         {rows.map((row) => (
           <TableRow key={row.player_id} data-player-id={row.player_id}>
-            {columns.map((col) => (
-              <TableCell key={col.key} className={col.numeric ? "text-right tabular-nums" : ""}>
-                {col.key === "position_code" ? (
-                  <Badge variant="outline">{row.position_code}</Badge>
-                ) : col.skaterOnly && row.position_code === "G" ? (
-                  "-"
-                ) : (
-                  cellValue(col, row)
-                )}
-              </TableCell>
-            ))}
+            {columns.map((col) => {
+              const isAdvancedCell = col.key === "cf_pct_5v5" && !!onOpenAdvanced;
+              return (
+                <TableCell
+                  key={col.key}
+                  data-testid={col.key === "cf_pct_5v5" ? "cf-pct-5v5-cell" : undefined}
+                  onClick={isAdvancedCell ? () => onOpenAdvanced!(row.player_id) : undefined}
+                  role={isAdvancedCell ? "button" : undefined}
+                  className={
+                    isAdvancedCell
+                      ? "cursor-pointer text-right tabular-nums underline decoration-dotted"
+                      : col.numeric
+                        ? "text-right tabular-nums"
+                        : ""
+                  }
+                >
+                  {col.key === "position_code" ? (
+                    <Badge variant="outline">{row.position_code}</Badge>
+                  ) : col.skaterOnly && row.position_code === "G" ? (
+                    "-"
+                  ) : (
+                    cellValue(col, row)
+                  )}
+                </TableCell>
+              );
+            })}
           </TableRow>
         ))}
       </TableBody>
