@@ -68,6 +68,32 @@ def test_extract_event_sparse_details_event_type():
     assert row["details_json"] == "{}"
 
 
+def test_extract_event_captures_home_team_defending_side():
+    play = {
+        "eventId": 103,
+        "periodDescriptor": {"number": 1},
+        "timeInPeriod": "00:08",
+        "situationCode": "1551",
+        "typeDescKey": "shot-on-goal",
+        "homeTeamDefendingSide": "right",
+        "details": {"xCoord": 56, "yCoord": -39, "eventOwnerTeamId": 1},
+    }
+    row = _extract_event(game_id=2024020001, play=play)
+    assert row["home_team_defending_side"] == "right"
+
+
+def test_extract_event_missing_home_team_defending_side_is_none():
+    play = {
+        "eventId": 152,
+        "periodDescriptor": {"number": 1},
+        "timeInPeriod": "00:00",
+        "situationCode": "1551",
+        "typeDescKey": "period-start",
+    }
+    row = _extract_event(game_id=2024020001, play=play)
+    assert row["home_team_defending_side"] is None
+
+
 from src import database
 
 

@@ -218,6 +218,148 @@ CREATE_PLAYER_SHIFTS_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_player_shifts_player_game ON player_shifts(player_id, game_id)",
 ]
 
+CREATE_PLAYER_GAME_ADVANCED_STATS = """
+CREATE TABLE IF NOT EXISTS player_game_advanced_stats (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id        INTEGER NOT NULL REFERENCES games(game_id),
+    player_id      INTEGER NOT NULL REFERENCES players(player_id),
+    team_id        INTEGER REFERENCES teams(team_id),
+    strength_state TEXT NOT NULL,
+    cf             INTEGER DEFAULT 0,
+    ca             INTEGER DEFAULT 0,
+    ff             INTEGER DEFAULT 0,
+    fa             INTEGER DEFAULT 0,
+    hdcf           INTEGER DEFAULT 0,
+    hdca           INTEGER DEFAULT 0,
+    gf             INTEGER DEFAULT 0,
+    ga             INTEGER DEFAULT 0,
+    primary_points INTEGER DEFAULT 0,
+    toi_seconds    INTEGER DEFAULT 0,
+    created_at     TEXT DEFAULT (datetime('now')),
+    UNIQUE (game_id, player_id, strength_state)
+);
+"""
+
+CREATE_PLAYER_GAME_ADVANCED_STATS_INDEXES = [
+    "CREATE INDEX IF NOT EXISTS idx_player_game_adv_player ON player_game_advanced_stats(player_id)",
+]
+
+CREATE_TEAM_GAME_ADVANCED_STATS = """
+CREATE TABLE IF NOT EXISTS team_game_advanced_stats (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id        INTEGER NOT NULL REFERENCES games(game_id),
+    team_id        INTEGER NOT NULL REFERENCES teams(team_id),
+    strength_state TEXT NOT NULL,
+    cf             INTEGER DEFAULT 0,
+    ca             INTEGER DEFAULT 0,
+    ff             INTEGER DEFAULT 0,
+    fa             INTEGER DEFAULT 0,
+    gf             INTEGER DEFAULT 0,
+    ga             INTEGER DEFAULT 0,
+    shots_for      INTEGER DEFAULT 0,
+    shots_against  INTEGER DEFAULT 0,
+    created_at     TEXT DEFAULT (datetime('now')),
+    UNIQUE (game_id, team_id, strength_state)
+);
+"""
+
+# player_season_advanced_stats: same grain as player_season_stats (game_type
+# column, one row per player/season/game_type/strength_state) -- matches that
+# table's convention, not player_career_stats's rs_/po_ prefix convention,
+# since career stats there predates any per-strength-state dimension and
+# season stats is the closer structural match here.
+CREATE_PLAYER_SEASON_ADVANCED_STATS = """
+CREATE TABLE IF NOT EXISTS player_season_advanced_stats (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_id      INTEGER NOT NULL REFERENCES players(player_id),
+    season_id      TEXT NOT NULL,
+    game_type      INTEGER NOT NULL,
+    team_abbrevs   TEXT,
+    strength_state TEXT NOT NULL,
+    cf             INTEGER DEFAULT 0,
+    ca             INTEGER DEFAULT 0,
+    ff             INTEGER DEFAULT 0,
+    fa             INTEGER DEFAULT 0,
+    hdcf           INTEGER DEFAULT 0,
+    hdca           INTEGER DEFAULT 0,
+    gf             INTEGER DEFAULT 0,
+    ga             INTEGER DEFAULT 0,
+    primary_points INTEGER DEFAULT 0,
+    toi_seconds    INTEGER DEFAULT 0,
+    gp             INTEGER DEFAULT 0,
+    last_updated   TEXT DEFAULT (datetime('now')),
+    UNIQUE (player_id, season_id, game_type, strength_state)
+);
+"""
+
+CREATE_TEAM_SEASON_ADVANCED_STATS = """
+CREATE TABLE IF NOT EXISTS team_season_advanced_stats (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    team_id        INTEGER NOT NULL REFERENCES teams(team_id),
+    season_id      TEXT NOT NULL,
+    game_type      INTEGER NOT NULL,
+    strength_state TEXT NOT NULL,
+    cf             INTEGER DEFAULT 0,
+    ca             INTEGER DEFAULT 0,
+    ff             INTEGER DEFAULT 0,
+    fa             INTEGER DEFAULT 0,
+    gf             INTEGER DEFAULT 0,
+    ga             INTEGER DEFAULT 0,
+    shots_for      INTEGER DEFAULT 0,
+    shots_against  INTEGER DEFAULT 0,
+    last_updated   TEXT DEFAULT (datetime('now')),
+    UNIQUE (team_id, season_id, game_type, strength_state)
+);
+"""
+
+# player_career_advanced_stats: rs_/po_ prefix convention, matching
+# player_career_stats exactly (regular season vs. playoffs as columns, not a
+# game_type row split), with strength_state as the row-grain dimension.
+CREATE_PLAYER_CAREER_ADVANCED_STATS = """
+CREATE TABLE IF NOT EXISTS player_career_advanced_stats (
+    player_id       INTEGER NOT NULL REFERENCES players(player_id),
+    strength_state  TEXT NOT NULL,
+    rs_cf             INTEGER DEFAULT 0,
+    rs_ca             INTEGER DEFAULT 0,
+    rs_ff             INTEGER DEFAULT 0,
+    rs_fa             INTEGER DEFAULT 0,
+    rs_hdcf           INTEGER DEFAULT 0,
+    rs_hdca           INTEGER DEFAULT 0,
+    rs_gf             INTEGER DEFAULT 0,
+    rs_ga             INTEGER DEFAULT 0,
+    rs_primary_points INTEGER DEFAULT 0,
+    rs_toi_seconds    INTEGER DEFAULT 0,
+    po_cf             INTEGER DEFAULT 0,
+    po_ca             INTEGER DEFAULT 0,
+    po_ff             INTEGER DEFAULT 0,
+    po_fa             INTEGER DEFAULT 0,
+    po_hdcf           INTEGER DEFAULT 0,
+    po_hdca           INTEGER DEFAULT 0,
+    po_gf             INTEGER DEFAULT 0,
+    po_ga             INTEGER DEFAULT 0,
+    po_primary_points INTEGER DEFAULT 0,
+    po_toi_seconds    INTEGER DEFAULT 0,
+    last_updated      TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (player_id, strength_state)
+);
+"""
+
+CREATE_PLAYER_ADVANCED_PERCENTILES = """
+CREATE TABLE IF NOT EXISTS player_advanced_percentiles (
+    id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+    season_id              TEXT NOT NULL,
+    player_id              INTEGER NOT NULL REFERENCES players(player_id),
+    strength_state         TEXT NOT NULL,
+    position_group         TEXT NOT NULL,
+    cf_pct_pctile          REAL,
+    ff_pct_pctile          REAL,
+    hdcf_pct_pctile        REAL,
+    primary_points_pctile  REAL,
+    created_at             TEXT DEFAULT (datetime('now')),
+    UNIQUE (season_id, player_id, strength_state)
+);
+"""
+
 CREATE_SYNC_LOG = """
 CREATE TABLE IF NOT EXISTS sync_log (
     key          TEXT PRIMARY KEY,
@@ -239,6 +381,10 @@ _PLAYER_MIGRATIONS = [
     "ALTER TABLE players ADD COLUMN enriched_at          TEXT",
 ]
 
+_GAME_EVENTS_MIGRATIONS = [
+    "ALTER TABLE game_events ADD COLUMN home_team_defending_side TEXT",
+]
+
 
 def get_connection(db_path=DB_PATH):
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -249,7 +395,7 @@ def get_connection(db_path=DB_PATH):
 
 
 def run_migrations(conn):
-    for sql in _PLAYER_MIGRATIONS:
+    for sql in _PLAYER_MIGRATIONS + _GAME_EVENTS_MIGRATIONS:
         try:
             conn.execute(sql)
         except sqlite3.OperationalError:
@@ -261,9 +407,13 @@ def create_all_tables(conn):
     for sql in [CREATE_TEAMS, CREATE_SEASONS, CREATE_PLAYERS,
                 CREATE_GAMES, CREATE_PLAYER_GAME_STATS, CREATE_STANDINGS,
                 CREATE_PLAYER_SEASON_STATS, CREATE_PLAYER_CAREER_STATS,
-                CREATE_GAME_EVENTS, CREATE_PLAYER_SHIFTS, CREATE_SYNC_LOG]:
+                CREATE_GAME_EVENTS, CREATE_PLAYER_SHIFTS, CREATE_SYNC_LOG,
+                CREATE_PLAYER_GAME_ADVANCED_STATS, CREATE_TEAM_GAME_ADVANCED_STATS,
+                CREATE_PLAYER_SEASON_ADVANCED_STATS, CREATE_TEAM_SEASON_ADVANCED_STATS,
+                CREATE_PLAYER_CAREER_ADVANCED_STATS, CREATE_PLAYER_ADVANCED_PERCENTILES]:
         conn.execute(sql)
-    for sql in CREATE_GAME_EVENTS_INDEXES + CREATE_PLAYER_SHIFTS_INDEXES:
+    for sql in (CREATE_GAME_EVENTS_INDEXES + CREATE_PLAYER_SHIFTS_INDEXES
+                + CREATE_PLAYER_GAME_ADVANCED_STATS_INDEXES):
         conn.execute(sql)
     run_migrations(conn)
     conn.commit()
@@ -466,18 +616,36 @@ def insert_standings_snapshot(conn, s):
 
 
 def insert_game_event(conn, e):
+    # ON CONFLICT DO UPDATE (not INSERT OR IGNORE) is deliberate here: the
+    # one-time home_team_defending_side gap-fill (backfill_defending_side.py)
+    # re-inserts already-loaded events solely to populate that one column,
+    # and needs the update to actually take effect on a second call for the
+    # same (game_id, event_id).
     conn.execute(
-        "INSERT OR IGNORE INTO game_events "
+        "INSERT INTO game_events "
         "(game_id, event_id, period, time_in_period, situation_code, event_type, "
         "zone_code, x_coord, y_coord, shot_type, event_owner_team_id, "
         "shooting_player_id, blocking_player_id, goalie_in_net_id, "
-        "assist1_player_id, assist2_player_id, details_json) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "assist1_player_id, assist2_player_id, details_json, home_team_defending_side) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(game_id, event_id) DO UPDATE SET "
+        "period=excluded.period, time_in_period=excluded.time_in_period, "
+        "situation_code=excluded.situation_code, event_type=excluded.event_type, "
+        "zone_code=excluded.zone_code, x_coord=excluded.x_coord, y_coord=excluded.y_coord, "
+        "shot_type=excluded.shot_type, event_owner_team_id=excluded.event_owner_team_id, "
+        "shooting_player_id=excluded.shooting_player_id, "
+        "blocking_player_id=excluded.blocking_player_id, "
+        "goalie_in_net_id=excluded.goalie_in_net_id, "
+        "assist1_player_id=excluded.assist1_player_id, "
+        "assist2_player_id=excluded.assist2_player_id, "
+        "details_json=excluded.details_json, "
+        "home_team_defending_side=excluded.home_team_defending_side",
         (e["game_id"], e["event_id"], e["period"], e["time_in_period"],
          e["situation_code"], e["event_type"], e["zone_code"], e["x_coord"],
          e["y_coord"], e["shot_type"], e["event_owner_team_id"],
          e["shooting_player_id"], e["blocking_player_id"], e["goalie_in_net_id"],
-         e["assist1_player_id"], e["assist2_player_id"], e["details_json"]),
+         e["assist1_player_id"], e["assist2_player_id"], e["details_json"],
+         e.get("home_team_defending_side")),
     )
 
 
@@ -523,3 +691,49 @@ def ensure_team_stub(conn, team_id, abbrev="UNK", common_name="Unknown", place_n
         "INSERT OR IGNORE INTO teams (team_id, abbrev, common_name, place_name) VALUES (?, ?, ?, ?)",
         (team_id, abbrev, common_name, place_name),
     )
+
+
+def upsert_player_game_advanced_stats(conn, r):
+    conn.execute("""
+        INSERT INTO player_game_advanced_stats
+            (game_id, player_id, team_id, strength_state, cf, ca, ff, fa,
+             hdcf, hdca, gf, ga, primary_points, toi_seconds)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(game_id, player_id, strength_state) DO UPDATE SET
+            team_id=excluded.team_id, cf=excluded.cf, ca=excluded.ca,
+            ff=excluded.ff, fa=excluded.fa, hdcf=excluded.hdcf, hdca=excluded.hdca,
+            gf=excluded.gf, ga=excluded.ga, primary_points=excluded.primary_points,
+            toi_seconds=excluded.toi_seconds
+    """, (r["game_id"], r["player_id"], r["team_id"], r["strength_state"],
+          r["cf"], r["ca"], r["ff"], r["fa"], r["hdcf"], r["hdca"],
+          r["gf"], r["ga"], r["primary_points"], r["toi_seconds"]))
+
+
+def upsert_team_game_advanced_stats(conn, r):
+    conn.execute("""
+        INSERT INTO team_game_advanced_stats
+            (game_id, team_id, strength_state, cf, ca, ff, fa, gf, ga,
+             shots_for, shots_against)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(game_id, team_id, strength_state) DO UPDATE SET
+            cf=excluded.cf, ca=excluded.ca, ff=excluded.ff, fa=excluded.fa,
+            gf=excluded.gf, ga=excluded.ga, shots_for=excluded.shots_for,
+            shots_against=excluded.shots_against
+    """, (r["game_id"], r["team_id"], r["strength_state"], r["cf"], r["ca"],
+          r["ff"], r["fa"], r["gf"], r["ga"], r["shots_for"], r["shots_against"]))
+
+
+def upsert_player_advanced_percentiles(conn, r):
+    conn.execute("""
+        INSERT INTO player_advanced_percentiles
+            (season_id, player_id, strength_state, position_group,
+             cf_pct_pctile, ff_pct_pctile, hdcf_pct_pctile, primary_points_pctile)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(season_id, player_id, strength_state) DO UPDATE SET
+            position_group=excluded.position_group,
+            cf_pct_pctile=excluded.cf_pct_pctile, ff_pct_pctile=excluded.ff_pct_pctile,
+            hdcf_pct_pctile=excluded.hdcf_pct_pctile,
+            primary_points_pctile=excluded.primary_points_pctile
+    """, (r["season_id"], r["player_id"], r["strength_state"], r["position_group"],
+          r["cf_pct_pctile"], r["ff_pct_pctile"], r["hdcf_pct_pctile"],
+          r["primary_points_pctile"]))

@@ -208,6 +208,132 @@ def api_players_stats():
     return jsonify(players)
 
 
+PERCENTILE_STRENGTH_STATES = ("5v5", "5v4", "4v5")
+
+
+def _pct(numer, denom):
+    return round(numer * 100.0 / denom, 1) if denom else None
+
+
+def _fetch_player_advanced(conn, player_id, season_id):
+    season_rows = conn.execute("""
+        SELECT strength_state, cf, ca, ff, fa, hdcf, hdca, primary_points, team_abbrevs
+        FROM player_season_advanced_stats
+        WHERE player_id = ? AND season_id = ?
+    """, (player_id, season_id)).fetchall()
+
+    pctile_rows = conn.execute("""
+        SELECT strength_state, cf_pct_pctile, ff_pct_pctile, hdcf_pct_pctile, primary_points_pctile
+        FROM player_advanced_percentiles
+        WHERE player_id = ? AND season_id = ?
+    """, (player_id, season_id)).fetchall()
+    pctiles_by_state = {r["strength_state"]: r for r in pctile_rows}
+
+    strength_states = {}
+    team_abbrevs = None
+    for r in season_rows:
+        state = r["strength_state"]
+        pctile = pctiles_by_state.get(state)
+        strength_states[state] = {
+            "cf": r["cf"], "ca": r["ca"], "cf_pct": _pct(r["cf"], r["cf"] + r["ca"]),
+            "ff": r["ff"], "fa": r["fa"], "ff_pct": _pct(r["ff"], r["ff"] + r["fa"]),
+            "hdcf": r["hdcf"], "hdca": r["hdca"], "hdcf_pct": _pct(r["hdcf"], r["hdcf"] + r["hdca"]),
+            "primary_points": r["primary_points"],
+            "cf_pctile": pctile["cf_pct_pctile"] if pctile else None,
+            "ff_pctile": pctile["ff_pct_pctile"] if pctile else None,
+            "hdcf_pctile": pctile["hdcf_pct_pctile"] if pctile else None,
+            "primary_points_pctile": pctile["primary_points_pctile"] if pctile else None,
+        }
+        if state == "5v5":
+            team_abbrevs = r["team_abbrevs"]
+
+    trend_rows = conn.execute("""
+        SELECT season_id, cf, ca FROM player_season_advanced_stats
+        WHERE player_id = ? AND strength_state = '5v5'
+        ORDER BY season_id
+    """, (player_id,)).fetchall()
+    trend = [{"season_id": r["season_id"], "cf_pct": _pct(r["cf"], r["cf"] + r["ca"])}
+             for r in trend_rows]
+
+    pdo = None
+    first_abbrev = (team_abbrevs or "").split(",")[0] if team_abbrevs else None
+    if first_abbrev:
+        team_row = conn.execute("""
+            SELECT tsas.gf, tsas.ga, tsas.shots_for, tsas.shots_against
+            FROM team_season_advanced_stats tsas
+            JOIN teams t ON t.team_id = tsas.team_id
+            WHERE t.abbrev = ? AND tsas.season_id = ? AND tsas.strength_state = '5v5'
+        """, (first_abbrev, season_id)).fetchone()
+        if team_row and team_row["shots_for"] and team_row["shots_against"]:
+            shooting_pct = team_row["gf"] / team_row["shots_for"]
+            save_pct = (team_row["shots_against"] - team_row["ga"]) / team_row["shots_against"]
+            pdo = round((shooting_pct + save_pct) * 1000, 1)
+
+    return {
+        "player_id": player_id, "season_id": season_id,
+        "strength_states": strength_states, "trend": trend, "pdo": pdo,
+    }
+
+
+def _fetch_team_advanced(conn, team_abbrev, season_id):
+    rows = conn.execute("""
+        SELECT tsas.strength_state, tsas.cf, tsas.ca, tsas.ff, tsas.fa,
+               tsas.gf, tsas.ga, tsas.shots_for, tsas.shots_against
+        FROM team_season_advanced_stats tsas
+        JOIN teams t ON t.team_id = tsas.team_id
+        WHERE t.abbrev = ? AND tsas.season_id = ?
+    """, (team_abbrev, season_id)).fetchall()
+
+    strength_states = {}
+    for r in rows:
+        pdo = None
+        if r["shots_for"] and r["shots_against"]:
+            shooting_pct = r["gf"] / r["shots_for"]
+            save_pct = (r["shots_against"] - r["ga"]) / r["shots_against"]
+            pdo = round((shooting_pct + save_pct) * 1000, 1)
+        strength_states[r["strength_state"]] = {
+            "cf": r["cf"], "ca": r["ca"], "cf_pct": _pct(r["cf"], r["cf"] + r["ca"]),
+            "ff": r["ff"], "fa": r["fa"], "ff_pct": _pct(r["ff"], r["ff"] + r["fa"]),
+            "gf": r["gf"], "ga": r["ga"], "pdo": pdo,
+        }
+
+    return {"team_abbrev": team_abbrev, "season_id": season_id, "strength_states": strength_states}
+
+
+@app.route("/api/players/<int:player_id>/advanced")
+def api_player_advanced(player_id):
+    season_id = request.args.get("season")
+    conn = get_connection()
+    if not season_id:
+        row = conn.execute(
+            "SELECT MAX(season_id) AS s FROM player_season_advanced_stats WHERE player_id = ?",
+            (player_id,),
+        ).fetchone()
+        season_id = row["s"] if row else None
+    result = _fetch_player_advanced(conn, player_id, season_id) if season_id else {
+        "player_id": player_id, "season_id": None, "strength_states": {}, "trend": [], "pdo": None,
+    }
+    conn.close()
+    return jsonify(result)
+
+
+@app.route("/api/teams/<team_abbrev>/advanced")
+def api_team_advanced(team_abbrev):
+    season_id = request.args.get("season")
+    conn = get_connection()
+    if not season_id:
+        row = conn.execute("""
+            SELECT MAX(tsas.season_id) AS s FROM team_season_advanced_stats tsas
+            JOIN teams t ON t.team_id = tsas.team_id WHERE t.abbrev = ?
+        """, (team_abbrev,)).fetchone()
+        season_id = row["s"] if row else None
+    result = _fetch_team_advanced(conn, team_abbrev, season_id) if season_id else {
+        "team_abbrev": team_abbrev, "season_id": None, "strength_states": {},
+    }
+    conn.close()
+    return jsonify(result)
+
+
 def _debug_enabled():
     return os.environ.get("FLASK_DEBUG") == "1"
 

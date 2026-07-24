@@ -30,6 +30,7 @@ def _extract_event(game_id, play):
         "assist1_player_id": details.get("assist1PlayerId"),
         "assist2_player_id": details.get("assist2PlayerId"),
         "details_json": json.dumps(details),
+        "home_team_defending_side": play.get("homeTeamDefendingSide"),
     }
 
 
