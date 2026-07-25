@@ -54,9 +54,20 @@ In scope:
    `Player` TS type (all already exist as columns on `players`, just not
    currently selected/exposed).
 8. New `frontend/src/lib/teamBranding.ts`: static 32-team
-   `{primary, secondary}` hex color map, plus a `logoUrl(abbrev)` helper
-   pointing at the NHL's public logo CDN
-   (`https://assets.nhle.com/logos/nhl/svg/{ABBREV}_light.svg`).
+   `{primary, secondary}` hex color map (researched per-team official/
+   widely-recognized brand colors, hardcoded — verified one-time, no
+   runtime dependency), plus a `logoUrl(abbrev)` helper pointing at the
+   NHL's public logo CDN, `_dark` variant
+   (`https://assets.nhle.com/logos/nhl/svg/{ABBREV}_dark.svg` — confirmed
+   resolving via curl; chosen over `_light` because it's designed for dark
+   backgrounds, matching the app's dark theme).
+9. `PlayerTable.tsx`: whole `TableRow` becomes the click/keyboard target
+   (`tabIndex={0}`, `role="button"`, `onClick`, `onKeyDown` for Enter/Space,
+   `cursor-pointer` + hover background). The `cf_pct_5v5` cell's own
+   `onClick`/`role="button"`/underline styling is removed — it becomes a
+   plain data cell, since a per-cell handler nested inside a now-clickable
+   row would be both redundant and a nested-interactive-element a11y
+   anti-pattern.
 
 Out of scope (unchanged from the original bio-card spec's exclusions):
 - Cap hit / contract length (no data source ingested).
@@ -107,12 +118,21 @@ season control inside the dialog for this section.
 repositioned below the new header/bio/box-score content. Not rendered for
 goalies.
 
+**Loading state** — header/bio/box-score render immediately on dialog open
+(sourced from already-fetched `rows`/`playersState` data, no fetch delay).
+Only the advanced-stats section shows its own "Loading..."/error state
+independently while `/api/players/<id>/advanced` resolves, instead of today's
+behavior of gating the entire dialog body on that fetch.
+
 ## Edge Cases
 
 - Missing/broken `headshot_url` → silhouette fallback, no layout shift.
   Coverage check: 1,776/1,833 players (97%) have a `headshot_url` today.
-- Missing/blank `team_abbrev` → no color accent applied (falls back to
-  default panel styling), no lookup crash in `teamBranding.ts`.
+- Missing/blank `team_abbrev`, or the literal `"UNK"` placeholder value
+  (the `teams` table has 33 rows: the 32 real franchises plus `UNK` for
+  players with no current team — free agents, some retired players) →
+  `teamBranding.ts` lookup returns `undefined` for both; no color accent
+  and no logo, default panel styling, no lookup crash.
 - Goalies (246 in the dataset) → goalie box score, advanced section hidden.
 - `draft_year` null (undrafted, ~21% of players) → "Undrafted" label
   instead of blank/broken draft string.
