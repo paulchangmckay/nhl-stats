@@ -33,21 +33,21 @@ def test_decode_malformed_code_returns_other():
 
 
 def test_period_offset_regulation_periods_fixed_1200s():
-    assert period_offset_seconds(1, "REG", game_type=2) == 0
-    assert period_offset_seconds(2, "REG", game_type=2) == 1200
-    assert period_offset_seconds(3, "REG", game_type=2) == 2400
+    assert period_offset_seconds(1, game_type=2) == 0
+    assert period_offset_seconds(2, game_type=2) == 1200
+    assert period_offset_seconds(3, game_type=2) == 2400
 
 
 def test_period_offset_regular_season_ot_is_300s():
-    assert period_offset_seconds(4, "OT", game_type=2) == 3600
-    assert period_offset_seconds(5, "OT", game_type=2) == 3900
+    assert period_offset_seconds(4, game_type=2) == 3600
+    assert period_offset_seconds(5, game_type=2) == 3900
 
 
 def test_period_offset_playoff_ot_is_1200s():
-    assert period_offset_seconds(4, "OT", game_type=3) == 3600
-    assert period_offset_seconds(5, "OT", game_type=3) == 4800
+    assert period_offset_seconds(4, game_type=3) == 3600
+    assert period_offset_seconds(5, game_type=3) == 4800
 
 
 def test_elapsed_seconds_combines_offset_and_clock():
-    assert elapsed_seconds("00:08", period=1, period_type="REG", game_type=2) == 8
-    assert elapsed_seconds("03:24", period=4, period_type="OT", game_type=2) == 3600 + 204
+    assert elapsed_seconds("00:08", period=1, game_type=2) == 8
+    assert elapsed_seconds("03:24", period=4, game_type=2) == 3600 + 204

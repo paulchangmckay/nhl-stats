@@ -38,7 +38,30 @@ def run(conn):
         except Exception as e:
             print(f"  Warning: could not compute advanced stats for game {game_id}: {e}")
 
+    _run_aggregation_and_percentiles(conn)
     print("  Advanced stats computation complete.")
+
+
+def _run_aggregation_and_percentiles(conn):
+    """Drives compute_season_aggregates/compute_percentiles for every
+    (season_id, game_type) pair with any per-game advanced-stats rows.
+    Bug caught in code review: these two functions had their own passing unit
+    tests but were never actually invoked from run(), run_all_etl.py, or the
+    README's documented commands -- the season/percentile tables would have
+    stayed permanently empty in production. Cheap to re-run in full each time
+    (pure local SQL over already-computed per-game rows, no API calls), so no
+    NOT-EXISTS gating is needed here the way per-game computation has it."""
+    season_game_type_pairs = conn.execute("""
+        SELECT DISTINCT g.season_id, g.game_type FROM games g
+        JOIN player_game_advanced_stats pgas ON pgas.game_id = g.game_id
+        WHERE g.season_id IS NOT NULL
+    """).fetchall()
+    for row in season_game_type_pairs:
+        compute_season_aggregates(conn, row["season_id"], row["game_type"])
+
+    season_ids = {row["season_id"] for row in season_game_type_pairs}
+    for season_id in season_ids:
+        compute_percentiles(conn, season_id)
 
 
 def _load_shifts_for_sweep(conn, game_id):
@@ -71,7 +94,9 @@ def compute_season_aggregates(conn, season_id, game_type):
             (SELECT GROUP_CONCAT(DISTINCT t.abbrev)
              FROM player_game_advanced_stats pgas2
              JOIN teams t ON t.team_id = pgas2.team_id
-             WHERE pgas2.player_id = pgas.player_id) AS team_abbrevs,
+             JOIN games g2 ON g2.game_id = pgas2.game_id
+             WHERE pgas2.player_id = pgas.player_id
+               AND g2.season_id = g.season_id AND g2.game_type = g.game_type) AS team_abbrevs,
             pgas.strength_state,
             SUM(pgas.cf), SUM(pgas.ca), SUM(pgas.ff), SUM(pgas.fa),
             SUM(pgas.hdcf), SUM(pgas.hdca), SUM(pgas.gf), SUM(pgas.ga),

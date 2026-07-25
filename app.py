@@ -167,10 +167,14 @@ def api_players_stats():
                 SUM(s.ot_losses)                                             AS ot_losses,
                 SUM(s.shutouts)                                              AS shutouts,
                 MAX(CASE WHEN s.game_type = 2 THEN s.save_pct END)          AS save_pct,
-                MAX(CASE WHEN s.game_type = 2 THEN s.gaa END)               AS gaa
+                MAX(CASE WHEN s.game_type = 2 THEN s.gaa END)               AS gaa,
+                ROUND(SUM(adv.cf) * 100.0 / NULLIF(SUM(adv.cf) + SUM(adv.ca), 0), 1) AS cf_pct_5v5
             FROM players p
             LEFT JOIN teams t ON p.current_team_id = t.team_id
             JOIN player_season_stats s ON p.player_id = s.player_id
+            LEFT JOIN player_season_advanced_stats adv
+                ON adv.player_id = s.player_id AND adv.season_id = s.season_id
+               AND adv.game_type = s.game_type AND adv.strength_state = '5v5'
             WHERE s.season_id IN ({placeholders})
             GROUP BY p.player_id
             ORDER BY SUM(s.points) DESC
@@ -204,11 +208,14 @@ def api_players_stats():
             "shutouts":     r["shutouts"],
             "save_pct":     r["save_pct"],
             "gaa":          r["gaa"],
+            # Only populated for the season-specific query branch -- no
+            # career-level advanced-stats aggregation exists yet (a real gap:
+            # player_career_advanced_stats has schema but nothing populates
+            # it), so the "all seasons" branch honestly reports None rather
+            # than a wrong or misleading number.
+            "cf_pct_5v5":   r["cf_pct_5v5"] if "cf_pct_5v5" in r.keys() else None,
         })
     return jsonify(players)
-
-
-PERCENTILE_STRENGTH_STATES = ("5v5", "5v4", "4v5")
 
 
 def _pct(numer, denom):

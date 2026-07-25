@@ -25,27 +25,38 @@ def _is_high_danger(x_coord, y_coord, home_team_defending_side, is_home_shooter)
     return x >= HIGH_DANGER_X_MIN and abs(y_coord) <= HIGH_DANGER_Y_ABS_MAX
 
 
+def _is_shootout(period, game_type):
+    """No period_type field exists anywhere in this codebase's schema --
+    game_events/player_shifts only ever carry a plain period number.
+    Shootout status is fully derivable from period + game_type instead:
+    confirmed via live NHL API fetch (games 2020020007) that a regular-
+    season game (game_type=2) always has its shootout at exactly period 5
+    (3 regulation + 1 single 3-on-3 OT period, never a second OT), while
+    playoff games (game_type=3) never have a shootout at all -- period 5+
+    there is always another full sudden-death OT period and must be
+    processed normally."""
+    return game_type == 2 and period >= 5
+
+
 def compute_game_advanced_stats(shifts, events, home_team_id, game_type):
-    shifts = [s for s in shifts if s.get("period_type", "REG") != "SO"]
-    events = [e for e in events if e.get("period_type", "REG") != "SO"]
+    shifts = [s for s in shifts if not _is_shootout(s["period"], game_type)]
+    events = [e for e in events if not _is_shootout(e["period"], game_type)]
 
     shift_intervals = []
     for s in shifts:
         if s.get("position_code") not in SKATER_POSITIONS:
             continue
-        period_type = s.get("period_type", "REG")
-        start = elapsed_seconds(s["start_time"], s["period"], period_type, game_type)
+        start = elapsed_seconds(s["start_time"], s["period"], game_type)
         if s.get("end_time"):
-            end = elapsed_seconds(s["end_time"], s["period"], period_type, game_type)
+            end = elapsed_seconds(s["end_time"], s["period"], game_type)
         else:
-            end = period_offset_seconds(s["period"] + 1, period_type, game_type)
+            end = period_offset_seconds(s["period"] + 1, game_type)
         shift_intervals.append({"player_id": s["player_id"], "team_id": s["team_id"],
                                  "start": start, "end": end})
 
     event_list = []
     for e in events:
-        period_type = e.get("period_type", "REG")
-        t = elapsed_seconds(e["time_in_period"], e["period"], period_type, game_type)
+        t = elapsed_seconds(e["time_in_period"], e["period"], game_type)
         event_list.append({**e, "t": t})
     event_list.sort(key=lambda e: e["t"])
 

@@ -1,3 +1,4 @@
+import app as app_module
 from app import _fetch_player_advanced, _fetch_team_advanced
 from src import database
 
@@ -100,3 +101,38 @@ def test_fetch_team_advanced_returns_per_strength_state_breakdown(conn):
     assert "5v5" in result["strength_states"]
     assert result["strength_states"]["5v5"]["gf"] == 30
     assert result["strength_states"]["5v5"]["ga"] == 25
+
+
+def test_players_stats_season_query_includes_cf_pct_5v5(conn, monkeypatch):
+    # Bug caught in code review: PlayerTable's new CF% (5v5) teaser column
+    # read a field /api/players/stats never returned, so it always rendered
+    # "-" -- this test drives the real route (not just the isolated advanced-
+    # stats helpers) to make sure the season-specific branch actually joins
+    # player_season_advanced_stats and computes the percentage.
+    database.upsert_player_stub(conn, {
+        "player_id": 1, "first_name": "Test", "last_name": "Player",
+        "position_code": "C", "shoots_catches": None,
+    })
+    conn.execute("""
+        INSERT INTO player_season_stats
+            (player_id, season_id, game_type, team_abbrevs, position_code, gp, goals, assists,
+             points, plus_minus, pim, pp_goals, sh_goals, shots, shooting_pct, avg_toi,
+             wins, losses, ot_losses, shutouts, save_pct, gaa)
+        VALUES (1, '20242025', 2, 'HOM', 'C', 10, 5, 5, 10, 0, 0, 0, 0, 20, 25.0, '15:00',
+                NULL, NULL, NULL, NULL, NULL, NULL)
+    """)
+    conn.execute("""
+        INSERT INTO player_season_advanced_stats
+            (player_id, season_id, game_type, team_abbrevs, strength_state,
+             cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp)
+        VALUES (1, '20242025', 2, 'HOM', '5v5', 60, 40, 45, 30, 10, 5, 6, 4, 10, 9000, 10)
+    """)
+    conn.commit()
+
+    monkeypatch.setattr(app_module, "get_connection", lambda: conn)
+    client = app_module.app.test_client()
+    resp = client.get("/api/players/stats?seasons=20242025")
+
+    assert resp.status_code == 200
+    player = next(p for p in resp.get_json() if p["player_id"] == 1)
+    assert player["cf_pct_5v5"] == 60.0

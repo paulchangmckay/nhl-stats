@@ -19,12 +19,14 @@ def decode_strength_state(situation_code, event_owner_team_id, home_team_id):
     return f"{away_skaters}v{home_skaters}"
 
 
-def period_offset_seconds(period, period_type, game_type):
+def period_offset_seconds(period, game_type):
     """Cumulative elapsed-seconds offset at the start of `period`. Regulation
     periods (1-3) are always 1200s. OT length depends on game_type: 300s for
     regular season (game_type=2, single 3-on-3 period), 1200s for playoffs
     (game_type=3, full sudden-death periods) -- confirmed via live fetch that
-    a regular-season OT period ends by ~300s (game 2020020003)."""
+    a regular-season OT period ends by ~300s (game 2020020003). No period_type
+    field exists anywhere in this codebase's schema; this function only ever
+    needs the numeric period and game_type to compute the correct offset."""
     if period <= 3:
         return (period - 1) * REGULATION_PERIOD_SECONDS
 
@@ -33,7 +35,7 @@ def period_offset_seconds(period, period_type, game_type):
     return 3 * REGULATION_PERIOD_SECONDS + ot_periods_elapsed * ot_period_length
 
 
-def elapsed_seconds(clock, period, period_type, game_type):
+def elapsed_seconds(clock, period, game_type):
     minutes, seconds = clock.split(":")
     within_period = int(minutes) * 60 + int(seconds)
-    return period_offset_seconds(period, period_type, game_type) + within_period
+    return period_offset_seconds(period, game_type) + within_period

@@ -43,6 +43,35 @@ def _seed_shift(conn, game_id, shift_id, player_id, team_id, position_code="C"):
     })
 
 
+def test_run_invokes_season_aggregation_and_percentiles_automatically(conn):
+    # Critical bug caught in code review: compute_season_aggregates and
+    # compute_percentiles existed and had their own passing unit tests, but
+    # nothing in run() (or run_all_etl.py, or the documented __main__ entry
+    # point) ever actually called them -- the season/percentile tables would
+    # have stayed permanently empty in production. run() must drive both,
+    # for every distinct (season_id, game_type) / season_id present, not
+    # just process per-game rows.
+    for i in range(1, 11):  # 10 games so the 10-GP percentile floor is cleared
+        _seed_game(conn, 2024020000 + i)
+        _seed_shift(conn, 2024020000 + i, 1, player_id=1, team_id=HOME)
+        _seed_event(conn, 2024020000 + i, 1)
+    conn.commit()
+
+    module.run(conn)
+
+    season_row = conn.execute("""
+        SELECT cf FROM player_season_advanced_stats
+        WHERE player_id = 1 AND season_id = '20242025' AND game_type = 2 AND strength_state = '5v5'
+    """).fetchone()
+    assert season_row is not None
+    assert season_row["cf"] == 10
+
+    pctile_row = conn.execute(
+        "SELECT cf_pct_pctile FROM player_advanced_percentiles WHERE player_id = 1"
+    ).fetchone()
+    assert pctile_row is not None
+
+
 def test_run_processes_pending_game_and_is_idempotent(conn):
     _seed_game(conn, 2024020001)
     _seed_shift(conn, 2024020001, 1, player_id=1, team_id=HOME)
@@ -82,6 +111,38 @@ def test_compute_season_aggregates_sums_across_games(conn):
     """).fetchone()
     assert row["cf"] == 2
     assert row["gp"] == 2
+    assert row["team_abbrevs"] == "HOM"
+
+
+def test_compute_season_aggregates_scopes_team_abbrevs_to_the_season(conn):
+    # Bug caught in code review: the team_abbrevs correlated subquery only
+    # filtered by player_id, so a player who appeared for a different team in
+    # a DIFFERENT season would have that other season's team abbreviation
+    # bleed into this season's row -- and that wrong value feeds directly
+    # into the PDO lookup in app.py.
+    OTHER_TEAM = 3
+    database.upsert_team(conn, {"team_id": OTHER_TEAM, "abbrev": "OTH", "common_name": "Other",
+                                 "place_name": "Other", "conference": None, "division": None})
+
+    _seed_game(conn, 2024020001, season_id="20242025")
+    _seed_shift(conn, 2024020001, 1, player_id=1, team_id=HOME)
+    _seed_event(conn, 2024020001, 1)
+
+    _seed_game(conn, 2023020001, season_id="20232024")
+    database.insert_player_shift(conn, {
+        "game_id": 2023020001, "shift_id": 1, "player_id": 1, "team_id": OTHER_TEAM,
+        "period": 1, "start_time": "00:00", "end_time": "20:00", "duration": "20:00",
+    })
+    _seed_event(conn, 2023020001, 1, event_owner_team_id=OTHER_TEAM)
+    conn.commit()
+
+    module.run(conn)
+    module.compute_season_aggregates(conn, season_id="20242025", game_type=2)
+
+    row = conn.execute("""
+        SELECT team_abbrevs FROM player_season_advanced_stats
+        WHERE player_id = 1 AND season_id = '20242025' AND game_type = 2 AND strength_state = '5v5'
+    """).fetchone()
     assert row["team_abbrevs"] == "HOM"
 
 

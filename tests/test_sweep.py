@@ -4,18 +4,16 @@ HOME = 1
 AWAY = 2
 
 
-def _shift(player_id, team_id, period, start, end, position_code="C", period_type="REG"):
+def _shift(player_id, team_id, period, start, end, position_code="C"):
     return {"player_id": player_id, "team_id": team_id, "period": period,
-            "start_time": start, "end_time": end, "position_code": position_code,
-            "period_type": period_type}
+            "start_time": start, "end_time": end, "position_code": position_code}
 
 
 def _event(event_type, period, time_in_period, situation_code, event_owner_team_id,
-           x_coord=0, y_coord=0, period_type="REG", shooting_player_id=None,
-           assist1_player_id=None):
+           x_coord=0, y_coord=0, shooting_player_id=None, assist1_player_id=None):
     return {"event_type": event_type, "period": period, "time_in_period": time_in_period,
             "situation_code": situation_code, "event_owner_team_id": event_owner_team_id,
-            "x_coord": x_coord, "y_coord": y_coord, "period_type": period_type,
+            "x_coord": x_coord, "y_coord": y_coord,
             "shooting_player_id": shooting_player_id, "assist1_player_id": assist1_player_id,
             "home_team_defending_side": "right"}
 
@@ -70,13 +68,34 @@ def test_shift_with_no_end_time_closes_at_period_boundary():
     assert home_row["cf"] == 1
 
 
-def test_shootout_period_excluded_entirely():
-    shifts = [_shift(1, HOME, 5, "00:00", "00:30", period_type="SO")]
-    events = [_event("goal", 5, "00:10", "1010", HOME, period_type="SO")]
+def test_shootout_period_excluded_entirely_for_regular_season_game():
+    # No period_type field exists anywhere in the real schema (game_events/
+    # player_shifts only ever have a plain period number) -- shootout status
+    # must be derived from period + game_type, confirmed via live NHL API
+    # fetch that period 5 is always the shootout for a regular-season game
+    # (game_type=2), never a second OT period.
+    shifts = [_shift(1, HOME, 5, "00:00", "00:30")]
+    events = [_event("goal", 5, "00:10", "1010", HOME)]
 
     player_rows, team_rows = compute_game_advanced_stats(shifts, events, home_team_id=HOME, game_type=2)
     assert player_rows == []
     assert team_rows == []
+
+
+def test_period_5_not_excluded_for_playoff_game_since_playoffs_have_no_shootout():
+    # Confirmed via live NHL API fetch: playoff games (game_type=3) never go
+    # to a shootout -- period 5+ is always another full OT period, and must
+    # be processed normally, not excluded as if it were a shootout.
+    shifts = [
+        _shift(1, HOME, 5, "00:00", "20:00"),
+        _shift(2, AWAY, 5, "00:00", "20:00"),
+    ]
+    events = [_event("shot-on-goal", 5, "00:10", "1551", HOME)]
+
+    player_rows, _ = compute_game_advanced_stats(shifts, events, home_team_id=HOME, game_type=3)
+    home_row = next((r for r in player_rows if r["player_id"] == 1), None)
+    assert home_row is not None
+    assert home_row["cf"] == 1
 
 
 def test_strength_state_generic_not_coerced_to_fixed_bucket():
