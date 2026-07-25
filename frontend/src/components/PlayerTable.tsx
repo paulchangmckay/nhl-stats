@@ -53,10 +53,10 @@ interface PlayerTableProps {
   sortKey: string;
   sortDir: SortDirection;
   onSort: (key: string) => void;
-  onOpenAdvanced?: (playerId: number) => void;
+  onOpenProfile?: (playerId: number) => void;
 }
 
-export function PlayerTable({ rows, sortKey, sortDir, onSort, onOpenAdvanced }: PlayerTableProps) {
+export function PlayerTable({ rows, sortKey, sortDir, onSort, onOpenProfile }: PlayerTableProps) {
   if (rows.length === 0) {
     return <div className="p-12 text-center text-sm text-muted-foreground">No players found.</div>;
   }
@@ -85,33 +85,38 @@ export function PlayerTable({ rows, sortKey, sortDir, onSort, onOpenAdvanced }: 
       </TableHeader>
       <TableBody>
         {rows.map((row) => (
-          <TableRow key={row.player_id} data-player-id={row.player_id}>
-            {columns.map((col) => {
-              const isAdvancedCell = col.key === "cf_pct_5v5" && !!onOpenAdvanced;
-              return (
-                <TableCell
-                  key={col.key}
-                  data-testid={col.key === "cf_pct_5v5" ? "cf-pct-5v5-cell" : undefined}
-                  onClick={isAdvancedCell ? () => onOpenAdvanced!(row.player_id) : undefined}
-                  role={isAdvancedCell ? "button" : undefined}
-                  className={
-                    isAdvancedCell
-                      ? "cursor-pointer text-right tabular-nums underline decoration-dotted"
-                      : col.numeric
-                        ? "text-right tabular-nums"
-                        : ""
+          <TableRow
+            key={row.player_id}
+            data-player-id={row.player_id}
+            tabIndex={onOpenProfile ? 0 : undefined}
+            role={onOpenProfile ? "button" : undefined}
+            onClick={onOpenProfile ? () => onOpenProfile(row.player_id) : undefined}
+            onKeyDown={
+              onOpenProfile
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onOpenProfile(row.player_id);
+                    }
                   }
-                >
-                  {col.key === "position_code" ? (
-                    <Badge variant="outline">{row.position_code}</Badge>
-                  ) : col.skaterOnly && row.position_code === "G" ? (
-                    "-"
-                  ) : (
-                    cellValue(col, row)
-                  )}
-                </TableCell>
-              );
-            })}
+                : undefined
+            }
+            className={onOpenProfile ? "cursor-pointer hover:bg-muted/50" : undefined}
+          >
+            {columns.map((col) => (
+              <TableCell
+                key={col.key}
+                className={col.numeric ? "text-right tabular-nums" : ""}
+              >
+                {col.key === "position_code" ? (
+                  <Badge variant="outline">{row.position_code}</Badge>
+                ) : col.skaterOnly && row.position_code === "G" ? (
+                  "-"
+                ) : (
+                  cellValue(col, row)
+                )}
+              </TableCell>
+            ))}
           </TableRow>
         ))}
       </TableBody>
