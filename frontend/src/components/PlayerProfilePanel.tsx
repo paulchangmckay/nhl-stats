@@ -76,7 +76,8 @@ function computeAge(birthDate: string): number | null {
 
 function draftLabel(bio: Player | undefined): string {
   if (!bio || bio.draft_year === null) return "Undrafted";
-  return `Rd ${bio.draft_round}, Pick ${bio.draft_pick} (${bio.draft_year}, ${bio.draft_team_abbrev ?? ""})`;
+  const team = bio.draft_team_abbrev ? `, ${bio.draft_team_abbrev}` : "";
+  return `Rd ${bio.draft_round}, Pick ${bio.draft_pick} (${bio.draft_year}${team})`;
 }
 
 function birthplaceLabel(bio: Player | undefined): string {
@@ -115,11 +116,13 @@ export function PlayerProfilePanel({
   const [state, setState] = useState<FetchState>({ status: "loading" });
   const [strengthState, setStrengthState] = useState<(typeof STRENGTH_STATES)[number]>("5v5");
   const [photoFailed, setPhotoFailed] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
 
   const isGoalie = (bio?.position_code ?? stats?.position_code) === "G";
 
   useEffect(() => {
     setPhotoFailed(false);
+    setLogoFailed(false);
   }, [playerId]);
 
   useEffect(() => {
@@ -177,8 +180,13 @@ export function PlayerProfilePanel({
                 {teamAbbrev ? ` · ${teamAbbrev}` : ""}
               </div>
             </div>
-            {teamAbbrev && colors && (
-              <img src={logoUrl(teamAbbrev)} alt={`${teamAbbrev} logo`} className="h-10 w-10" />
+            {teamAbbrev && colors && !logoFailed && (
+              <img
+                src={logoUrl(teamAbbrev)}
+                alt={`${teamAbbrev} logo`}
+                className="h-10 w-10"
+                onError={() => setLogoFailed(true)}
+              />
             )}
           </div>
         </DialogHeader>
