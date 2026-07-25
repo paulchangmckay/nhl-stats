@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Toolbar, type ToolbarFilters } from "@/components/Toolbar";
 import { PlayerTable } from "@/components/PlayerTable";
-import { PlayerAdvancedPanel } from "@/components/PlayerAdvancedPanel";
+import { PlayerProfilePanel } from "@/components/PlayerProfilePanel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,7 +38,7 @@ export default function App() {
   const [seasons, setSeasons] = useState<string[]>(["20252026"]);
   const [sortKey, setSortKey] = useState("points");
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
-  const [advancedPlayerId, setAdvancedPlayerId] = useState<number | null>(null);
+  const [profilePlayerId, setProfilePlayerId] = useState<number | null>(null);
 
   function loadTeams() {
     setTeamsState({ status: "loading" });
@@ -201,23 +201,23 @@ export default function App() {
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={handleSort}
-            onOpenAdvanced={setAdvancedPlayerId}
+            onOpenProfile={setProfilePlayerId}
           />
         </div>
       )}
 
-      {advancedPlayerId !== null && (
-        <PlayerAdvancedPanel
-          open={advancedPlayerId !== null}
-          playerId={advancedPlayerId}
-          playerName={
-            (() => {
-              const p = rows.find((r) => r.player_id === advancedPlayerId);
-              return p ? `${p.first_name} ${p.last_name}` : "";
-            })()
+      {profilePlayerId !== null && (
+        <PlayerProfilePanel
+          open={profilePlayerId !== null}
+          playerId={profilePlayerId}
+          bio={
+            playersState.status === "ready"
+              ? playersState.data.find((p) => p.player_id === profilePlayerId)
+              : undefined
           }
+          stats={rows.find((r) => r.player_id === profilePlayerId)}
           onOpenChange={(open) => {
-            if (!open) setAdvancedPlayerId(null);
+            if (!open) setProfilePlayerId(null);
           }}
         />
       )}
