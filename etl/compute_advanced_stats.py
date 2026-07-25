@@ -119,14 +119,15 @@ def compute_percentiles(conn, season_id):
     for strength_state in PERCENTILE_STRENGTH_STATES:
         for position_group, position_codes in (("F", ("C", "L", "R")), ("D", ("D",))):
             placeholders = ",".join("?" * len(position_codes))
-            rows = conn.execute(f"""
+            query = f"""
                 SELECT psas.player_id, psas.cf, psas.ca, psas.ff, psas.fa,
                        psas.hdcf, psas.hdca, psas.primary_points
                 FROM player_season_advanced_stats psas
                 JOIN players p ON p.player_id = psas.player_id
                 WHERE psas.season_id = ? AND psas.strength_state = ?
                   AND psas.gp >= ? AND p.position_code IN ({placeholders})
-            """, (season_id, strength_state, PERCENTILE_MIN_GP, *position_codes)).fetchall()
+            """  # nosec B608 -- placeholders is only "?,?,..."; position_codes is a fixed internal tuple (never user input), values are bound below, never interpolated
+            rows = conn.execute(query, (season_id, strength_state, PERCENTILE_MIN_GP, *position_codes)).fetchall()
 
             if not rows:
                 continue
