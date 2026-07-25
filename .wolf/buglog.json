@@ -7,8 +7,13 @@
       "error_message": "some players are missing positions now",
       "file": "src/database.py",
       "root_cause": "upsert_player_enrichment() never wrote position_code even though the landing API (/v1/player/{id}/landing) returns it. Affected 121 retired/inactive players whose only path into the players table was a stub (name + position only sometimes missing) later filled by enrichment, which silently skipped the position field. Same root-cause family as the earlier bio-data gap (missing enrichment fields), just for a different column.",
-      "fix": "Added position_code = COALESCE(position_code, ?) to upsert_player_enrichment()'s UPDATE (fill-only, never overwrites a known value). Extracted data.get(\"position\") in etl/enrich_players.py and passed it through. Added `OR position_code IS NULL` to the enrichment WHERE clause so previously-skipped players get picked up. Re-ran enrichment for the 121 affected players (0 errors) — confirmed 0/1776 players with null position_code afterward.",
-      "tags": ["etl", "enrichment", "data-gap", "null-guard"],
+      "fix": "Added position_code = COALESCE(position_code, ?) to upsert_player_enrichment()'s UPDATE (fill-only, never overwrites a known value). Extracted data.get(\"position\") in etl/enrich_players.py and passed it through. Added `OR position_code IS NULL` to the enrichment WHERE clause so previously-skipped players get picked up. Re-ran enrichment for the 121 affected players (0 errors) \u2014 confirmed 0/1776 players with null position_code afterward.",
+      "tags": [
+        "etl",
+        "enrichment",
+        "data-gap",
+        "null-guard"
+      ],
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-11T00:00:00.000Z"
@@ -18,9 +23,14 @@
       "timestamp": "2026-07-12T00:00:00.000Z",
       "error_message": "Search suggestion click silently fails to show the selected player (e.g. Nathan MacKinnon)",
       "file": "templates/index.html",
-      "root_cause": "selectSuggestion() only reset searchText before trying to scroll to the clicked player's row. It never reset activeTeam, activePositions, or statMins. If any of those three filters were still active from earlier browsing and excluded the selected player, render() never produced a <tr> for them, document.querySelector returned null, and the scroll-to-row guard (`if (!row) return;`) silently aborted — looking exactly like the player couldn't be found.",
+      "root_cause": "selectSuggestion() only reset searchText before trying to scroll to the clicked player's row. It never reset activeTeam, activePositions, or statMins. If any of those three filters were still active from earlier browsing and excluded the selected player, render() never produced a <tr> for them, document.querySelector returned null, and the scroll-to-row guard (`if (!row) return;`) silently aborted \u2014 looking exactly like the player couldn't be found.",
       "fix": "Added clearOtherFilters() (resets activeTeam, activePositions, statMins and syncs their DOM controls: team popup button text, .pos-toggle active classes, .stat-input field values) and call it from selectSuggestion() before render(). searchText reset behavior unchanged.",
-      "tags": ["frontend", "filter-state", "search", "ui"],
+      "tags": [
+        "frontend",
+        "filter-state",
+        "search",
+        "ui"
+      ],
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-12T00:00:00.000Z"
@@ -30,9 +40,14 @@
       "timestamp": "2026-07-13T00:00:00.000Z",
       "error_message": "pip-audit flagged known CVEs in pinned deps: requests 2.32.3 (PYSEC-2026-1872, CVE-2026-25645), flask 3.1.1 (CVE-2026-27205), pytest 8.3.5 (PYSEC-2026-1845)",
       "file": "requirements.txt",
-      "root_cause": "No dependency-audit tooling was gated in CI, so pinned versions silently aged past their patched releases with zero visibility (repo also had Dependabot alerts disabled — see project decision log).",
+      "root_cause": "No dependency-audit tooling was gated in CI, so pinned versions silently aged past their patched releases with zero visibility (repo also had Dependabot alerts disabled \u2014 see project decision log).",
       "fix": "Bumped requests to 2.33.0, flask to 3.1.3, pytest to 9.0.3 (moved to requirements-dev.txt). Added scripts/audit.sh (pip-audit + bandit) as a required CI gate so future drift fails the PR instead of going unnoticed.",
-      "tags": ["dependencies", "cve", "supply-chain", "ci"],
+      "tags": [
+        "dependencies",
+        "cve",
+        "supply-chain",
+        "ci"
+      ],
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-13T00:00:00.000Z"
@@ -42,9 +57,14 @@
       "timestamp": "2026-07-13T00:00:00.000Z",
       "error_message": "Appending `# nosec B608` on the same physical line as an opening f\"\"\" corrupts the SQL string instead of suppressing the bandit finding",
       "file": "app.py",
-      "root_cause": "A Python comment cannot appear on a line that also opens a triple-quoted string literal — everything after f\"\"\" until the closing \"\"\" is string content, not code. `rows = conn.execute(f\"\"\"  # nosec B608` silently embedded \"  # nosec B608\" as literal text inside the SQL sent to SQLite. Caught by inspection before running anything, then confirmed two ways: bandit still reported the finding (0 skipped) proving the nosec never registered, and it would have broken the query at runtime.",
+      "root_cause": "A Python comment cannot appear on a line that also opens a triple-quoted string literal \u2014 everything after f\"\"\" until the closing \"\"\" is string content, not code. `rows = conn.execute(f\"\"\"  # nosec B608` silently embedded \"  # nosec B608\" as literal text inside the SQL sent to SQLite. Caught by inspection before running anything, then confirmed two ways: bandit still reported the finding (0 skipped) proving the nosec never registered, and it would have broken the query at runtime.",
       "fix": "Extracted the f-string into a `query = f\"\"\"...\"\"\"` assignment so the closing `\"\"\"` and the `# nosec B608` comment could land on their own line, then called `conn.execute(query, seasons)` on the next line. Re-verified via py_compile + an end-to-end Flask test-client smoke test against a real SQLite DB.",
-      "tags": ["bandit", "sast", "python-syntax", "nosec"],
+      "tags": [
+        "bandit",
+        "sast",
+        "python-syntax",
+        "nosec"
+      ],
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-13T00:00:00.000Z"
@@ -54,10 +74,17 @@
       "timestamp": "2026-07-14T00:00:00.000Z",
       "error_message": "Searching a full name (e.g. \"Nathan MacKinnon\") returns zero results, though last-name-only search (\"MacKinnon\") works",
       "file": "templates/index.html",
-      "root_cause": "renderSuggestions() and render()'s search filter both required the raw, unsplit query to be a substring of first_name OR last_name independently. A two-word query is longer than either field alone, so \"nathan mackinnon\" never matched \"nathan\" or \"mackinnon\" individually. Team names (team_name/team_abbrev) were never checked at all — team search was entirely unimplemented in the search box. Distinct from bug-002 (already-fixed filter-state bug on suggestion click) despite the same repro name.",
+      "root_cause": "renderSuggestions() and render()'s search filter both required the raw, unsplit query to be a substring of first_name OR last_name independently. A two-word query is longer than either field alone, so \"nathan mackinnon\" never matched \"nathan\" or \"mackinnon\" individually. Team names (team_name/team_abbrev) were never checked at all \u2014 team search was entirely unimplemented in the search box. Distinct from bug-002 (already-fixed filter-state bug on suggestion click) despite the same repro name.",
       "fix": "Extracted a shared, tested matchesQuery(player, query) helper into a new static/js/search.js (tokenizes the query on whitespace, requires every token to be found via AND semantics across a concatenated first_name+last_name+team_name+team_abbrev+team_place_name haystack). Order-independent by construction (\"Nathan MacKinnon\" and \"MacKinnon Nathan\" both work) and gives team-name search for free once team fields are in the haystack. Added t.place_name AS team_place_name to /api/players (extracted into a new testable _fetch_players(conn) helper in app.py) so \"Colorado\" matches alongside \"Avalanche\"/\"COL\". Added tests/js/search.test.js (13 cases, Node's built-in node:test, zero new deps) and a pytest case for _fetch_players. Superseded an earlier partial fix (PR #11) that only handled forward-order names with no team search and no tests.",
-      "tags": ["frontend", "search", "autocomplete", "ui"],
-      "related_bugs": ["bug-002"],
+      "tags": [
+        "frontend",
+        "search",
+        "autocomplete",
+        "ui"
+      ],
+      "related_bugs": [
+        "bug-002"
+      ],
       "occurrences": 1,
       "last_seen": "2026-07-14T00:00:00.000Z"
     },
@@ -68,7 +95,13 @@
       "file": "scripts/launch_app.sh",
       "root_cause": "mkdir -p \"$LOG_DIR\" and source \"$PROJECT_DIR/.venv/bin/activate\" were not wrapped in their own if-guard + alert() the way every other risky step was, so under `set -euo pipefail` either one failing would exit the script immediately with no dialog. Separately, the `.venv` existence check only tested `[ -d .venv ]`, not that `.venv/bin/activate` actually existed, so a `.venv` left half-built by an interrupted prior run (crash, disk full, killed mid-creation) would skip re-creation and then fail silently at the unguarded `source` line. Also flagged: `is_up()`'s `curl -s -o /dev/null` treats any completed HTTP response (200, 404, 500) as \"already running,\" the same class of false-positive health check that motivated the port 5000->5099 move in the first place.",
       "fix": "Added `trap 'alert \"Unexpected error...\"' ERR` as a catch-all so any unguarded command failure still shows a dialog. Changed the venv check to `[ ! -f \"$PROJECT_DIR/.venv/bin/activate\" ]` so a half-built venv gets recreated instead of silently failing at source. Changed `is_up()` to `curl -sf` so only an actual 2xx/3xx response counts as \"up.\" Re-verified cold start, warm start, and (new) a deliberately broken requirements.txt to confirm the alert dialog fires correctly and the script exits non-zero rather than hanging or failing silently.",
-      "tags": ["shell", "error-handling", "code-review", "macos", "launcher"],
+      "tags": [
+        "shell",
+        "error-handling",
+        "code-review",
+        "macos",
+        "launcher"
+      ],
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-16T00:00:00.000Z"
@@ -76,12 +109,20 @@
     {
       "id": "bug-007",
       "timestamp": "2026-07-16T00:00:00.000Z",
-      "error_message": "User double-clicked ~/Desktop/NHL Stats.app and nothing happened — no browser opened, no error dialog shown",
+      "error_message": "User double-clicked ~/Desktop/NHL Stats.app and nothing happened \u2014 no browser opened, no error dialog shown",
       "file": "scripts/launch_app.applescript",
-      "root_cause": "Two layers. (1) Expected/sequencing: PR #27 (adding scripts/launch_app.sh and the port-5099 app.py change) hadn't merged yet, so the compiled app's hardcoded absolute path (/Users/paulmckay/Desktop/NHL Stats Project/scripts/launch_app.sh) didn't exist on `main` at the time of testing. (2) Real design gap, empirically confirmed via an isolated osascript test: a bare `try / do shell script quoted form of \"<path>\" / end try` swallows ALL errors from `do shell script`, including \"no such file\" — not just the non-zero-exit case the try/end try was designed to suppress (where launch_app.sh's own osascript alert already fires). When do shell script can't even invoke the target (missing file, not executable, etc.), the user gets zero feedback: no dialog, no browser, nothing.",
+      "root_cause": "Two layers. (1) Expected/sequencing: PR #27 (adding scripts/launch_app.sh and the port-5099 app.py change) hadn't merged yet, so the compiled app's hardcoded absolute path (/Users/paulmckay/Desktop/NHL Stats Project/scripts/launch_app.sh) didn't exist on `main` at the time of testing. (2) Real design gap, empirically confirmed via an isolated osascript test: a bare `try / do shell script quoted form of \"<path>\" / end try` swallows ALL errors from `do shell script`, including \"no such file\" \u2014 not just the non-zero-exit case the try/end try was designed to suppress (where launch_app.sh's own osascript alert already fires). When do shell script can't even invoke the target (missing file, not executable, etc.), the user gets zero feedback: no dialog, no browser, nothing.",
       "fix": "Added a pre-flight `do shell script \"test -x \" & quoted form of scriptPath` check in launch_app.applescript before the real invocation. If that fails, an explicit `display dialog` fires naming the missing path, instead of relying on the bare try/end try to (incorrectly) let launch_app.sh's own error handling cover this case. Verified via an isolated /tmp osascript test that the on-error branch fires correctly for a missing/non-executable file and is a no-op for a real one, then re-verified the real compiled ~/Desktop/NHL Stats.app end-to-end (happy path: 200 response; failure path: script chmod -x'd, confirmed the app didn't silently start nothing).",
-      "tags": ["applescript", "error-handling", "macos", "launcher", "silent-failure"],
-      "related_bugs": ["bug-006"],
+      "tags": [
+        "applescript",
+        "error-handling",
+        "macos",
+        "launcher",
+        "silent-failure"
+      ],
+      "related_bugs": [
+        "bug-006"
+      ],
       "occurrences": 1,
       "last_seen": "2026-07-16T00:00:00.000Z"
     },
@@ -90,9 +131,14 @@
       "timestamp": "2026-07-14T00:00:00.000Z",
       "error_message": "Column header row renders displaced into the player row list (e.g. appearing as the 3rd row, between two data rows) instead of pinned at the top, on both Bio and Stats tabs; also does not stay pinned while scrolling.",
       "file": "templates/index.html",
-      "root_cause": "`.table-wrap` set only `overflow-x: auto`, leaving `overflow-y` unset. Per the CSS overflow spec, the browser computes the unset axis to `auto` too, making `.table-wrap` its own scroll container and the sticky-positioning containing block for `thead th`, instead of the page viewport. Since `.table-wrap` was never actually scrolled internally (the page itself scrolled via `<body>`), the `top: var(--thead-top)` sticky offset (~150-250px, the toolbar's real height) permanently displaced the header down by that amount from `.table-wrap`'s own top edge, even at scroll offset 0 — confirmed against a screenshot showing the header rendered as the 3rd row.",
+      "root_cause": "`.table-wrap` set only `overflow-x: auto`, leaving `overflow-y` unset. Per the CSS overflow spec, the browser computes the unset axis to `auto` too, making `.table-wrap` its own scroll container and the sticky-positioning containing block for `thead th`, instead of the page viewport. Since `.table-wrap` was never actually scrolled internally (the page itself scrolled via `<body>`), the `top: var(--thead-top)` sticky offset (~150-250px, the toolbar's real height) permanently displaced the header down by that amount from `.table-wrap`'s own top edge, even at scroll offset 0 \u2014 confirmed against a screenshot showing the header rendered as the 3rd row.",
       "fix": "Gave `.table-wrap` an explicit bounded height (`max(200px, calc(100vh - var(--toolbar-height, 57px)))`) and real `overflow: auto`, making it an intentional scroll pane. Changed `thead th`'s sticky `top` from `var(--thead-top)` to `0` (now correctly relative to `.table-wrap`'s own scrollport). Renamed the CSS var `--thead-top` to `--toolbar-height` to match its new purpose, and added a `resize` listener so the pane stays sized correctly. The 200px floor (added after code review) prevents the calc() from going negative and collapsing the pane to zero height on short viewports.",
-      "tags": ["css", "sticky-positioning", "frontend", "layout"],
+      "tags": [
+        "css",
+        "sticky-positioning",
+        "frontend",
+        "layout"
+      ],
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-14T00:00:00.000Z"
@@ -102,9 +148,14 @@
       "timestamp": "2026-07-17T00:00:00.000Z",
       "error_message": "sqlite3.IntegrityError: FOREIGN KEY constraint failed when calling insert_game_event/insert_player_shift in the task-1-brief's own verbatim test code (test_insert_game_event_is_idempotent, test_insert_player_shift_is_idempotent)",
       "file": "tests/test_database.py",
-      "root_cause": "game_events.game_id and player_shifts.game_id are both `INTEGER NOT NULL REFERENCES games(game_id)`. The shared `conn` pytest fixture goes through database.get_connection(), which sets `PRAGMA foreign_keys = ON`, so FK enforcement is active in tests. The task-1-brief's test code stubs the player_id FK via ensure_player_stub()/_stub_player() but never inserts a games row for game_id=100 before inserting a game_events/player_shifts row referencing it — SQLite's `INSERT OR IGNORE` only suppresses UNIQUE/PK/NOT NULL/CHECK conflicts, not FOREIGN KEY violations (confirmed via an isolated repro), so the insert raises IntegrityError instead of being silently skipped.",
-      "fix": "Added a `_stub_game(conn, game_id)` test helper in tests/test_database.py (mirrors the existing `_stub_player` convention) that calls database.insert_game() with a minimal games row (only game_date is NOT NULL in the games table; season_id/team ids can be None since NULL FK values are never checked). Called `_stub_game(conn, 100)` at the top of both idempotency tests before the game_events/player_shifts inserts. Schema and insert_game_event/insert_player_shift/ensure_player_stub implementations in src/database.py were NOT changed — this was purely a missing test-setup step.",
-      "tags": ["sqlite", "foreign-key", "test-setup", "database"],
+      "root_cause": "game_events.game_id and player_shifts.game_id are both `INTEGER NOT NULL REFERENCES games(game_id)`. The shared `conn` pytest fixture goes through database.get_connection(), which sets `PRAGMA foreign_keys = ON`, so FK enforcement is active in tests. The task-1-brief's test code stubs the player_id FK via ensure_player_stub()/_stub_player() but never inserts a games row for game_id=100 before inserting a game_events/player_shifts row referencing it \u2014 SQLite's `INSERT OR IGNORE` only suppresses UNIQUE/PK/NOT NULL/CHECK conflicts, not FOREIGN KEY violations (confirmed via an isolated repro), so the insert raises IntegrityError instead of being silently skipped.",
+      "fix": "Added a `_stub_game(conn, game_id)` test helper in tests/test_database.py (mirrors the existing `_stub_player` convention) that calls database.insert_game() with a minimal games row (only game_date is NOT NULL in the games table; season_id/team ids can be None since NULL FK values are never checked). Called `_stub_game(conn, 100)` at the top of both idempotency tests before the game_events/player_shifts inserts. Schema and insert_game_event/insert_player_shift/ensure_player_stub implementations in src/database.py were NOT changed \u2014 this was purely a missing test-setup step.",
+      "tags": [
+        "sqlite",
+        "foreign-key",
+        "test-setup",
+        "database"
+      ],
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-17T00:00:00.000Z"
@@ -114,10 +165,18 @@
       "timestamp": "2026-07-17T00:00:00.000Z",
       "error_message": "sqlite3.IntegrityError: FOREIGN KEY constraint failed when calling insert_game_event from etl.load_play_by_play.run() in the task-4-brief's own verbatim idempotency test (test_run_does_not_duplicate_events_on_second_invocation)",
       "file": "tests/test_load_play_by_play.py",
-      "root_cause": "game_events.event_owner_team_id is `INTEGER REFERENCES teams(team_id)`, a separate FK from the game_id one bug-009 already covered. The task-4-brief's fake_plays test fixture sets `eventOwnerTeamId: 1` in the play details, which _extract_event carries through to event_owner_team_id=1 on the row passed to insert_game_event. The conn fixture's fresh test db (PRAGMA foreign_keys=ON) has no teams row for team_id=1 — unlike production, where load_teams.py always populates the teams table before load_play_by_play.py runs — so the FK check fails on the very first insert_game_event call inside run(). _ensure_referenced_players() only stubs player_id FKs (shooting/blocking/goalie/assist1/assist2) via database.ensure_player_stub(); there is no analogous ensure_team_stub() helper, and none was needed since only test data references an unseeded team.",
-      "fix": "Added `database.upsert_team(conn, {\"team_id\": 1, \"abbrev\": \"TST\", \"common_name\": \"Test\", \"place_name\": \"Test\", \"conference\": None, \"division\": None})` as a setup step at the top of the idempotency test, before insert_game/run(). upsert_team already existed in src/database.py (used by etl/load_teams.py) and needed no changes. etl/load_play_by_play.py's production code was NOT changed — this was purely a missing test-setup step, same class of gap as bug-009 but on a different FK column.",
-      "tags": ["sqlite", "foreign-key", "test-setup", "database", "play-by-play"],
-      "related_bugs": ["bug-009"],
+      "root_cause": "game_events.event_owner_team_id is `INTEGER REFERENCES teams(team_id)`, a separate FK from the game_id one bug-009 already covered. The task-4-brief's fake_plays test fixture sets `eventOwnerTeamId: 1` in the play details, which _extract_event carries through to event_owner_team_id=1 on the row passed to insert_game_event. The conn fixture's fresh test db (PRAGMA foreign_keys=ON) has no teams row for team_id=1 \u2014 unlike production, where load_teams.py always populates the teams table before load_play_by_play.py runs \u2014 so the FK check fails on the very first insert_game_event call inside run(). _ensure_referenced_players() only stubs player_id FKs (shooting/blocking/goalie/assist1/assist2) via database.ensure_player_stub(); there is no analogous ensure_team_stub() helper, and none was needed since only test data references an unseeded team.",
+      "fix": "Added `database.upsert_team(conn, {\"team_id\": 1, \"abbrev\": \"TST\", \"common_name\": \"Test\", \"place_name\": \"Test\", \"conference\": None, \"division\": None})` as a setup step at the top of the idempotency test, before insert_game/run(). upsert_team already existed in src/database.py (used by etl/load_teams.py) and needed no changes. etl/load_play_by_play.py's production code was NOT changed \u2014 this was purely a missing test-setup step, same class of gap as bug-009 but on a different FK column.",
+      "tags": [
+        "sqlite",
+        "foreign-key",
+        "test-setup",
+        "database",
+        "play-by-play"
+      ],
+      "related_bugs": [
+        "bug-009"
+      ],
       "occurrences": 1,
       "last_seen": "2026-07-17T00:00:00.000Z"
     },
@@ -126,9 +185,15 @@
       "timestamp": "2026-07-20T00:00:00.000Z",
       "error_message": "npm run build fails: src/components/PositionToggle.tsx(27,18): error TS2322: Type '{ children: Element[]; type: string; value: string[]; }' is not assignable to type ... Property 'type' does not exist on type ...",
       "file": "frontend/src/components/PositionToggle.tsx",
-      "root_cause": "PositionToggle.tsx used `<ToggleGroup type=\"multiple\" value={Array.from(active)}>`, a Radix ToggleGroup idiom (Radix needs `type` to pick single- vs multi-select mode). This project's shadcn primitive (frontend/src/components/ui/toggle-group.tsx) wraps @base-ui/react's ToggleGroup, not Radix's, and Base UI's ToggleGroupProps (frontend/node_modules/@base-ui/react/toggle-group/ToggleGroup.d.ts) has no `type` prop at all — it has value/defaultValue/onValueChange/disabled/orientation/loopFocus/multiple instead. The Task 7 review only ran Vitest (which doesn't type-check JSX prop shapes against Radix vs Base UI signatures), not `npm run build`/`tsc`, so the invalid prop slipped through. Verified via ToggleGroup.js/Toggle.js source that each item's pressed/on state derives purely from `groupContext.value.indexOf(itemValue) > -1` (i.e. the externally controlled `value` array), independent of Base UI's own `multiple` flag — so PositionToggle's existing pattern of driving all state via each ToggleGroupItem's onClick plus a controlled `value` array needed no further changes once `type` was removed.",
+      "root_cause": "PositionToggle.tsx used `<ToggleGroup type=\"multiple\" value={Array.from(active)}>`, a Radix ToggleGroup idiom (Radix needs `type` to pick single- vs multi-select mode). This project's shadcn primitive (frontend/src/components/ui/toggle-group.tsx) wraps @base-ui/react's ToggleGroup, not Radix's, and Base UI's ToggleGroupProps (frontend/node_modules/@base-ui/react/toggle-group/ToggleGroup.d.ts) has no `type` prop at all \u2014 it has value/defaultValue/onValueChange/disabled/orientation/loopFocus/multiple instead. The Task 7 review only ran Vitest (which doesn't type-check JSX prop shapes against Radix vs Base UI signatures), not `npm run build`/`tsc`, so the invalid prop slipped through. Verified via ToggleGroup.js/Toggle.js source that each item's pressed/on state derives purely from `groupContext.value.indexOf(itemValue) > -1` (i.e. the externally controlled `value` array), independent of Base UI's own `multiple` flag \u2014 so PositionToggle's existing pattern of driving all state via each ToggleGroupItem's onClick plus a controlled `value` array needed no further changes once `type` was removed.",
       "fix": "Deleted the `type=\"multiple\"` prop from the `<ToggleGroup>` element in PositionToggle.tsx, leaving `<ToggleGroup value={Array.from(active)}>`. No other prop changes needed (confirmed Base UI's `multiple` flag only affects its own internal setGroupValue/onValueChange bookkeeping, not the read-side pressed-state derivation, which already comes from the controlled `value` array). `npm run build` now exits 0; `npm test` (vitest run) still passes all 28 tests across 5 files, including PositionToggle.test.tsx's 3 cases, unchanged.",
-      "tags": ["frontend", "typescript", "base-ui", "toggle-group", "build-break"],
+      "tags": [
+        "frontend",
+        "typescript",
+        "base-ui",
+        "toggle-group",
+        "build-break"
+      ],
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-20T00:00:00.000Z"
@@ -138,9 +203,15 @@
       "timestamp": "2026-07-20T00:00:00.000Z",
       "error_message": "userEvent.type() on a fully-controlled <Input value={prop} onChange={...}> only ever registers the final keystroke (e.g. typing \"20\" into StatFilters produces onChange({...gp: 0}) instead of gp: 20; typing \"McDavid\" into Toolbar's search box leaves filters.search stuck at one character)",
       "file": "frontend/src/components/StatFilters.tsx, frontend/src/components/Toolbar.tsx",
-      "root_cause": "Both components' task briefs specified a naive fully-controlled input (value={someProp}, onChange calls the parent's setter and nothing else). This works fine against a REAL stateful parent (which re-renders with the updated value before the next keystroke), but fails against a test that passes a stateless vi.fn() mock as onChange — the DOM input's value prop never advances between keystrokes, so each keystroke event fires against a stale prop value and overwrites rather than accumulates. Confirmed empirically both times by reverting to the brief's literal naive code and rerunning the test (deterministic failure, not flaky).",
-      "fix": "Added local useState seeded from the prop, synced back to the prop's value via a useEffect keyed on the prop (so external resets/clears still take effect), with onChange updating both local state and calling the parent's handler. Same pattern applied independently in both components since neither was aware of the other's fix at review time — worth extracting to a shared useControlledInput-style hook if a third text input appears in this codebase.",
-      "tags": ["frontend", "react", "controlled-input", "testing", "vitest"],
+      "root_cause": "Both components' task briefs specified a naive fully-controlled input (value={someProp}, onChange calls the parent's setter and nothing else). This works fine against a REAL stateful parent (which re-renders with the updated value before the next keystroke), but fails against a test that passes a stateless vi.fn() mock as onChange \u2014 the DOM input's value prop never advances between keystrokes, so each keystroke event fires against a stale prop value and overwrites rather than accumulates. Confirmed empirically both times by reverting to the brief's literal naive code and rerunning the test (deterministic failure, not flaky).",
+      "fix": "Added local useState seeded from the prop, synced back to the prop's value via a useEffect keyed on the prop (so external resets/clears still take effect), with onChange updating both local state and calling the parent's handler. Same pattern applied independently in both components since neither was aware of the other's fix at review time \u2014 worth extracting to a shared useControlledInput-style hook if a third text input appears in this codebase.",
+      "tags": [
+        "frontend",
+        "react",
+        "controlled-input",
+        "testing",
+        "vitest"
+      ],
       "related_bugs": [],
       "occurrences": 2,
       "last_seen": "2026-07-20T00:00:00.000Z"
@@ -148,26 +219,96 @@
     {
       "id": "bug-013",
       "timestamp": "2026-07-20T00:00:00.000Z",
-      "error_message": "PositionToggle's active/selected position chip renders generic muted-gray instead of its intended per-position color (green for C, blue for L, etc.) — not caught by npm test or npm run build, only by a whole-branch visual review",
+      "error_message": "PositionToggle's active/selected position chip renders generic muted-gray instead of its intended per-position color (green for C, blue for L, etc.) \u2014 not caught by npm test or npm run build, only by a whole-branch visual review",
       "file": "frontend/src/components/PositionToggle.tsx",
-      "root_cause": "POSITION_CLASSES styled the active state via `data-[state=on]:bg-{color}` — a Radix Toggle attribute. This project's shadcn primitives are Base UI-backed (see bug-011), and Base UI's Toggle never emits `data-state`; it exposes pressed state via `aria-pressed` instead (confirmed by shadcn's own toggle.tsx base variant already pairing `aria-pressed:bg-muted` alongside the vestigial `data-[state=on]:bg-muted`). Since the toggle still functioned (onChange fired correctly, tests only checked click behavior and button presence, never computed CSS), this was invisible to every automated gate — caught only when a whole-branch review specifically looked for other latent Radix-idiom survivors after bug-011.",
+      "root_cause": "POSITION_CLASSES styled the active state via `data-[state=on]:bg-{color}` \u2014 a Radix Toggle attribute. This project's shadcn primitives are Base UI-backed (see bug-011), and Base UI's Toggle never emits `data-state`; it exposes pressed state via `aria-pressed` instead (confirmed by shadcn's own toggle.tsx base variant already pairing `aria-pressed:bg-muted` alongside the vestigial `data-[state=on]:bg-muted`). Since the toggle still functioned (onChange fired correctly, tests only checked click behavior and button presence, never computed CSS), this was invisible to every automated gate \u2014 caught only when a whole-branch review specifically looked for other latent Radix-idiom survivors after bug-011.",
       "fix": "Swapped `data-[state=on]:` to `aria-pressed:` for all five position color rules. Verified visually via a headless Playwright check against the live dev server (confirmed aria-pressed=\"true\" plus the correct background-color on click) since jsdom/Vitest cannot observe computed CSS from data-attribute vs aria-attribute selectors.",
-      "tags": ["frontend", "css", "base-ui", "visual-regression", "tailwind"],
-      "related_bugs": ["bug-011"],
+      "tags": [
+        "frontend",
+        "css",
+        "base-ui",
+        "visual-regression",
+        "tailwind"
+      ],
+      "related_bugs": [
+        "bug-011"
+      ],
       "occurrences": 1,
       "last_seen": "2026-07-20T00:00:00.000Z"
     },
     {
       "id": "bug-014",
       "timestamp": "2026-07-20T00:00:00.000Z",
-      "error_message": "PlayerTable's sticky column header silently fails to stay pinned when scrolling the surrounding bounded-height table pane — reintroduces bug-008's exact symptom, only visible in a real browser (jsdom cannot render position:sticky layout)",
+      "error_message": "PlayerTable's sticky column header silently fails to stay pinned when scrolling the surrounding bounded-height table pane \u2014 reintroduces bug-008's exact symptom, only visible in a real browser (jsdom cannot render position:sticky layout)",
       "file": "frontend/src/components/ui/table.tsx",
-      "root_cause": "shadcn's generated Table wrapper set `overflow-x-auto` on its inner `table-container` div without setting `overflow-y`. Per the CSS Overflow spec, an unset axis defaults to `visible`, but when the OTHER axis is anything other than `visible`, the browser computes BOTH axes as `auto` — so `table-container` silently became its own scroll container / sticky-positioning containing block, even though it has no bounded height of its own (it grows to fit content). The actual bounded-height, user-visible scroll pane is the OUTER `table-wrap` div (App.tsx, ported from bug-008's original fix). PlayerTable's `sticky top-0` header thus anchored to the wrong (non-scrolling) container and scrolled away with the rest of the table content instead of staying pinned. No automated test caught this — jsdom cannot evaluate position:sticky against real scroll geometry — it surfaced only via a whole-branch review's explicit instruction to verify layout claims in a real browser.",
+      "root_cause": "shadcn's generated Table wrapper set `overflow-x-auto` on its inner `table-container` div without setting `overflow-y`. Per the CSS Overflow spec, an unset axis defaults to `visible`, but when the OTHER axis is anything other than `visible`, the browser computes BOTH axes as `auto` \u2014 so `table-container` silently became its own scroll container / sticky-positioning containing block, even though it has no bounded height of its own (it grows to fit content). The actual bounded-height, user-visible scroll pane is the OUTER `table-wrap` div (App.tsx, ported from bug-008's original fix). PlayerTable's `sticky top-0` header thus anchored to the wrong (non-scrolling) container and scrolled away with the rest of the table content instead of staying pinned. No automated test caught this \u2014 jsdom cannot evaluate position:sticky against real scroll geometry \u2014 it surfaced only via a whole-branch review's explicit instruction to verify layout claims in a real browser.",
       "fix": "Removed `overflow-x-auto` from table-container's className (now just `relative w-full`), leaving table-wrap as the sole scroll container on both axes (it already has overflow-auto covering horizontal scroll too). Verified via Playwright against the real API with 1038 rows: header bounding-box y-position moved -500px in lockstep with a 500px scroll before the fix, stayed fixed at the same y after.",
-      "tags": ["frontend", "css", "sticky-header", "shadcn", "visual-regression", "table"],
-      "related_bugs": ["bug-008"],
+      "tags": [
+        "frontend",
+        "css",
+        "sticky-header",
+        "shadcn",
+        "visual-regression",
+        "table"
+      ],
+      "related_bugs": [
+        "bug-008"
+      ],
       "occurrences": 1,
       "last_seen": "2026-07-20T00:00:00.000Z"
+    },
+    {
+      "id": "bug-015",
+      "timestamp": "2026-07-20T00:00:00.000Z",
+      "error_message": "sqlite3.OperationalError: no such table: game_events (load_play_by_play crashed immediately on its first live run against the main checkout's real data/nhl_stats.db)",
+      "file": "data/nhl_stats.db (main checkout)",
+      "root_cause": "PR #39 (play-by-play/shift ingestion) added new tables (game_events, player_shifts) to src/database.py's create_all_tables(). That function is idempotent (CREATE TABLE IF NOT EXISTS) but is NOT called automatically by get_connection() \u2014 it only runs when scripts/setup_db.py is explicitly invoked. Each git worktree gets its own independent physical copy of the gitignored data/nhl_stats.db, so the worktree used to develop/test PR #39 had the new tables (from earlier manual testing), but the main checkout's own DB file never got scripts/setup_db.py re-run after merge, and so was still on the pre-PR schema.",
+      "fix": "Ran `.venv/bin/python scripts/setup_db.py` against the main checkout's data/nhl_stats.db (safe/idempotent, all CREATE TABLE statements use IF NOT EXISTS), then resumed the interrupted load_play_by_play/load_shifts run. Each loader's NOT EXISTS-based pending-row query meant resuming was lossless.",
+      "tags": [
+        "database",
+        "sqlite",
+        "schema-migration",
+        "worktree",
+        "etl"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-20T00:00:00.000Z"
+    },
+    {
+      "id": "bug-016",
+      "timestamp": "2026-07-25T02:00:00.000Z",
+      "error_message": "PlayerAdvancedPanel dialog opens but shows no data \u2014 empty percentile boxes, empty trend chart",
+      "file": "etl/compute_advanced_stats.py",
+      "root_cause": "player_season_advanced_stats and player_advanced_percentiles were both completely empty (0 rows) despite 7,945 completed games with full shift/event source data (5.6M shift rows, 2.5M event rows) already loaded. The per-game aggregation script (etl/compute_advanced_stats.py) had never actually been executed against data/nhl_stats.db after the advanced-analytics feature (PR #70, commit 84eb36e) merged \u2014 code existed and was correct (including a prior in-review fix wiring _run_aggregation_and_percentiles() into run()), but no deploy/setup step ever ran it, so /api/players/<id>/advanced always returned strength_states: {} and trend: [].",
+      "fix": "Ran python etl/compute_advanced_stats.py directly against data/nhl_stats.db. Populated player_game_advanced_stats for all 7,945 completed games, then player_season_advanced_stats (62,143 rows) and player_advanced_percentiles (12,826 rows) via the existing aggregation/percentile functions. Verified via API (/api/players/8478402/advanced now returns real cf_pct/ff_pct/percentiles/trend) and visually in-browser (PlayerAdvancedPanel renders populated stat boxes + trend line).",
+      "tags": [
+        "etl",
+        "deployment-gap",
+        "data-gap",
+        "advanced-stats"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-25T02:00:00.000Z"
+    },
+    {
+      "id": "bug-017",
+      "timestamp": "2026-07-25T02:00:00.000Z",
+      "error_message": "Console 404 for /assets/geist-latin-wght-normal-*.woff2 (and other Geist font subsets) on every page load \u2014 falls back to a system font",
+      "file": "frontend/vite.config.ts",
+      "root_cause": "Flask serves the Vite build under /static/dist/ (templates/index.html uses url_for('static', filename='dist/app.js'), and app.js/app.css load fine at /static/dist/app.js and /static/dist/app.css). But vite.config.ts never sets build.base, so Vite defaults to root-relative asset URLs (/assets/...) baked into app.css font-face rules \u2014 a path that does not exist under Flask's actual serving root, only /static/dist/assets/... does.",
+      "fix": "Not yet fixed \u2014 cosmetic only (browser falls back to a default sans-serif; no functional breakage). Fix would be setting base: \"/static/dist/\" in vite.config.ts build config and rebuilding. Logged for future cleanup, out of scope for the current profile-overlay work.",
+      "tags": [
+        "frontend",
+        "build-config",
+        "vite",
+        "static-assets",
+        "cosmetic"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-25T02:00:00.000Z"
     }
   ]
 }
