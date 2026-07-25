@@ -118,3 +118,21 @@
 | 21:58 | Code review (subagent) | templates/index.html | 1 Important finding: missing height floor | — |
 | 21:58 | Edited templates/index.html | added max(200px, ...) floor to .table-wrap height | ~15 |
 | 21:59 | Pushed branch + opened PR #22 | Closes #20 | — |
+
+## Session: 2026-07-25 (player profile overlay, GitHub issue #73)
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| — | Fixed stale desktop launcher | — | killed stale server process, rebuilt frontend (missing recharts dep) | — |
+| — | Ran etl/compute_advanced_stats.py | data/nhl_stats.db | populated previously-empty player_season_advanced_stats (62,143 rows) + player_advanced_percentiles (12,826 rows); logged bug-016 | — |
+| — | Logged bug-017 | — | cosmetic Vite base-path font 404, left unfixed (out of scope) | — |
+| — | Brainstorm + grill + plan | docs/superpowers/specs/2026-07-25-player-profile-overlay-design.md, docs/superpowers/plans/2026-07-25-player-profile-overlay.md | design spec + 7-task TDD plan, approved | — |
+| — | Filed GitHub issue #73 | — | tracks the plan | — |
+| — | Created worktree .claude/worktrees/73-player-profile-overlay | branch feature/73-player-profile-overlay | isolated from main | — |
+| — | Edited app.py | _fetch_players() now selects headshot_url/birth_city/birth_state_province/draft_* | ~80 |
+| — | Edited frontend/src/lib/types.ts, mock-data.ts | Player type + mocks gain photo/bio/draft fields | ~50 |
+| — | Created frontend/src/lib/teamBranding.ts | 32-team color map + NHL CDN logoUrl() (dark variant) | ~80 |
+| — | Edited frontend/src/components/PlayerTable.tsx | whole-row click/keyboard trigger replaces CF%-cell-only trigger | ~90 |
+| — | Renamed PlayerAdvancedPanel.tsx → PlayerProfilePanel.tsx | added photo/team-accent header, bio row, goalie/skater box score, progressive loading | ~280 |
+| — | Edited frontend/src/App.tsx | merges Player bio row + PlayerStats row by player_id for the panel | ~40 |
+| — | Manual verification (Playwright) | McDavid (photo+accent+advanced), Tanev (Undrafted), Markstrom (goalie box score, no advanced section) | all passed |
