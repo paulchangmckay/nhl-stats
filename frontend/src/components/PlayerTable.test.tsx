@@ -31,19 +31,41 @@ describe("PlayerTable", () => {
     expect(screen.getByText(/no players found/i)).toBeInTheDocument();
   });
 
-  it("calls onOpenAdvanced with the player id when the CF% (5v5) cell is clicked", async () => {
-    const onOpenAdvanced = vi.fn();
+  it("calls onOpenProfile with the player id when a row is clicked", async () => {
+    const onOpenProfile = vi.fn();
     render(
       <PlayerTable
         rows={MOCK_STATS}
         sortKey="points"
         sortDir="desc"
         onSort={() => {}}
-        onOpenAdvanced={onOpenAdvanced}
+        onOpenProfile={onOpenProfile}
       />
     );
-    const cell = screen.getAllByTestId("cf-pct-5v5-cell")[0];
-    await userEvent.click(cell);
-    expect(onOpenAdvanced).toHaveBeenCalledWith(MOCK_STATS[0].player_id);
+    const row = document.querySelector('[data-player-id="1"]')!;
+    await userEvent.click(row);
+    expect(onOpenProfile).toHaveBeenCalledWith(1);
+  });
+
+  it("calls onOpenProfile when a row is focused and Enter is pressed", async () => {
+    const onOpenProfile = vi.fn();
+    render(
+      <PlayerTable
+        rows={MOCK_STATS}
+        sortKey="points"
+        sortDir="desc"
+        onSort={() => {}}
+        onOpenProfile={onOpenProfile}
+      />
+    );
+    const row = document.querySelector('[data-player-id="2"]') as HTMLElement;
+    row.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onOpenProfile).toHaveBeenCalledWith(2);
+  });
+
+  it("no longer gives the CF% (5v5) cell its own click handler (the row handles it)", () => {
+    render(<PlayerTable rows={MOCK_STATS} sortKey="points" sortDir="desc" onSort={() => {}} />);
+    expect(screen.queryByTestId("cf-pct-5v5-cell")).not.toBeInTheDocument();
   });
 });

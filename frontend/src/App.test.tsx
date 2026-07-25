@@ -134,4 +134,29 @@ describe("App", () => {
     expect(style).toMatch(/height/);
     expect(wrap).toHaveClass("overflow-auto");
   });
+
+  it("opens the profile panel with merged bio and stats data when a row is clicked", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (url.includes("/advanced")) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                player_id: 1, season_id: "20252026", strength_states: {}, trend: [], pdo: null,
+              }),
+          } as Response);
+        }
+        return mockFetchOnce(url);
+      })
+    );
+    render(<App />);
+    await screen.findByText("MacKinnon");
+
+    const row = document.querySelector('[data-player-id="1"]')!;
+    await userEvent.click(row);
+
+    expect(await screen.findByText("Nathan MacKinnon")).toBeInTheDocument();
+  });
 });
