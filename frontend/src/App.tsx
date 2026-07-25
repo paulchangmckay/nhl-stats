@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Toolbar, type ToolbarFilters } from "@/components/Toolbar";
 import { PlayerTable } from "@/components/PlayerTable";
+import { PlayerAdvancedPanel } from "@/components/PlayerAdvancedPanel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,6 +38,7 @@ export default function App() {
   const [seasons, setSeasons] = useState<string[]>(["20252026"]);
   const [sortKey, setSortKey] = useState("points");
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
+  const [advancedPlayerId, setAdvancedPlayerId] = useState<number | null>(null);
 
   function loadTeams() {
     setTeamsState({ status: "loading" });
@@ -194,8 +196,30 @@ export default function App() {
           className="overflow-auto"
           style={{ height: "max(200px, calc(100vh - var(--toolbar-height, 57px)))" }}
         >
-          <PlayerTable rows={rows} sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+          <PlayerTable
+            rows={rows}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={handleSort}
+            onOpenAdvanced={setAdvancedPlayerId}
+          />
         </div>
+      )}
+
+      {advancedPlayerId !== null && (
+        <PlayerAdvancedPanel
+          open={advancedPlayerId !== null}
+          playerId={advancedPlayerId}
+          playerName={
+            (() => {
+              const p = rows.find((r) => r.player_id === advancedPlayerId);
+              return p ? `${p.first_name} ${p.last_name}` : "";
+            })()
+          }
+          onOpenChange={(open) => {
+            if (!open) setAdvancedPlayerId(null);
+          }}
+        />
       )}
     </div>
   );

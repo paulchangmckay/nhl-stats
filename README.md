@@ -56,6 +56,26 @@ partway through — already-loaded games are skipped). After this completes
 once, `python scripts/run_all_etl.py` is sufficient going forward; the
 same three steps run as fast no-ops when there's nothing new to load.
 
+### One-time backfill (advanced stats: Corsi/Fenwick/HDSC/PDO/Primary Points)
+
+Two more one-time steps, run in this order **after** the play-by-play/shifts
+backfill above has completed at least once:
+
+```bash
+python -m etl.backfill_defending_side
+python -m etl.compute_advanced_stats
+```
+
+The first re-fetches play-by-play for every already-ingested game solely to
+populate `home_team_defending_side` (needed for rink-side-correct high-danger
+shot detection; captured automatically for all future games by
+`load_play_by_play.py`, so this script never needs to run again after this
+one time). The second computes Corsi/Fenwick/HDSC/PDO-inputs/Primary Points
+for every completed game. Both are idempotent and resumable, same as the
+scripts above. After this completes once, `python scripts/run_all_etl.py`
+keeps advanced stats current for new games automatically (see its
+`compute_advanced_stats` step).
+
 ### Frontend (React + Vite)
 
 Install once:
