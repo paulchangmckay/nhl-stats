@@ -14,6 +14,14 @@ export interface Player {
   weight_pounds: number | null;
   birth_date: string;
   birth_country: string;
+  birth_city: string;
+  birth_state_province: string;
+  headshot_url: string | null;
+  draft_year: number | null;
+  draft_round: number | null;
+  draft_pick: number | null;
+  draft_overall: number | null;
+  draft_team_abbrev: string | null;
   team_abbrev: string;
   team_name: string;
   team_place_name: string;
