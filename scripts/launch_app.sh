@@ -72,7 +72,7 @@ sync_with_origin() {
 
 kill_stale_server() {
   local pid
-  pid=$(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null | head -n 1)
+  pid=$(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null | head -n 1) || true
   if [ -z "$pid" ]; then
     return 0
   fi
