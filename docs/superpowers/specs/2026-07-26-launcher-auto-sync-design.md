@@ -82,7 +82,10 @@ launch_app.sh:
   8. NEEDS_REBUILD = [ "$AFTER_SHA" != "$BEFORE_SHA" ] || [ ! -d static/dist ]
   9. if NEEDS_REBUILD:
        - find PID on port 5099 (lsof -nP -iTCP:5099 -sTCP:LISTEN); if found:
-         kill $PID (SIGTERM); poll is_up for up to ~3s; if still up, kill -9 $PID
+         kill $PID (SIGTERM); poll process liveness (kill -0 $PID) for up to
+         ~3s; if still alive, kill -9 $PID. (Changed from polling `is_up`
+         during task review — an HTTP health check can't distinguish "the
+         process stopped responding" from "the port actually freed.")
        - if `git diff --name-only "$BEFORE_SHA..$AFTER_SHA"` touches
          frontend/package.json or frontend/package-lock.json: (cd frontend && npm install)
        - (cd frontend && npm run build)

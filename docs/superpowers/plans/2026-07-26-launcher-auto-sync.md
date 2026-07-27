@@ -12,7 +12,7 @@
 
 - Sync runs synchronously at the start of every launch — no background pollers, cron jobs, or launchd agents.
 - Rebuild/restart triggers when `AFTER_SHA != BEFORE_SHA` OR `static/dist/` is missing entirely.
-- Kill sequence for a stale server on port 5099: SIGTERM, poll `is_up` for up to ~3 seconds, then SIGKILL if still listening.
+- Kill sequence for a stale server on port 5099: SIGTERM, poll process liveness (`kill -0 $pid`) for up to ~3 seconds, then SIGKILL if still alive. (Changed from an earlier `is_up`/HTTP-health-check design during task review — an HTTP check can't distinguish "stopped responding" from "port actually freed.")
 - `npm install` runs only when `frontend/package.json` or `frontend/package-lock.json` changed in the synced commit range, or when there's no commit range to check (first-ever build / `static/dist/` missing) — otherwise skip straight to `npm run build`.
 - "Dirty working tree" is treated uniformly (`git stash -u` covers everything, including `.wolf/*` daemon files) — no special-casing.
 - Rebase conflict: abort the rebase, restore the stash if one was made, alert via `osascript`, continue launching on the pre-sync state.
