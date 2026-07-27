@@ -81,8 +81,11 @@ launch_app.sh:
   7. AFTER_SHA=$(git rev-parse HEAD)
   8. NEEDS_REBUILD = [ "$AFTER_SHA" != "$BEFORE_SHA" ] || [ ! -d static/dist ]
   9. if NEEDS_REBUILD:
-       - find and kill any process on port 5099 (lsof -nP -iTCP:5099 -sTCP:LISTEN)
-       - (cd frontend && npm install && npm run build)
+       - find PID on port 5099 (lsof -nP -iTCP:5099 -sTCP:LISTEN); if found:
+         kill $PID (SIGTERM); poll is_up for up to ~3s; if still up, kill -9 $PID
+       - if `git diff --name-only "$BEFORE_SHA..$AFTER_SHA"` touches
+         frontend/package.json or frontend/package-lock.json: (cd frontend && npm install)
+       - (cd frontend && npm run build)
   10. proceed with existing is_up / venv / pip / start-server logic unchanged,
       except is_up check is skipped when NEEDS_REBUILD was true (we just
       killed it) — go straight to starting the server fresh.
