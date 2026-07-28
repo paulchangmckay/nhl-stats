@@ -53,7 +53,13 @@ parallel system.
    was actually off a loose puck vs. a new clean look, so this is a
    time-proximity proxy — the same kind of heuristic public sites like Natural
    Stat Trick use for "rebound shots," not a novel invention. Documented as a
-   heuristic in the API doc (see Documentation).
+   heuristic in the API doc (see Documentation). **No same-player exclusion**:
+   if the same player takes both shots (e.g. their own rebound bounces right
+   back to them), it still counts — the definition is same-team-within-3-seconds
+   only, not same-team-different-player, since the player still generated a
+   genuine second-chance opportunity and a same-player exclusion would add its
+   own edge cases (e.g. a third player's shot interleaved between two of the
+   same player's shots) to an already-approximate heuristic.
 4. **Deflections/60** — individual shot attempts with `shot_type IN ('deflected',
    'tip-in')` (both values confirmed present in the live `game_events` table).
    Pure data flag, no heuristic.
@@ -222,7 +228,21 @@ called from `_run_aggregation_and_percentiles()` next to the existing
 `compute_percentiles(conn, season_id)` call. Same query shape as
 `compute_percentiles()` (position-group filter, `PERCENTILE_MIN_GP` floor,
 `WHERE strength_state = '5v5'` since this table has no strength-state
-dimension), computing `rate = raw_count / (toi_seconds / 3600.0)` per player
+dimension), **plus one addition `compute_percentiles()` is missing**: an
+explicit `AND psas.game_type = 2` filter (regular season only).
+`player_season_advanced_stats` carries a `game_type` dimension (2 = regular
+season, 3 = playoffs) with a separate row per player per `game_type`, but
+`compute_percentiles()`'s query (`etl/compute_advanced_stats.py:132-140`) has no
+`game_type` filter at all — a player who made the playoffs gets both their
+regular-season and playoff rows pulled into the same population/percentile
+undifferentiated. That's a pre-existing gap in code this spec builds on, not
+introduced by this phase; **it is not fixed as part of this spec** (different
+function, different blast radius, own investigation) but is logged as a known
+issue for a future fix (see `.wolf/buglog.json`). `compute_zscores()` avoids
+inheriting it by filtering explicitly — regular season only, since playoff
+sample sizes are almost always too small to clear the new 20-player population
+floor anyway (see below). Continuing: `rate = raw_count / (toi_seconds / 3600.0)`
+per player
 before taking the population mean/stddev per position group. A `toi_seconds = 0`
 player is excluded from the population entirely (already effectively excluded by
 the existing 10-GP floor, but explicit here since division by zero is the
@@ -232,6 +252,17 @@ player has an identical rate) → z-score `0.0` for all players in that group
 rather than a division-by-zero, matching `_percentile_rank()`'s existing
 single-player-population special case (`etl/compute_advanced_stats.py:170-176`)
 in spirit.
+
+**Minimum population size**: unlike `compute_percentiles()` (which computes for
+any non-empty population, even n=2), `compute_zscores()` requires at least
+`ZSCORE_MIN_POPULATION = 20` qualifying players in a given `(season_id,
+position_group)` before computing any z-scores for that group — below that, a
+mean/stddev is statistically unstable enough that a z-score would misrepresent
+noise as a real outlier. Below the floor, every player in that group gets `NULL`
+for all six z-score fields (no row written to `player_rate_zscores` for them)
+rather than a computed-but-meaningless value. Same "defensible starting default,
+not a literature constant, tune later without a schema change" status as
+`PERCENTILE_MIN_GP` (`etl/compute_advanced_stats.py:10`).
 
 ## Operability
 
@@ -252,6 +283,21 @@ percentile steps re-run in full every time, cheap local SQL, no API calls) —
 the per-game sweep step is the one exception normally gated by `NOT EXISTS`, and
 this one-time recompute is the deliberate exception to that gating, not a
 permanent change to it.
+
+**Required before the DELETE:** back up the database file
+(`cp data/nhl_stats.db data/nhl_stats.db.bak-$(date +%Y%m%d)` or equivalent) —
+this is a destructive statement against the only copy of ~8,058 games' worth of
+already-computed advanced stats, and the per-game `try/except` (see Error
+Handling) means a failure partway through the recompute leaves the tables
+partially or fully empty rather than rolling back. **All four advanced-stats
+tables (`player_game_advanced_stats`, `player_season_advanced_stats`,
+`player_career_advanced_stats`, `player_advanced_percentiles`) — not just the
+ones this phase adds columns to — are empty for the entire duration of the
+recompute**, since the season/career/percentile steps read from the per-game
+table this phase deletes first. For a single-developer local SQLite file this is
+acceptable (no concurrent users to disrupt), but it's a real, if brief, window
+where `/api/players/<id>/advanced` returns empty results for every player, not
+a purely cosmetic footnote.
 
 ## API Layer
 
@@ -285,9 +331,15 @@ have these fields populated, since rates/z-scores are 5v5-only):
 
 Rates computed as `raw_count / (toi_seconds / 3600.0) if toi_seconds else None`
 (mirrors the existing `_pct()` helper's zero-denominator handling already used
-for `cf_pct` etc.). Z-score fields are `None` when the player didn't clear the
-10-GP floor or `player_rate_zscores` has no row for them (same "sparse, join and
-allow null" pattern the existing percentile fields already use).
+for `cf_pct` etc.). Both the six rate fields and the six z-score fields are
+rounded to 2 decimal places (`round(value, 2)`) before being placed in the
+response — independent of whatever precision `_pct()` uses internally for
+percentages, since these are a different unit (a per-60 rate and a standard
+score, not a 0-1 ratio) and 2 decimals is enough resolution to distinguish
+players without implying false precision. Z-score fields are `None` when the
+player didn't clear the 10-GP floor or `player_rate_zscores` has no row for
+them (same "sparse, join and allow null" pattern the existing percentile fields
+already use).
 
 ## Frontend
 
@@ -298,7 +350,13 @@ allow null" pattern the existing percentile fields already use).
   ≥50/<50 percentile convention's spirit) — six boxes: Shots/60, Chances/60,
   Rebounds Created/60, Deflections/60, Points/60, Primary Points/60.
   Rebounds Created/60's box includes a tooltip noting it's a time-proximity
-  heuristic, not a possession-confirmed stat (see Scope item 3).
+  heuristic, not a possession-confirmed stat (see Scope item 3). A box whose
+  z-score is `null` (player below the 10-GP floor, or the season/position-group
+  population fell below `ZSCORE_MIN_POPULATION`) renders greyed-out with "N/A"
+  text instead of a color-coded value, plus a tooltip stating the specific
+  reason (distinguishing "not enough games played" from "league sample too small
+  this season" rather than one generic message) — keeps the 6-box grid layout
+  stable across players rather than the grid reflowing per-player.
 - `PlayerTable` gets exactly one new teaser column, `Shots/60 (5v5)`, following
   the existing single-teaser-column convention (`cf_pct_5v5` today).
 - `frontend/src/lib/types.ts` — `PlayerAdvancedStats`'s per-strength-state shape
