@@ -309,6 +309,44 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-25T02:00:00.000Z"
+    },
+    {
+      "id": "bug-018",
+      "timestamp": "2026-07-27T02:00:00.000Z",
+      "error_message": "AFTER_SHA=$(sync_with_origin) corrupted with 'button returned:OK' text; downstream git diff failed with 'fatal: invalid object name'",
+      "file": "scripts/launch_app.sh",
+      "root_cause": "alert()'s osascript call did not redirect its own stdout. When called from inside sync_with_origin() (a function whose return value is its captured stdout via command substitution), osascript's own dialog-dismissal output ('button returned:OK') leaked into that captured value alongside the intended echo'd SHA.",
+      "fix": "Redirected osascript's stdout to /dev/null and stderr to the log file in alert(): `osascript -e \"...\" >/dev/null 2>>\"$LOG_FILE\"`. General pattern: any function whose return value is derived from captured stdout must ensure every command it calls (including ones nested via other function calls) redirects its own stdout, not just the commands that produce the intended return value.",
+      "tags": [
+        "shell",
+        "bash",
+        "command-substitution",
+        "osascript",
+        "stdout-leak"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-27T02:00:00.000Z"
+    },
+    {
+      "id": "bug-019",
+      "timestamp": "2026-07-27T02:00:00.000Z",
+      "error_message": "Script aborted via the generic ERR trap ('Unexpected error starting the app') on the common cold-start path (no server running yet)",
+      "file": "scripts/launch_app.sh",
+      "root_cause": "pid=$(lsof -nP -iTCP:\"$PORT\" -sTCP:LISTEN -t 2>/dev/null | head -n 1) runs under `set -euo pipefail`. lsof exits 1 when it finds no matching listener; pipefail propagates that non-zero status through the pipeline even though the downstream `head` exits 0; set -e then treats the whole assignment as a failing simple command and aborts the script \u2014 exactly the common case where no server is running yet.",
+      "fix": "Added `|| true` to the pipeline: `pid=$(lsof ... | head -n 1) || true`. General pattern: any `var=$(cmd_that_can_legitimately_return_nonzero | other_cmd)` under `set -euo pipefail` needs an explicit `|| true` (or equivalent) unless the caller truly wants a nonzero exit to abort the script \u2014 pipefail makes a 'normal, expected no-match' result look identical to a real failure.",
+      "tags": [
+        "shell",
+        "bash",
+        "set-e",
+        "pipefail",
+        "lsof"
+      ],
+      "related_bugs": [
+        "bug-018"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-07-27T02:00:00.000Z"
     }
   ]
 }
