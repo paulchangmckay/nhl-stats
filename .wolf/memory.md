@@ -136,3 +136,23 @@
 | — | Renamed PlayerAdvancedPanel.tsx → PlayerProfilePanel.tsx | added photo/team-accent header, bio row, goalie/skater box score, progressive loading | ~280 |
 | — | Edited frontend/src/App.tsx | merges Player bio row + PlayerStats row by player_id for the panel | ~40 |
 | — | Manual verification (Playwright) | McDavid (photo+accent+advanced), Tanev (Undrafted), Markstrom (goalie box score, no advanced section) | all passed |
+
+## Session: 2026-07-26/27 (launcher auto-sync, GitHub issue #76)
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| — | Investigated stale desktop app | — | local main had diverged from origin/main (never pulled PR #74/#75); confirmed via grep that app.py/App.tsx had zero trace of the profile-overlay feature | — |
+| — | Brainstorm + grill + plan | docs/superpowers/specs/2026-07-26-launcher-auto-sync-design.md, docs/superpowers/plans/2026-07-26-launcher-auto-sync.md | design spec + 2-task plan, approved | — |
+| — | Filed GitHub issue #76 | — | tracks the plan | — |
+| — | Created worktree .claude/worktrees/76-launcher-auto-sync | branch feature/76-launcher-auto-sync, rebased onto local main to reconcile the divergence | isolated from main | — |
+| — | Task 1: rewrote scripts/launch_app.sh | git auto-sync (fetch/rebase/stash/conflict-alert) + conditional frontend rebuild/restart | task review: Approved, one Important plan-mandated fix (kill -0 instead of is_up) applied with user sign-off | — |
+| — | Found + fixed bug-018 | scripts/launch_app.sh | alert()'s osascript stdout was leaking into a captured shell variable, corrupting AFTER_SHA on any alert | — |
+| — | Found + fixed bug-019 | scripts/launch_app.sh | `lsof \| head -n 1` under set -euo pipefail aborted the whole script when no server was listening (the common cold-start case) | — |
+| — | Task 2: manual scenario verification | disposable throwaway clones, origin redirected to the worktree | 5/5 scenarios passed (fast-forward, rebase, dirty-tree, offline, conflict) | — |
+| — | Final whole-branch review (Opus) | scripts/launch_app.sh + docs | Ready to merge: Yes, no Critical/Important issues; reconciled doc drift (kill -0 vs is_up) before merge | — |
+| — | Pushed branch + opened PR #77, merged | — | Closes #76 | — |
+| — | Resolved 3 Dependabot alerts | frontend/package-lock.json | brace-expansion, fast-uri, @hono/node-server — all transitive deps of `shadcn` CLI, not runtime code; `npm audit fix` (no --force) resolved all 3 | — |
+| — | Filed + merged PR #78 | — | lockfile-only, no package.json edits, CI green | — |
+| — | Discovered recurring rebase conflict | — | local main's OWN old doc commits (content-identical to already-squash-merged PRs, different SHAs) will conflict on every future auto-sync rebase; `git merge` tolerates this, `git rebase` does not | — |
+| — | User ran `git reset --hard origin/main` | — | permanently ends the recurring conflict; confirmed zero divergence afterward | — |
+| — | Learned (the hard way): local-only commits to main get discarded by reset | .wolf/cerebrum.md, .wolf/memory.md | first attempt at merge-conflict-resolution for these files was committed directly to local main (violating this project's own documented convention) and was wiped out by the reset since it was never pushed; redone via a proper worktree + PR (this session-reflect commit) | — |
