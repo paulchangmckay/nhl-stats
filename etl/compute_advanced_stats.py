@@ -77,8 +77,8 @@ def _load_shifts_for_sweep(conn, game_id):
 def _load_events_for_sweep(conn, game_id):
     rows = conn.execute("""
         SELECT event_id, period, time_in_period, situation_code, event_type,
-               x_coord, y_coord, event_owner_team_id, shooting_player_id,
-               assist1_player_id, home_team_defending_side
+               x_coord, y_coord, shot_type, event_owner_team_id, shooting_player_id,
+               assist1_player_id, assist2_player_id, home_team_defending_side
         FROM game_events WHERE game_id = ?
     """, (game_id,)).fetchall()
     return [dict(r) for r in rows]
@@ -88,7 +88,8 @@ def compute_season_aggregates(conn, season_id, game_type):
     conn.execute("""
         INSERT INTO player_season_advanced_stats
             (player_id, season_id, game_type, team_abbrevs, strength_state,
-             cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp)
+             cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp,
+             icf, ihdcf, rebounds_created, deflections, points)
         SELECT
             pgas.player_id, g.season_id, g.game_type,
             (SELECT GROUP_CONCAT(DISTINCT t.abbrev)
@@ -101,7 +102,9 @@ def compute_season_aggregates(conn, season_id, game_type):
             SUM(pgas.cf), SUM(pgas.ca), SUM(pgas.ff), SUM(pgas.fa),
             SUM(pgas.hdcf), SUM(pgas.hdca), SUM(pgas.gf), SUM(pgas.ga),
             SUM(pgas.primary_points), SUM(pgas.toi_seconds),
-            COUNT(DISTINCT pgas.game_id)
+            COUNT(DISTINCT pgas.game_id),
+            SUM(pgas.icf), SUM(pgas.ihdcf), SUM(pgas.rebounds_created),
+            SUM(pgas.deflections), SUM(pgas.points)
         FROM player_game_advanced_stats pgas
         JOIN games g ON g.game_id = pgas.game_id
         WHERE g.season_id = ? AND g.game_type = ?
@@ -110,7 +113,10 @@ def compute_season_aggregates(conn, season_id, game_type):
             team_abbrevs=excluded.team_abbrevs, cf=excluded.cf, ca=excluded.ca,
             ff=excluded.ff, fa=excluded.fa, hdcf=excluded.hdcf, hdca=excluded.hdca,
             gf=excluded.gf, ga=excluded.ga, primary_points=excluded.primary_points,
-            toi_seconds=excluded.toi_seconds, gp=excluded.gp
+            toi_seconds=excluded.toi_seconds, gp=excluded.gp,
+            icf=excluded.icf, ihdcf=excluded.ihdcf,
+            rebounds_created=excluded.rebounds_created, deflections=excluded.deflections,
+            points=excluded.points
     """, (season_id, game_type))
     conn.commit()
 

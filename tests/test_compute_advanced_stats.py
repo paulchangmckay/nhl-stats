@@ -19,13 +19,14 @@ def _seed_game(conn, game_id, season_id="20242025", game_type=2):
     })
 
 
-def _seed_event(conn, game_id, event_id, event_owner_team_id=HOME):
+def _seed_event(conn, game_id, event_id, event_owner_team_id=HOME,
+                 shooting_player_id=None, shot_type="wrist", x_coord=10, y_coord=0):
     database.insert_game_event(conn, {
         "game_id": game_id, "event_id": event_id, "period": 1,
         "time_in_period": "00:10", "situation_code": "1551",
-        "event_type": "shot-on-goal", "zone_code": "O", "x_coord": 10,
-        "y_coord": 0, "shot_type": "wrist", "event_owner_team_id": event_owner_team_id,
-        "shooting_player_id": None, "blocking_player_id": None, "goalie_in_net_id": None,
+        "event_type": "shot-on-goal", "zone_code": "O", "x_coord": x_coord,
+        "y_coord": y_coord, "shot_type": shot_type, "event_owner_team_id": event_owner_team_id,
+        "shooting_player_id": shooting_player_id, "blocking_player_id": None, "goalie_in_net_id": None,
         "assist1_player_id": None, "assist2_player_id": None, "details_json": "{}",
         "home_team_defending_side": "right",
     })
@@ -210,3 +211,19 @@ def test_schema_has_new_rate_stat_columns_and_zscore_table(conn):
     assert {"season_id", "player_id", "position_group", "shots_per60_z", "chances_per60_z",
             "rebounds_created_per60_z", "deflections_per60_z", "points_per60_z",
             "primary_points_per60_z"} <= zscore_cols
+
+
+def test_compute_season_aggregates_sums_new_rate_stat_columns(conn):
+    _seed_game(conn, 2024020001)
+    _seed_shift(conn, 2024020001, 1, player_id=1, team_id=HOME)
+    _seed_event(conn, 2024020001, 1, shooting_player_id=1, shot_type="deflected")
+    conn.commit()
+
+    module.run(conn)
+
+    row = conn.execute("""
+        SELECT icf, ihdcf, deflections FROM player_season_advanced_stats
+        WHERE player_id = 1 AND season_id = '20242025' AND game_type = 2 AND strength_state = '5v5'
+    """).fetchone()
+    assert row["icf"] == 1
+    assert row["deflections"] == 1
