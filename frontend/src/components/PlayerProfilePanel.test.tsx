@@ -13,6 +13,10 @@ const MOCK_ADVANCED: PlayerAdvancedStats = {
       cf: 60, ca: 40, cf_pct: 60.0, ff: 45, fa: 30, ff_pct: 60.0,
       hdcf: 10, hdca: 5, hdcf_pct: 66.7, primary_points: 15,
       cf_pctile: 75.0, ff_pctile: 80.0, hdcf_pctile: 60.0, primary_points_pctile: 90.0,
+      shots_per60: 24.0, chances_per60: 8.0, rebounds_created_per60: 4.0,
+      deflections_per60: 2.0, points_per60: 20.0, primary_points_per60: 15.0,
+      shots_per60_z: 1.23, chances_per60_z: 0.5, rebounds_created_per60_z: -0.2,
+      deflections_per60_z: 0.0, points_per60_z: 0.9, primary_points_per60_z: 0.8,
     },
     "5v4": {
       cf: 20, ca: 5, cf_pct: 80.0, ff: 15, fa: 3, ff_pct: 83.3,
@@ -150,5 +154,34 @@ describe("PlayerProfilePanel", () => {
       />
     );
     expect(screen.getByText("Nathan MacKinnon")).toBeInTheDocument();
+  });
+
+  it("renders the Shot Generation z-score boxes for 5v5", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("1.23")).toBeInTheDocument());
+    expect(screen.getByText("24.00")).toBeInTheDocument();
+  });
+
+  it("shows N/A for a Shot Generation stat with a null z-score", async () => {
+    vi.stubGlobal("fetch", vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+          ...MOCK_ADVANCED,
+          strength_states: {
+            ...MOCK_ADVANCED.strength_states,
+            "5v5": { ...MOCK_ADVANCED.strength_states["5v5"], shots_per60_z: null },
+          },
+        }),
+      } as Response)
+    ));
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getAllByText("N/A").length).toBeGreaterThan(0));
   });
 });

@@ -47,6 +47,35 @@ function PercentileBox({ label, value, pctile }: PercentileBoxProps) {
   );
 }
 
+interface ZScoreBoxProps {
+  label: string;
+  rate: number | null | undefined;
+  z: number | null | undefined;
+  nullReason: string;
+  tooltip?: string;
+}
+
+function ZScoreBox({ label, rate, z, nullReason, tooltip }: ZScoreBoxProps) {
+  if (z === null || z === undefined) {
+    return (
+      <div className="rounded-lg bg-muted p-3 text-center opacity-60" title={nullReason}>
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="text-2xl font-semibold tabular-nums">N/A</div>
+      </div>
+    );
+  }
+  const color = z >= 0 ? "bg-sky-500/20" : "bg-rose-500/20";
+  return (
+    <div className={`rounded-lg p-3 text-center ${color}`} title={tooltip}>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-2xl font-semibold tabular-nums">{z.toFixed(2)}</div>
+      <div className="text-xs text-muted-foreground tabular-nums">
+        {rate == null ? "-" : rate.toFixed(2)}
+      </div>
+    </div>
+  );
+}
+
 interface StatCellProps {
   label: string;
   value: string;
@@ -265,6 +294,34 @@ export function PlayerProfilePanel({
                       {state.data.pdo === null ? "-" : state.data.pdo}
                     </div>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <ZScoreBox label="Shots/60"
+                    rate={state.data.strength_states["5v5"]?.shots_per60}
+                    z={state.data.strength_states["5v5"]?.shots_per60_z}
+                    nullReason="Below the 10-GP floor, or league sample too small this season" />
+                  <ZScoreBox label="Chances/60"
+                    rate={state.data.strength_states["5v5"]?.chances_per60}
+                    z={state.data.strength_states["5v5"]?.chances_per60_z}
+                    nullReason="Below the 10-GP floor, or league sample too small this season" />
+                  <ZScoreBox label="Rebounds Created/60"
+                    rate={state.data.strength_states["5v5"]?.rebounds_created_per60}
+                    z={state.data.strength_states["5v5"]?.rebounds_created_per60_z}
+                    nullReason="Below the 10-GP floor, or league sample too small this season"
+                    tooltip="Heuristic: a shot attempt within 3 seconds of this player's own shot attempt, same team. Not possession-confirmed." />
+                  <ZScoreBox label="Deflections/60"
+                    rate={state.data.strength_states["5v5"]?.deflections_per60}
+                    z={state.data.strength_states["5v5"]?.deflections_per60_z}
+                    nullReason="Below the 10-GP floor, or league sample too small this season" />
+                  <ZScoreBox label="Points/60"
+                    rate={state.data.strength_states["5v5"]?.points_per60}
+                    z={state.data.strength_states["5v5"]?.points_per60_z}
+                    nullReason="Below the 10-GP floor, or league sample too small this season" />
+                  <ZScoreBox label="Primary Points/60"
+                    rate={state.data.strength_states["5v5"]?.primary_points_per60}
+                    z={state.data.strength_states["5v5"]?.primary_points_per60_z}
+                    nullReason="Below the 10-GP floor, or league sample too small this season" />
                 </div>
 
                 <div className="h-40 w-full">
