@@ -7,6 +7,7 @@ from etl.advanced_stats.sweep import compute_game_advanced_stats
 
 PERCENTILE_STRENGTH_STATES = ("5v5", "5v4", "4v5")
 PERCENTILE_MIN_GP = 10
+ZSCORE_MIN_POPULATION = 20
 
 
 def run(conn):
@@ -62,6 +63,7 @@ def _run_aggregation_and_percentiles(conn):
     season_ids = {row["season_id"] for row in season_game_type_pairs}
     for season_id in season_ids:
         compute_percentiles(conn, season_id)
+        compute_zscores(conn, season_id)
 
 
 def _load_shifts_for_sweep(conn, game_id):
@@ -162,6 +164,52 @@ def compute_percentiles(conn, season_id):
                     "primary_points_pctile": _percentile_rank(r["primary_points"], all_pp),
                 })
     conn.commit()
+
+
+def compute_zscores(conn, season_id):
+    rate_fields = {
+        "shots_per60_z": "icf", "chances_per60_z": "ihdcf",
+        "rebounds_created_per60_z": "rebounds_created",
+        "deflections_per60_z": "deflections",
+        "points_per60_z": "points", "primary_points_per60_z": "primary_points",
+    }
+    for position_group, position_codes in (("F", ("C", "L", "R")), ("D", ("D",))):
+        placeholders = ",".join("?" * len(position_codes))
+        query = f"""
+            SELECT psas.player_id, psas.icf, psas.ihdcf, psas.rebounds_created,
+                   psas.deflections, psas.points, psas.primary_points, psas.toi_seconds
+            FROM player_season_advanced_stats psas
+            JOIN players p ON p.player_id = psas.player_id
+            WHERE psas.season_id = ? AND psas.strength_state = '5v5' AND psas.game_type = 2
+              AND psas.gp >= ? AND psas.toi_seconds > 0 AND p.position_code IN ({placeholders})
+        """  # nosec B608 -- placeholders is only "?,?,..."; position_codes is a fixed internal tuple (never user input), values are bound below, never interpolated
+        rows = conn.execute(query, (season_id, PERCENTILE_MIN_GP, *position_codes)).fetchall()
+
+        if len(rows) < ZSCORE_MIN_POPULATION:
+            continue
+
+        def _rate(row, count_key):
+            return row[count_key] / (row["toi_seconds"] / 3600.0)
+
+        populations = {z_key: [_rate(r, count_key) for r in rows]
+                       for z_key, count_key in rate_fields.items()}
+
+        for r in rows:
+            record = {"season_id": season_id, "player_id": r["player_id"],
+                      "position_group": position_group}
+            for z_key, count_key in rate_fields.items():
+                record[z_key] = _zscore(_rate(r, count_key), populations[z_key])
+            database.upsert_player_rate_zscores(conn, record)
+    conn.commit()
+
+
+def _zscore(value, population):
+    mean = sum(population) / len(population)
+    variance = sum((v - mean) ** 2 for v in population) / len(population)
+    stddev = variance ** 0.5
+    if stddev == 0:
+        return 0.0
+    return round((value - mean) / stddev, 2)
 
 
 def _percentile_rank(value, population):
