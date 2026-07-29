@@ -29,6 +29,20 @@ Returns `{ player_id, season_id, strength_states, trend, pdo }`.
 | `primary_points_per60` | float\|null | `primary_points` / TOI hours |
 | `shots_per60_z`, `chances_per60_z`, `rebounds_created_per60_z`, `deflections_per60_z`, `points_per60_z`, `primary_points_per60_z` | float\|null | Z-score vs. position-group population (regular season, 10-GP floor, 20-player minimum population). `null` if the player or the league sample doesn't clear the floor. |
 
+## `GET /api/teams/<team_abbrev>/advanced?season=<season_id>`
+
+Returns `{ team_abbrev, season_id, strength_states }`.
+
+`strength_states` is keyed by `5v5` / `5v4` / `4v5`. Every state has:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `cf`, `ca` | int | Team Corsi For/Against |
+| `cf_pct` | float\|null | `cf / (cf+ca) * 100`, 1 decimal |
+| `ff`, `fa`, `ff_pct` | — | Fenwick equivalents (excludes blocked shots) |
+| `gf`, `ga` | int | Goals For/Against |
+| `pdo` | float\|null | (Goal For % + Save %) * 1000, 1 decimal; `null` if shots data unavailable |
+
 ## `GET /api/players/stats?seasons=<season_id>`
 
 Adds `shots_per60_5v5` (float\|null) alongside the existing `cf_pct_5v5` teaser field — same "season-specific query only, `null` for the all-seasons/career view" caveat, since no career-level advanced-stats aggregation is populated yet.
