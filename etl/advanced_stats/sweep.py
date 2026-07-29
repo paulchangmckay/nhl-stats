@@ -22,7 +22,10 @@ def _is_high_danger(x_coord, y_coord, home_team_defending_side, is_home_shooter)
         else home_team_defending_side == "right"
     )
     x = x_coord if attacking_positive_x else -x_coord
-    return x >= HIGH_DANGER_X_MIN and abs(y_coord) <= HIGH_DANGER_Y_ABS_MAX
+    if attacking_positive_x:
+        return x >= HIGH_DANGER_X_MIN and abs(y_coord) <= HIGH_DANGER_Y_ABS_MAX
+    else:
+        return x <= -HIGH_DANGER_X_MIN and abs(y_coord) <= HIGH_DANGER_Y_ABS_MAX
 
 
 def _is_shootout(period, game_type):
@@ -75,6 +78,7 @@ def compute_game_advanced_stats(shifts, events, home_team_id, game_type):
                 "player_id": player_id, "team_id": team_id, "strength_state": strength_state,
                 "cf": 0, "ca": 0, "ff": 0, "fa": 0, "hdcf": 0, "hdca": 0,
                 "gf": 0, "ga": 0, "primary_points": 0, "toi_seconds": 0,
+                "icf": 0, "ihdcf": 0, "rebounds_created": 0, "deflections": 0, "points": 0,
             }
         return player_stats[key]
 
@@ -103,9 +107,14 @@ def compute_game_advanced_stats(shifts, events, home_team_id, game_type):
         scorer = e.get("shooting_player_id")
         if scorer is not None:
             player_row(scorer, owner, strength_state)["primary_points"] += 1
+            player_row(scorer, owner, strength_state)["points"] += 1
         assist1 = e.get("assist1_player_id")
         if assist1 is not None:
             player_row(assist1, owner, strength_state)["primary_points"] += 1
+            player_row(assist1, owner, strength_state)["points"] += 1
+        assist2 = e.get("assist2_player_id")
+        if assist2 is not None:
+            player_row(assist2, owner, strength_state)["points"] += 1
 
     # TOI accumulation: walk every distinct shift-boundary/event timestamp,
     # crediting on-ice skaters for the interval up to the next timestamp at
@@ -142,6 +151,7 @@ def compute_game_advanced_stats(shifts, events, home_team_id, game_type):
                 player_row(player_id, team_id, strength_state)["toi_seconds"] += duration
 
     # Shot-attempt credit (Corsi/Fenwick/HDSC/goals-for-against), player + team grain.
+    last_shot_attempt = {}
     for e in event_list:
         if e["event_type"] not in SHOT_ATTEMPT_TYPES:
             continue
@@ -160,6 +170,7 @@ def compute_game_advanced_stats(shifts, events, home_team_id, game_type):
         high_danger = _is_high_danger(e.get("x_coord"), e.get("y_coord"),
                                        e.get("home_team_defending_side"),
                                        is_home_shooter=(owner == home_team_id))
+        is_deflection = e.get("shot_type") in ("deflected", "tip-in")
 
         for player_id in on_ice(owner, t):
             row = player_row(player_id, owner, strength_for)
@@ -181,6 +192,20 @@ def compute_game_advanced_stats(shifts, events, home_team_id, game_type):
                     row["hdca"] += 1
                 if is_goal:
                     row["ga"] += 1
+
+        shooter = e.get("shooting_player_id")
+        if shooter is not None:
+            shooter_row = player_row(shooter, owner, strength_for)
+            shooter_row["icf"] += 1
+            if high_danger:
+                shooter_row["ihdcf"] += 1
+            if is_deflection:
+                shooter_row["deflections"] += 1
+
+            prior = last_shot_attempt.get(owner)
+            if prior is not None and (t - prior[0]) <= 3:
+                player_row(prior[1], owner, prior[2])["rebounds_created"] += 1
+            last_shot_attempt[owner] = (t, shooter, strength_for)
 
         t_for = team_row(owner, strength_for)
         t_for["cf"] += 1
