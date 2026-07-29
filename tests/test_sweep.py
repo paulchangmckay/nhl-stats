@@ -176,7 +176,7 @@ def test_individual_shot_credit_only_on_shooter_not_teammates():
 
 def test_individual_high_danger_and_deflection_credit():
     shifts = [_shift(1, HOME, 1, "00:00", "20:00"), _shift(2, AWAY, 1, "00:00", "20:00")]
-    events = [_event("shot-on-goal", 1, "00:10", "1551", HOME, x_coord=85, y_coord=0,
+    events = [_event("shot-on-goal", 1, "00:10", "1551", HOME, x_coord=-85, y_coord=0,
                       shooting_player_id=1, shot_type="deflected")]
 
     player_rows, _ = compute_game_advanced_stats(shifts, events, home_team_id=HOME, game_type=2)

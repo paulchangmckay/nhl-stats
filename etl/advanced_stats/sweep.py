@@ -22,10 +22,7 @@ def _is_high_danger(x_coord, y_coord, home_team_defending_side, is_home_shooter)
         else home_team_defending_side == "right"
     )
     x = x_coord if attacking_positive_x else -x_coord
-    if attacking_positive_x:
-        return x >= HIGH_DANGER_X_MIN and abs(y_coord) <= HIGH_DANGER_Y_ABS_MAX
-    else:
-        return x <= -HIGH_DANGER_X_MIN and abs(y_coord) <= HIGH_DANGER_Y_ABS_MAX
+    return x >= HIGH_DANGER_X_MIN and abs(y_coord) <= HIGH_DANGER_Y_ABS_MAX
 
 
 def _is_shootout(period, game_type):
