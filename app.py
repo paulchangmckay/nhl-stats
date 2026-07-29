@@ -184,7 +184,8 @@ def api_players_stats():
                 SUM(s.shutouts)                                              AS shutouts,
                 MAX(CASE WHEN s.game_type = 2 THEN s.save_pct END)          AS save_pct,
                 MAX(CASE WHEN s.game_type = 2 THEN s.gaa END)               AS gaa,
-                ROUND(SUM(adv.cf) * 100.0 / NULLIF(SUM(adv.cf) + SUM(adv.ca), 0), 1) AS cf_pct_5v5
+                ROUND(SUM(adv.cf) * 100.0 / NULLIF(SUM(adv.cf) + SUM(adv.ca), 0), 1) AS cf_pct_5v5,
+                ROUND(SUM(adv.icf) * 1.0 / NULLIF(SUM(adv.toi_seconds) / 3600.0, 0), 2) AS shots_per60_5v5
             FROM players p
             LEFT JOIN teams t ON p.current_team_id = t.team_id
             JOIN player_season_stats s ON p.player_id = s.player_id
@@ -230,6 +231,9 @@ def api_players_stats():
             # it), so the "all seasons" branch honestly reports None rather
             # than a wrong or misleading number.
             "cf_pct_5v5":   r["cf_pct_5v5"] if "cf_pct_5v5" in r.keys() else None,
+            # Same "season-specific branch only" caveat as cf_pct_5v5 above -- no
+            # career-level advanced-stats aggregation exists yet.
+            "shots_per60_5v5": r["shots_per60_5v5"] if "shots_per60_5v5" in r.keys() else None,
         })
     return jsonify(players)
 
@@ -240,7 +244,8 @@ def _pct(numer, denom):
 
 def _fetch_player_advanced(conn, player_id, season_id):
     season_rows = conn.execute("""
-        SELECT strength_state, cf, ca, ff, fa, hdcf, hdca, primary_points, team_abbrevs
+        SELECT strength_state, cf, ca, ff, fa, hdcf, hdca, primary_points, team_abbrevs,
+               icf, ihdcf, rebounds_created, deflections, points, toi_seconds
         FROM player_season_advanced_stats
         WHERE player_id = ? AND season_id = ?
     """, (player_id, season_id)).fetchall()
@@ -252,12 +257,18 @@ def _fetch_player_advanced(conn, player_id, season_id):
     """, (player_id, season_id)).fetchall()
     pctiles_by_state = {r["strength_state"]: r for r in pctile_rows}
 
+    zscore_row = conn.execute("""
+        SELECT shots_per60_z, chances_per60_z, rebounds_created_per60_z,
+               deflections_per60_z, points_per60_z, primary_points_per60_z
+        FROM player_rate_zscores WHERE player_id = ? AND season_id = ?
+    """, (player_id, season_id)).fetchone()
+
     strength_states = {}
     team_abbrevs = None
     for r in season_rows:
         state = r["strength_state"]
         pctile = pctiles_by_state.get(state)
-        strength_states[state] = {
+        entry = {
             "cf": r["cf"], "ca": r["ca"], "cf_pct": _pct(r["cf"], r["cf"] + r["ca"]),
             "ff": r["ff"], "fa": r["fa"], "ff_pct": _pct(r["ff"], r["ff"] + r["fa"]),
             "hdcf": r["hdcf"], "hdca": r["hdca"], "hdcf_pct": _pct(r["hdcf"], r["hdcf"] + r["hdca"]),
@@ -267,6 +278,23 @@ def _fetch_player_advanced(conn, player_id, season_id):
             "hdcf_pctile": pctile["hdcf_pct_pctile"] if pctile else None,
             "primary_points_pctile": pctile["primary_points_pctile"] if pctile else None,
         }
+        if state == "5v5":
+            toi_hours = r["toi_seconds"] / 3600.0 if r["toi_seconds"] else None
+            entry.update({
+                "shots_per60": round(r["icf"] / toi_hours, 2) if toi_hours else None,
+                "chances_per60": round(r["ihdcf"] / toi_hours, 2) if toi_hours else None,
+                "rebounds_created_per60": round(r["rebounds_created"] / toi_hours, 2) if toi_hours else None,
+                "deflections_per60": round(r["deflections"] / toi_hours, 2) if toi_hours else None,
+                "points_per60": round(r["points"] / toi_hours, 2) if toi_hours else None,
+                "primary_points_per60": round(r["primary_points"] / toi_hours, 2) if toi_hours else None,
+                "shots_per60_z": zscore_row["shots_per60_z"] if zscore_row else None,
+                "chances_per60_z": zscore_row["chances_per60_z"] if zscore_row else None,
+                "rebounds_created_per60_z": zscore_row["rebounds_created_per60_z"] if zscore_row else None,
+                "deflections_per60_z": zscore_row["deflections_per60_z"] if zscore_row else None,
+                "points_per60_z": zscore_row["points_per60_z"] if zscore_row else None,
+                "primary_points_per60_z": zscore_row["primary_points_per60_z"] if zscore_row else None,
+            })
+        strength_states[state] = entry
         if state == "5v5":
             team_abbrevs = r["team_abbrevs"]
 

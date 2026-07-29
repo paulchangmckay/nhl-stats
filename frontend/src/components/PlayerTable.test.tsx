@@ -68,4 +68,9 @@ describe("PlayerTable", () => {
     render(<PlayerTable rows={MOCK_STATS} sortKey="points" sortDir="desc" onSort={() => {}} />);
     expect(screen.queryByTestId("cf-pct-5v5-cell")).not.toBeInTheDocument();
   });
+
+  it("renders the Shots/60 (5v5) teaser column", () => {
+    render(<PlayerTable rows={MOCK_STATS} sortKey="points" sortDir="desc" onSort={() => {}} />);
+    expect(screen.getByRole("columnheader", { name: "Shots/60 (5v5)" })).toBeInTheDocument();
+  });
 });

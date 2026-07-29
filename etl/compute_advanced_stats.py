@@ -7,6 +7,7 @@ from etl.advanced_stats.sweep import compute_game_advanced_stats
 
 PERCENTILE_STRENGTH_STATES = ("5v5", "5v4", "4v5")
 PERCENTILE_MIN_GP = 10
+ZSCORE_MIN_POPULATION = 20
 
 
 def run(conn):
@@ -62,6 +63,7 @@ def _run_aggregation_and_percentiles(conn):
     season_ids = {row["season_id"] for row in season_game_type_pairs}
     for season_id in season_ids:
         compute_percentiles(conn, season_id)
+        compute_zscores(conn, season_id)
 
 
 def _load_shifts_for_sweep(conn, game_id):
@@ -77,8 +79,8 @@ def _load_shifts_for_sweep(conn, game_id):
 def _load_events_for_sweep(conn, game_id):
     rows = conn.execute("""
         SELECT event_id, period, time_in_period, situation_code, event_type,
-               x_coord, y_coord, event_owner_team_id, shooting_player_id,
-               assist1_player_id, home_team_defending_side
+               x_coord, y_coord, shot_type, event_owner_team_id, shooting_player_id,
+               assist1_player_id, assist2_player_id, home_team_defending_side
         FROM game_events WHERE game_id = ?
     """, (game_id,)).fetchall()
     return [dict(r) for r in rows]
@@ -88,7 +90,8 @@ def compute_season_aggregates(conn, season_id, game_type):
     conn.execute("""
         INSERT INTO player_season_advanced_stats
             (player_id, season_id, game_type, team_abbrevs, strength_state,
-             cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp)
+             cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp,
+             icf, ihdcf, rebounds_created, deflections, points)
         SELECT
             pgas.player_id, g.season_id, g.game_type,
             (SELECT GROUP_CONCAT(DISTINCT t.abbrev)
@@ -101,7 +104,9 @@ def compute_season_aggregates(conn, season_id, game_type):
             SUM(pgas.cf), SUM(pgas.ca), SUM(pgas.ff), SUM(pgas.fa),
             SUM(pgas.hdcf), SUM(pgas.hdca), SUM(pgas.gf), SUM(pgas.ga),
             SUM(pgas.primary_points), SUM(pgas.toi_seconds),
-            COUNT(DISTINCT pgas.game_id)
+            COUNT(DISTINCT pgas.game_id),
+            SUM(pgas.icf), SUM(pgas.ihdcf), SUM(pgas.rebounds_created),
+            SUM(pgas.deflections), SUM(pgas.points)
         FROM player_game_advanced_stats pgas
         JOIN games g ON g.game_id = pgas.game_id
         WHERE g.season_id = ? AND g.game_type = ?
@@ -110,7 +115,10 @@ def compute_season_aggregates(conn, season_id, game_type):
             team_abbrevs=excluded.team_abbrevs, cf=excluded.cf, ca=excluded.ca,
             ff=excluded.ff, fa=excluded.fa, hdcf=excluded.hdcf, hdca=excluded.hdca,
             gf=excluded.gf, ga=excluded.ga, primary_points=excluded.primary_points,
-            toi_seconds=excluded.toi_seconds, gp=excluded.gp
+            toi_seconds=excluded.toi_seconds, gp=excluded.gp,
+            icf=excluded.icf, ihdcf=excluded.ihdcf,
+            rebounds_created=excluded.rebounds_created, deflections=excluded.deflections,
+            points=excluded.points
     """, (season_id, game_type))
     conn.commit()
 
@@ -156,6 +164,52 @@ def compute_percentiles(conn, season_id):
                     "primary_points_pctile": _percentile_rank(r["primary_points"], all_pp),
                 })
     conn.commit()
+
+
+def compute_zscores(conn, season_id):
+    rate_fields = {
+        "shots_per60_z": "icf", "chances_per60_z": "ihdcf",
+        "rebounds_created_per60_z": "rebounds_created",
+        "deflections_per60_z": "deflections",
+        "points_per60_z": "points", "primary_points_per60_z": "primary_points",
+    }
+    for position_group, position_codes in (("F", ("C", "L", "R")), ("D", ("D",))):
+        placeholders = ",".join("?" * len(position_codes))
+        query = f"""
+            SELECT psas.player_id, psas.icf, psas.ihdcf, psas.rebounds_created,
+                   psas.deflections, psas.points, psas.primary_points, psas.toi_seconds
+            FROM player_season_advanced_stats psas
+            JOIN players p ON p.player_id = psas.player_id
+            WHERE psas.season_id = ? AND psas.strength_state = '5v5' AND psas.game_type = 2
+              AND psas.gp >= ? AND psas.toi_seconds > 0 AND p.position_code IN ({placeholders})
+        """  # nosec B608 -- placeholders is only "?,?,..."; position_codes is a fixed internal tuple (never user input), values are bound below, never interpolated
+        rows = conn.execute(query, (season_id, PERCENTILE_MIN_GP, *position_codes)).fetchall()
+
+        if len(rows) < ZSCORE_MIN_POPULATION:
+            continue
+
+        def _rate(row, count_key):
+            return row[count_key] / (row["toi_seconds"] / 3600.0)
+
+        populations = {z_key: [_rate(r, count_key) for r in rows]
+                       for z_key, count_key in rate_fields.items()}
+
+        for r in rows:
+            record = {"season_id": season_id, "player_id": r["player_id"],
+                      "position_group": position_group}
+            for z_key, count_key in rate_fields.items():
+                record[z_key] = _zscore(_rate(r, count_key), populations[z_key])
+            database.upsert_player_rate_zscores(conn, record)
+    conn.commit()
+
+
+def _zscore(value, population):
+    mean = sum(population) / len(population)
+    variance = sum((v - mean) ** 2 for v in population) / len(population)
+    stddev = variance ** 0.5
+    if stddev == 0:
+        return 0.0
+    return round((value - mean) / stddev, 2)
 
 
 def _percentile_rank(value, population):

@@ -52,6 +52,7 @@ export interface PlayerStats {
   save_pct: number | null;
   gaa: number | null;
   cf_pct_5v5?: number | null;
+  shots_per60_5v5?: number | null;
 }
 
 export type SortDirection = "asc" | "desc";
@@ -78,6 +79,18 @@ export interface AdvancedStrengthState {
   ff_pctile: number | null;
   hdcf_pctile: number | null;
   primary_points_pctile: number | null;
+  shots_per60?: number | null;
+  chances_per60?: number | null;
+  rebounds_created_per60?: number | null;
+  deflections_per60?: number | null;
+  points_per60?: number | null;
+  primary_points_per60?: number | null;
+  shots_per60_z?: number | null;
+  chances_per60_z?: number | null;
+  rebounds_created_per60_z?: number | null;
+  deflections_per60_z?: number | null;
+  points_per60_z?: number | null;
+  primary_points_per60_z?: number | null;
 }
 
 export interface AdvancedTrendPoint {

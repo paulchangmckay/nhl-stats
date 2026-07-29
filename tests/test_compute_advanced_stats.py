@@ -19,13 +19,14 @@ def _seed_game(conn, game_id, season_id="20242025", game_type=2):
     })
 
 
-def _seed_event(conn, game_id, event_id, event_owner_team_id=HOME):
+def _seed_event(conn, game_id, event_id, event_owner_team_id=HOME,
+                 shooting_player_id=None, shot_type="wrist", x_coord=10, y_coord=0):
     database.insert_game_event(conn, {
         "game_id": game_id, "event_id": event_id, "period": 1,
         "time_in_period": "00:10", "situation_code": "1551",
-        "event_type": "shot-on-goal", "zone_code": "O", "x_coord": 10,
-        "y_coord": 0, "shot_type": "wrist", "event_owner_team_id": event_owner_team_id,
-        "shooting_player_id": None, "blocking_player_id": None, "goalie_in_net_id": None,
+        "event_type": "shot-on-goal", "zone_code": "O", "x_coord": x_coord,
+        "y_coord": y_coord, "shot_type": shot_type, "event_owner_team_id": event_owner_team_id,
+        "shooting_player_id": shooting_player_id, "blocking_player_id": None, "goalie_in_net_id": None,
         "assist1_player_id": None, "assist2_player_id": None, "details_json": "{}",
         "home_team_defending_side": "right",
     })
@@ -193,3 +194,135 @@ def test_compute_percentiles_excludes_players_below_gp_floor(conn):
         "SELECT * FROM player_advanced_percentiles WHERE player_id = 1"
     ).fetchone()
     assert row is None  # below the 10-GP floor, no percentile row created
+
+
+def test_schema_has_new_rate_stat_columns_and_zscore_table(conn):
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(player_game_advanced_stats)")}
+    assert {"icf", "ihdcf", "rebounds_created", "deflections", "points"} <= cols
+
+    season_cols = {row["name"] for row in conn.execute("PRAGMA table_info(player_season_advanced_stats)")}
+    assert {"icf", "ihdcf", "rebounds_created", "deflections", "points"} <= season_cols
+
+    career_cols = {row["name"] for row in conn.execute("PRAGMA table_info(player_career_advanced_stats)")}
+    assert {"rs_icf", "rs_ihdcf", "rs_rebounds_created", "rs_deflections", "rs_points",
+            "po_icf", "po_ihdcf", "po_rebounds_created", "po_deflections", "po_points"} <= career_cols
+
+    zscore_cols = {row["name"] for row in conn.execute("PRAGMA table_info(player_rate_zscores)")}
+    assert {"season_id", "player_id", "position_group", "shots_per60_z", "chances_per60_z",
+            "rebounds_created_per60_z", "deflections_per60_z", "points_per60_z",
+            "primary_points_per60_z"} <= zscore_cols
+
+
+def test_compute_season_aggregates_sums_new_rate_stat_columns(conn):
+    _seed_game(conn, 2024020001)
+    _seed_shift(conn, 2024020001, 1, player_id=1, team_id=HOME)
+    _seed_event(conn, 2024020001, 1, shooting_player_id=1, shot_type="deflected")
+    conn.commit()
+
+    module.run(conn)
+
+    row = conn.execute("""
+        SELECT icf, ihdcf, deflections FROM player_season_advanced_stats
+        WHERE player_id = 1 AND season_id = '20242025' AND game_type = 2 AND strength_state = '5v5'
+    """).fetchone()
+    assert row["icf"] == 1
+    assert row["deflections"] == 1
+
+
+def _seed_zscore_population(conn, count, season_id="20242025", icf_start=1, toi_seconds=3600, game_type=2):
+    for player_id in range(1, count + 1):
+        database.upsert_player_stub(conn, {
+            "player_id": player_id, "first_name": "P", "last_name": str(player_id),
+            "position_code": "C", "shoots_catches": None,
+        })
+        icf = icf_start if icf_start is not None else player_id
+        conn.execute("""
+            INSERT INTO player_season_advanced_stats
+                (player_id, season_id, game_type, team_abbrevs, strength_state,
+                 cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp,
+                 icf, ihdcf, rebounds_created, deflections, points)
+            VALUES (?, ?, ?, 'HOM', '5v5', 1,1,1,1,1,1,1,1,1, ?, 12, ?, 3, 1, 1, 5)
+        """, (player_id, season_id, game_type, toi_seconds, icf))
+    conn.commit()
+
+
+def test_compute_zscores_below_min_population_yields_no_rows(conn):
+    _seed_zscore_population(conn, count=5)
+    module.compute_zscores(conn, season_id="20242025")
+    row = conn.execute("SELECT * FROM player_rate_zscores WHERE player_id = 1").fetchone()
+    assert row is None
+
+
+def test_compute_zscores_computes_expected_values_for_qualifying_population(conn):
+    for player_id in range(1, 21):
+        database.upsert_player_stub(conn, {
+            "player_id": player_id, "first_name": "P", "last_name": str(player_id),
+            "position_code": "C", "shoots_catches": None,
+        })
+        conn.execute("""
+            INSERT INTO player_season_advanced_stats
+                (player_id, season_id, game_type, team_abbrevs, strength_state,
+                 cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp,
+                 icf, ihdcf, rebounds_created, deflections, points)
+            VALUES (?, '20242025', 2, 'HOM', '5v5', 1,1,1,1,1,1,1,1,1, 3600, 12, ?, 3, 1, 1, 5)
+        """, (player_id, player_id))
+    conn.commit()
+
+    module.compute_zscores(conn, season_id="20242025")
+
+    import statistics
+    rates = list(range(1, 21))  # toi_seconds=3600 (1hr) -> rate == icf directly
+    mean = statistics.mean(rates)
+    stdev = statistics.pstdev(rates)
+    expected = round((1 - mean) / stdev, 2)
+
+    row = conn.execute("SELECT shots_per60_z FROM player_rate_zscores WHERE player_id = 1").fetchone()
+    assert row["shots_per60_z"] == expected
+
+
+def test_compute_zscores_zero_stddev_population_yields_zero(conn):
+    _seed_zscore_population(conn, count=20, icf_start=10)  # identical icf for everyone
+    module.compute_zscores(conn, season_id="20242025")
+    row = conn.execute("SELECT shots_per60_z FROM player_rate_zscores WHERE player_id = 1").fetchone()
+    assert row["shots_per60_z"] == 0.0
+
+
+def test_compute_zscores_excludes_zero_toi_player(conn):
+    for player_id in range(1, 21):
+        database.upsert_player_stub(conn, {
+            "player_id": player_id, "first_name": "P", "last_name": str(player_id),
+            "position_code": "C", "shoots_catches": None,
+        })
+        toi = 0 if player_id == 1 else 3600
+        conn.execute("""
+            INSERT INTO player_season_advanced_stats
+                (player_id, season_id, game_type, team_abbrevs, strength_state,
+                 cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp,
+                 icf, ihdcf, rebounds_created, deflections, points)
+            VALUES (?, '20242025', 2, 'HOM', '5v5', 1,1,1,1,1,1,1,1,1, ?, 12, 10, 3, 1, 1, 5)
+        """, (player_id, toi))
+    conn.commit()
+
+    module.compute_zscores(conn, season_id="20242025")
+    row = conn.execute("SELECT * FROM player_rate_zscores WHERE player_id = 1").fetchone()
+    assert row is None
+
+
+def test_compute_zscores_filters_by_game_type_regular_season_only(conn):
+    _seed_zscore_population(conn, count=20)
+    database.upsert_player_stub(conn, {
+        "player_id": 21, "first_name": "P", "last_name": "21",
+        "position_code": "C", "shoots_catches": None,
+    })
+    conn.execute("""
+        INSERT INTO player_season_advanced_stats
+            (player_id, season_id, game_type, team_abbrevs, strength_state,
+             cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp,
+             icf, ihdcf, rebounds_created, deflections, points)
+        VALUES (21, '20242025', 3, 'HOM', '5v5', 1,1,1,1,1,1,1,1,1, 3600, 12, 999, 3, 1, 1, 5)
+    """)
+    conn.commit()
+
+    module.compute_zscores(conn, season_id="20242025")
+    row = conn.execute("SELECT * FROM player_rate_zscores WHERE player_id = 21").fetchone()
+    assert row is None

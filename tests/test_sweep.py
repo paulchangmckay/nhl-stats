@@ -10,11 +10,13 @@ def _shift(player_id, team_id, period, start, end, position_code="C"):
 
 
 def _event(event_type, period, time_in_period, situation_code, event_owner_team_id,
-           x_coord=0, y_coord=0, shooting_player_id=None, assist1_player_id=None):
+           x_coord=0, y_coord=0, shooting_player_id=None, assist1_player_id=None,
+           assist2_player_id=None, shot_type=None):
     return {"event_type": event_type, "period": period, "time_in_period": time_in_period,
             "situation_code": situation_code, "event_owner_team_id": event_owner_team_id,
             "x_coord": x_coord, "y_coord": y_coord,
             "shooting_player_id": shooting_player_id, "assist1_player_id": assist1_player_id,
+            "assist2_player_id": assist2_player_id, "shot_type": shot_type,
             "home_team_defending_side": "right"}
 
 
@@ -157,3 +159,115 @@ def test_toi_seconds_accumulates_for_on_ice_skaters():
     player_rows, _ = compute_game_advanced_stats(shifts, events, home_team_id=HOME, game_type=2)
     home_row = next(r for r in player_rows if r["player_id"] == 1)
     assert home_row["toi_seconds"] == 30
+
+
+def test_individual_shot_credit_only_on_shooter_not_teammates():
+    shifts = [_shift(1, HOME, 1, "00:00", "20:00"), _shift(2, HOME, 1, "00:00", "20:00"),
+              _shift(3, AWAY, 1, "00:00", "20:00")]
+    events = [_event("shot-on-goal", 1, "00:10", "1551", HOME, shooting_player_id=1)]
+
+    player_rows, _ = compute_game_advanced_stats(shifts, events, home_team_id=HOME, game_type=2)
+    shooter_row = next(r for r in player_rows if r["player_id"] == 1)
+    teammate_row = next(r for r in player_rows if r["player_id"] == 2)
+    assert shooter_row["icf"] == 1
+    assert teammate_row["icf"] == 0
+    assert shooter_row["cf"] == 1 and teammate_row["cf"] == 1  # on-ice credit unaffected
+
+
+def test_individual_high_danger_and_deflection_credit():
+    shifts = [_shift(1, HOME, 1, "00:00", "20:00"), _shift(2, AWAY, 1, "00:00", "20:00")]
+    events = [_event("shot-on-goal", 1, "00:10", "1551", HOME, x_coord=-85, y_coord=0,
+                      shooting_player_id=1, shot_type="deflected")]
+
+    player_rows, _ = compute_game_advanced_stats(shifts, events, home_team_id=HOME, game_type=2)
+    shooter_row = next(r for r in player_rows if r["player_id"] == 1)
+    assert shooter_row["ihdcf"] == 1
+    assert shooter_row["deflections"] == 1
+
+
+def test_rebound_credited_to_original_shooter_within_3_seconds():
+    shifts = [_shift(1, HOME, 1, "00:00", "20:00"), _shift(2, HOME, 1, "00:00", "20:00")]
+    events = [
+        _event("shot-on-goal", 1, "00:10", "1551", HOME, shooting_player_id=1),
+        _event("shot-on-goal", 1, "00:12", "1551", HOME, shooting_player_id=2),
+    ]
+    player_rows, _ = compute_game_advanced_stats(shifts, events, home_team_id=HOME, game_type=2)
+    original = next(r for r in player_rows if r["player_id"] == 1)
+    rebounder = next(r for r in player_rows if r["player_id"] == 2)
+    assert original["rebounds_created"] == 1
+    assert rebounder["rebounds_created"] == 0
+
+
+def test_rebound_boundary_exactly_3_seconds_counts():
+    shifts = [_shift(1, HOME, 1, "00:00", "20:00"), _shift(2, HOME, 1, "00:00", "20:00")]
+    events = [
+        _event("shot-on-goal", 1, "00:10", "1551", HOME, shooting_player_id=1),
+        _event("shot-on-goal", 1, "00:13", "1551", HOME, shooting_player_id=2),
+    ]
+    player_rows, _ = compute_game_advanced_stats(shifts, events, home_team_id=HOME, game_type=2)
+    original = next(r for r in player_rows if r["player_id"] == 1)
+    assert original["rebounds_created"] == 1
+
+
+def test_rebound_beyond_window_does_not_count():
+    shifts = [_shift(1, HOME, 1, "00:00", "20:00"), _shift(2, HOME, 1, "00:00", "20:00")]
+    events = [
+        _event("shot-on-goal", 1, "00:10", "1551", HOME, shooting_player_id=1),
+        _event("shot-on-goal", 1, "00:14", "1551", HOME, shooting_player_id=2),
+    ]
+    player_rows, _ = compute_game_advanced_stats(shifts, events, home_team_id=HOME, game_type=2)
+    original = next(r for r in player_rows if r["player_id"] == 1)
+    assert original["rebounds_created"] == 0
+
+
+def test_rebound_different_teams_does_not_count():
+    shifts = [_shift(1, HOME, 1, "00:00", "20:00"), _shift(2, AWAY, 1, "00:00", "20:00")]
+    events = [
+        _event("shot-on-goal", 1, "00:10", "1551", HOME, shooting_player_id=1),
+        _event("shot-on-goal", 1, "00:11", "1551", AWAY, shooting_player_id=2),
+    ]
+    player_rows, _ = compute_game_advanced_stats(shifts, events, home_team_id=HOME, game_type=2)
+    home_shooter = next(r for r in player_rows if r["player_id"] == 1)
+    assert home_shooter["rebounds_created"] == 0
+
+
+def test_rebound_same_player_consecutive_shots_counts():
+    shifts = [_shift(1, HOME, 1, "00:00", "20:00")]
+    events = [
+        _event("shot-on-goal", 1, "00:10", "1551", HOME, shooting_player_id=1),
+        _event("shot-on-goal", 1, "00:12", "1551", HOME, shooting_player_id=1),
+    ]
+    player_rows, _ = compute_game_advanced_stats(shifts, events, home_team_id=HOME, game_type=2)
+    shooter_row = next(r for r in player_rows if r["player_id"] == 1)
+    assert shooter_row["rebounds_created"] == 1
+
+
+def test_rebound_scramble_credits_each_pair_independently():
+    shifts = [_shift(1, HOME, 1, "00:00", "20:00"), _shift(2, HOME, 1, "00:00", "20:00"),
+              _shift(3, HOME, 1, "00:00", "20:00")]
+    events = [
+        _event("shot-on-goal", 1, "00:10", "1551", HOME, shooting_player_id=1),
+        _event("shot-on-goal", 1, "00:12", "1551", HOME, shooting_player_id=2),
+        _event("shot-on-goal", 1, "00:14", "1551", HOME, shooting_player_id=3),
+    ]
+    player_rows, _ = compute_game_advanced_stats(shifts, events, home_team_id=HOME, game_type=2)
+    p1 = next(r for r in player_rows if r["player_id"] == 1)
+    p2 = next(r for r in player_rows if r["player_id"] == 2)
+    p3 = next(r for r in player_rows if r["player_id"] == 3)
+    assert p1["rebounds_created"] == 1
+    assert p2["rebounds_created"] == 1
+    assert p3["rebounds_created"] == 0
+
+
+def test_points_credits_scorer_and_both_assists_primary_points_excludes_secondary():
+    events = [_event("goal", 1, "05:00", "1551", HOME, shooting_player_id=1,
+                      assist1_player_id=2, assist2_player_id=3)]
+    player_rows, _ = compute_game_advanced_stats([], events, home_team_id=HOME, game_type=2)
+
+    scorer = next(r for r in player_rows if r["player_id"] == 1)
+    primary_assister = next(r for r in player_rows if r["player_id"] == 2)
+    secondary_assister = next(r for r in player_rows if r["player_id"] == 3)
+
+    assert scorer["points"] == 1 and scorer["primary_points"] == 1
+    assert primary_assister["points"] == 1 and primary_assister["primary_points"] == 1
+    assert secondary_assister["points"] == 1 and secondary_assister["primary_points"] == 0

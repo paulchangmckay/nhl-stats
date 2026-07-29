@@ -13,5 +13,6 @@ venv/
 env/
 .ipynb_checkpoints/
 .claude/worktrees/
+.worktrees/
 .run/
 node_modules/

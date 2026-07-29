@@ -35,6 +35,7 @@ const COLUMNS: Column[] = [
   { key: "save_pct", label: "SV%", numeric: true, goalieOnly: true },
   { key: "gaa", label: "GAA", numeric: true, goalieOnly: true },
   { key: "cf_pct_5v5", label: "CF% (5v5)", numeric: true, skaterOnly: true },
+  { key: "shots_per60_5v5", label: "Shots/60 (5v5)", numeric: true, skaterOnly: true },
 ];
 
 function cellValue(col: Column, row: PlayerStats): string {
@@ -44,6 +45,7 @@ function cellValue(col: Column, row: PlayerStats): string {
   if (col.key === "gaa") return Number(val).toFixed(2);
   if (col.key === "shooting_pct") return `${val}%`;
   if (col.key === "cf_pct_5v5") return `${val}%`;
+  if (col.key === "shots_per60_5v5") return Number(val).toFixed(2);
   if (col.key === "plus_minus") return Number(val) > 0 ? `+${val}` : String(val);
   return String(val);
 }
