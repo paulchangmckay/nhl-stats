@@ -235,6 +235,11 @@ CREATE TABLE IF NOT EXISTS player_game_advanced_stats (
     ga             INTEGER DEFAULT 0,
     primary_points INTEGER DEFAULT 0,
     toi_seconds    INTEGER DEFAULT 0,
+    icf             INTEGER DEFAULT 0,  -- individual Corsi For (own shot attempts, not on-ice)
+    ihdcf           INTEGER DEFAULT 0,  -- individual High-Danger Corsi For
+    rebounds_created INTEGER DEFAULT 0, -- credited to original shooter, see sweep.py
+    deflections     INTEGER DEFAULT 0,  -- shot_type IN ('deflected', 'tip-in')
+    points          INTEGER DEFAULT 0,  -- goals + assist1 + assist2 (primary_points excludes assist2)
     created_at     TEXT DEFAULT (datetime('now')),
     UNIQUE (game_id, player_id, strength_state)
 );
@@ -286,6 +291,11 @@ CREATE TABLE IF NOT EXISTS player_season_advanced_stats (
     ga             INTEGER DEFAULT 0,
     primary_points INTEGER DEFAULT 0,
     toi_seconds    INTEGER DEFAULT 0,
+    icf             INTEGER DEFAULT 0,  -- individual Corsi For (own shot attempts, not on-ice)
+    ihdcf           INTEGER DEFAULT 0,  -- individual High-Danger Corsi For
+    rebounds_created INTEGER DEFAULT 0, -- credited to original shooter, see sweep.py
+    deflections     INTEGER DEFAULT 0,  -- shot_type IN ('deflected', 'tip-in')
+    points          INTEGER DEFAULT 0,  -- goals + assist1 + assist2 (primary_points excludes assist2)
     gp             INTEGER DEFAULT 0,
     last_updated   TEXT DEFAULT (datetime('now')),
     UNIQUE (player_id, season_id, game_type, strength_state)
@@ -329,6 +339,11 @@ CREATE TABLE IF NOT EXISTS player_career_advanced_stats (
     rs_ga             INTEGER DEFAULT 0,
     rs_primary_points INTEGER DEFAULT 0,
     rs_toi_seconds    INTEGER DEFAULT 0,
+    rs_icf              INTEGER DEFAULT 0,
+    rs_ihdcf            INTEGER DEFAULT 0,
+    rs_rebounds_created INTEGER DEFAULT 0,
+    rs_deflections      INTEGER DEFAULT 0,
+    rs_points           INTEGER DEFAULT 0,
     po_cf             INTEGER DEFAULT 0,
     po_ca             INTEGER DEFAULT 0,
     po_ff             INTEGER DEFAULT 0,
@@ -339,6 +354,11 @@ CREATE TABLE IF NOT EXISTS player_career_advanced_stats (
     po_ga             INTEGER DEFAULT 0,
     po_primary_points INTEGER DEFAULT 0,
     po_toi_seconds    INTEGER DEFAULT 0,
+    po_icf              INTEGER DEFAULT 0,
+    po_ihdcf            INTEGER DEFAULT 0,
+    po_rebounds_created INTEGER DEFAULT 0,
+    po_deflections      INTEGER DEFAULT 0,
+    po_points           INTEGER DEFAULT 0,
     last_updated      TEXT DEFAULT (datetime('now')),
     PRIMARY KEY (player_id, strength_state)
 );
@@ -357,6 +377,23 @@ CREATE TABLE IF NOT EXISTS player_advanced_percentiles (
     primary_points_pctile  REAL,
     created_at             TEXT DEFAULT (datetime('now')),
     UNIQUE (season_id, player_id, strength_state)
+);
+"""
+
+CREATE_PLAYER_RATE_ZSCORES = """
+CREATE TABLE IF NOT EXISTS player_rate_zscores (
+    id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+    season_id                TEXT NOT NULL,
+    player_id                INTEGER NOT NULL REFERENCES players(player_id),
+    position_group           TEXT NOT NULL,
+    shots_per60_z            REAL,
+    chances_per60_z          REAL,
+    rebounds_created_per60_z REAL,
+    deflections_per60_z      REAL,
+    points_per60_z           REAL,
+    primary_points_per60_z   REAL,
+    created_at                TEXT DEFAULT (datetime('now')),
+    UNIQUE (season_id, player_id)
 );
 """
 
@@ -385,6 +422,29 @@ _GAME_EVENTS_MIGRATIONS = [
     "ALTER TABLE game_events ADD COLUMN home_team_defending_side TEXT",
 ]
 
+_ADVANCED_STATS_MIGRATIONS = [
+    "ALTER TABLE player_game_advanced_stats ADD COLUMN icf INTEGER DEFAULT 0",
+    "ALTER TABLE player_game_advanced_stats ADD COLUMN ihdcf INTEGER DEFAULT 0",
+    "ALTER TABLE player_game_advanced_stats ADD COLUMN rebounds_created INTEGER DEFAULT 0",
+    "ALTER TABLE player_game_advanced_stats ADD COLUMN deflections INTEGER DEFAULT 0",
+    "ALTER TABLE player_game_advanced_stats ADD COLUMN points INTEGER DEFAULT 0",
+    "ALTER TABLE player_season_advanced_stats ADD COLUMN icf INTEGER DEFAULT 0",
+    "ALTER TABLE player_season_advanced_stats ADD COLUMN ihdcf INTEGER DEFAULT 0",
+    "ALTER TABLE player_season_advanced_stats ADD COLUMN rebounds_created INTEGER DEFAULT 0",
+    "ALTER TABLE player_season_advanced_stats ADD COLUMN deflections INTEGER DEFAULT 0",
+    "ALTER TABLE player_season_advanced_stats ADD COLUMN points INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN rs_icf INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN rs_ihdcf INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN rs_rebounds_created INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN rs_deflections INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN rs_points INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN po_icf INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN po_ihdcf INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN po_rebounds_created INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN po_deflections INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN po_points INTEGER DEFAULT 0",
+]
+
 
 def get_connection(db_path=DB_PATH):
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -395,7 +455,7 @@ def get_connection(db_path=DB_PATH):
 
 
 def run_migrations(conn):
-    for sql in _PLAYER_MIGRATIONS + _GAME_EVENTS_MIGRATIONS:
+    for sql in _PLAYER_MIGRATIONS + _GAME_EVENTS_MIGRATIONS + _ADVANCED_STATS_MIGRATIONS:
         try:
             conn.execute(sql)
         except sqlite3.OperationalError:
@@ -410,7 +470,8 @@ def create_all_tables(conn):
                 CREATE_GAME_EVENTS, CREATE_PLAYER_SHIFTS, CREATE_SYNC_LOG,
                 CREATE_PLAYER_GAME_ADVANCED_STATS, CREATE_TEAM_GAME_ADVANCED_STATS,
                 CREATE_PLAYER_SEASON_ADVANCED_STATS, CREATE_TEAM_SEASON_ADVANCED_STATS,
-                CREATE_PLAYER_CAREER_ADVANCED_STATS, CREATE_PLAYER_ADVANCED_PERCENTILES]:
+                CREATE_PLAYER_CAREER_ADVANCED_STATS, CREATE_PLAYER_ADVANCED_PERCENTILES,
+                CREATE_PLAYER_RATE_ZSCORES]:
         conn.execute(sql)
     for sql in (CREATE_GAME_EVENTS_INDEXES + CREATE_PLAYER_SHIFTS_INDEXES
                 + CREATE_PLAYER_GAME_ADVANCED_STATS_INDEXES):
@@ -697,16 +758,22 @@ def upsert_player_game_advanced_stats(conn, r):
     conn.execute("""
         INSERT INTO player_game_advanced_stats
             (game_id, player_id, team_id, strength_state, cf, ca, ff, fa,
-             hdcf, hdca, gf, ga, primary_points, toi_seconds)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             hdcf, hdca, gf, ga, primary_points, toi_seconds,
+             icf, ihdcf, rebounds_created, deflections, points)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(game_id, player_id, strength_state) DO UPDATE SET
             team_id=excluded.team_id, cf=excluded.cf, ca=excluded.ca,
             ff=excluded.ff, fa=excluded.fa, hdcf=excluded.hdcf, hdca=excluded.hdca,
             gf=excluded.gf, ga=excluded.ga, primary_points=excluded.primary_points,
-            toi_seconds=excluded.toi_seconds
+            toi_seconds=excluded.toi_seconds,
+            icf=excluded.icf, ihdcf=excluded.ihdcf,
+            rebounds_created=excluded.rebounds_created, deflections=excluded.deflections,
+            points=excluded.points
     """, (r["game_id"], r["player_id"], r["team_id"], r["strength_state"],
           r["cf"], r["ca"], r["ff"], r["fa"], r["hdcf"], r["hdca"],
-          r["gf"], r["ga"], r["primary_points"], r["toi_seconds"]))
+          r["gf"], r["ga"], r["primary_points"], r["toi_seconds"],
+          r.get("icf", 0), r.get("ihdcf", 0), r.get("rebounds_created", 0),
+          r.get("deflections", 0), r.get("points", 0)))
 
 
 def upsert_team_game_advanced_stats(conn, r):
@@ -737,3 +804,22 @@ def upsert_player_advanced_percentiles(conn, r):
     """, (r["season_id"], r["player_id"], r["strength_state"], r["position_group"],
           r["cf_pct_pctile"], r["ff_pct_pctile"], r["hdcf_pct_pctile"],
           r["primary_points_pctile"]))
+
+
+def upsert_player_rate_zscores(conn, r):
+    conn.execute("""
+        INSERT INTO player_rate_zscores
+            (season_id, player_id, position_group, shots_per60_z, chances_per60_z,
+             rebounds_created_per60_z, deflections_per60_z, points_per60_z,
+             primary_points_per60_z)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(season_id, player_id) DO UPDATE SET
+            position_group=excluded.position_group,
+            shots_per60_z=excluded.shots_per60_z, chances_per60_z=excluded.chances_per60_z,
+            rebounds_created_per60_z=excluded.rebounds_created_per60_z,
+            deflections_per60_z=excluded.deflections_per60_z,
+            points_per60_z=excluded.points_per60_z,
+            primary_points_per60_z=excluded.primary_points_per60_z
+    """, (r["season_id"], r["player_id"], r["position_group"], r["shots_per60_z"],
+          r["chances_per60_z"], r["rebounds_created_per60_z"], r["deflections_per60_z"],
+          r["points_per60_z"], r["primary_points_per60_z"]))

@@ -193,3 +193,20 @@ def test_compute_percentiles_excludes_players_below_gp_floor(conn):
         "SELECT * FROM player_advanced_percentiles WHERE player_id = 1"
     ).fetchone()
     assert row is None  # below the 10-GP floor, no percentile row created
+
+
+def test_schema_has_new_rate_stat_columns_and_zscore_table(conn):
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(player_game_advanced_stats)")}
+    assert {"icf", "ihdcf", "rebounds_created", "deflections", "points"} <= cols
+
+    season_cols = {row["name"] for row in conn.execute("PRAGMA table_info(player_season_advanced_stats)")}
+    assert {"icf", "ihdcf", "rebounds_created", "deflections", "points"} <= season_cols
+
+    career_cols = {row["name"] for row in conn.execute("PRAGMA table_info(player_career_advanced_stats)")}
+    assert {"rs_icf", "rs_ihdcf", "rs_rebounds_created", "rs_deflections", "rs_points",
+            "po_icf", "po_ihdcf", "po_rebounds_created", "po_deflections", "po_points"} <= career_cols
+
+    zscore_cols = {row["name"] for row in conn.execute("PRAGMA table_info(player_rate_zscores)")}
+    assert {"season_id", "player_id", "position_group", "shots_per60_z", "chances_per60_z",
+            "rebounds_created_per60_z", "deflections_per60_z", "points_per60_z",
+            "primary_points_per60_z"} <= zscore_cols
