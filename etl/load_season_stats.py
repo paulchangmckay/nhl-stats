@@ -147,6 +147,12 @@ def _fill_missing_skater_season_stats(conn, season_id, game_type):
           )
     """, (season_id, game_type, season_id, game_type)).fetchall()
 
+    # wolf-debt: a fallback row, once inserted, is frozen -- the NOT EXISTS check
+    # above permanently excludes this player from future fallback runs even if they
+    # play more games later in the season and the bulk API still never picks them
+    # up. Strictly better than no row at all, but stats will go stale for the rest
+    # of the season. Upgrade trigger: if a fringe player accumulates enough games
+    # for their frozen fallback numbers to visibly diverge from reality.
     filled = 0
     for row in candidates:
         player_id = row["player_id"]
@@ -205,6 +211,12 @@ def run(conn):
         if season_id != current_season:
             synced_at = database.get_sync_record(conn, f"season_stats:{season_id}")
             if synced_at:
+                # wolf-debt: the skater fallback below never runs for a season already
+                # marked synced here -- a historical season's fringe skaters (issue #83's
+                # bug class) only get backfilled if this sync_log row is cleared first
+                # (see scripts/sync.py's docstring for the manual re-sync command).
+                # Upgrade trigger: if a historical (non-current) season is confirmed to
+                # have the same missing-fringe-skater gap as the current season did.
                 print(f"  {season_id}: already synced ({synced_at}), skipping")
                 continue
 
