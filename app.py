@@ -247,7 +247,7 @@ def _fetch_player_advanced(conn, player_id, season_id):
         SELECT strength_state, cf, ca, ff, fa, hdcf, hdca, primary_points, team_abbrevs,
                icf, ihdcf, rebounds_created, deflections, points, toi_seconds
         FROM player_season_advanced_stats
-        WHERE player_id = ? AND season_id = ?
+        WHERE player_id = ? AND season_id = ? AND game_type = 2
     """, (player_id, season_id)).fetchall()
 
     pctile_rows = conn.execute("""
@@ -299,12 +299,51 @@ def _fetch_player_advanced(conn, player_id, season_id):
             team_abbrevs = r["team_abbrevs"]
 
     trend_rows = conn.execute("""
-        SELECT season_id, cf, ca FROM player_season_advanced_stats
-        WHERE player_id = ? AND strength_state = '5v5'
-        ORDER BY season_id
+        SELECT season_id, strength_state, cf, ca, ff, fa, hdcf, hdca, primary_points,
+               team_abbrevs, icf, ihdcf, rebounds_created, deflections, points, toi_seconds
+        FROM player_season_advanced_stats
+        WHERE player_id = ? AND game_type = 2
+        ORDER BY season_id, strength_state
     """, (player_id,)).fetchall()
-    trend = [{"season_id": r["season_id"], "cf_pct": _pct(r["cf"], r["cf"] + r["ca"])}
-             for r in trend_rows]
+
+    trend = []
+    for r in trend_rows:
+        entry = {
+            "season_id": r["season_id"],
+            "strength_state": r["strength_state"],
+            "cf_pct": _pct(r["cf"], r["cf"] + r["ca"]),
+            "ff_pct": _pct(r["ff"], r["ff"] + r["fa"]),
+            "hdcf_pct": _pct(r["hdcf"], r["hdcf"] + r["hdca"]),
+            "primary_points": r["primary_points"],
+            "pdo": None,
+            "shots_per60": None, "chances_per60": None, "rebounds_created_per60": None,
+            "deflections_per60": None, "points_per60": None, "primary_points_per60": None,
+        }
+        if r["strength_state"] == "5v5":
+            toi_hours = r["toi_seconds"] / 3600.0 if r["toi_seconds"] else None
+            if toi_hours:
+                entry.update({
+                    "shots_per60": round(r["icf"] / toi_hours, 2),
+                    "chances_per60": round(r["ihdcf"] / toi_hours, 2),
+                    "rebounds_created_per60": round(r["rebounds_created"] / toi_hours, 2),
+                    "deflections_per60": round(r["deflections"] / toi_hours, 2),
+                    "points_per60": round(r["points"] / toi_hours, 2),
+                    "primary_points_per60": round(r["primary_points"] / toi_hours, 2),
+                })
+            first_abbrev = (r["team_abbrevs"] or "").split(",")[0] if r["team_abbrevs"] else None
+            if first_abbrev:
+                team_row = conn.execute("""
+                    SELECT tsas.gf, tsas.ga, tsas.shots_for, tsas.shots_against
+                    FROM team_season_advanced_stats tsas
+                    JOIN teams t ON t.team_id = tsas.team_id
+                    WHERE t.abbrev = ? AND tsas.season_id = ? AND tsas.strength_state = '5v5'
+                      AND tsas.game_type = 2
+                """, (first_abbrev, r["season_id"])).fetchone()
+                if team_row and team_row["shots_for"] and team_row["shots_against"]:
+                    shooting_pct = team_row["gf"] / team_row["shots_for"]
+                    save_pct = (team_row["shots_against"] - team_row["ga"]) / team_row["shots_against"]
+                    entry["pdo"] = round((shooting_pct + save_pct) * 1000, 1)
+        trend.append(entry)
 
     pdo = None
     first_abbrev = (team_abbrevs or "").split(",")[0] if team_abbrevs else None

@@ -6,6 +6,17 @@ Documents `GET /api/players/<player_id>/advanced` and `GET /api/teams/<team_abbr
 
 Returns `{ player_id, season_id, strength_states, trend, pdo }`.
 
+`trend` is a flat array, one row per `(season_id, strength_state)`, ordered by
+season then strength state, filtered to regular-season games only
+(`game_type = 2`). Every row has:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `season_id` | string | |
+| `strength_state` | string | `5v5` / `5v4` / `4v5` |
+| `cf_pct`, `ff_pct`, `hdcf_pct`, `primary_points` | — | Same as the `strength_states` fields above, for that season |
+| `pdo`, `shots_per60`, `chances_per60`, `rebounds_created_per60`, `deflections_per60`, `points_per60`, `primary_points_per60` | float\|null | **5v5 rows only** — `null` on `5v4`/`4v5` rows |
+
 `strength_states` is keyed by `5v5` / `5v4` / `4v5`. Every state has:
 
 | Field | Type | Meaning |
