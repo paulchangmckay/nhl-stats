@@ -95,7 +95,18 @@ export interface AdvancedStrengthState {
 
 export interface AdvancedTrendPoint {
   season_id: string;
+  strength_state: string;
   cf_pct: number | null;
+  ff_pct: number | null;
+  hdcf_pct: number | null;
+  primary_points: number | null;
+  pdo: number | null;
+  shots_per60: number | null;
+  chances_per60: number | null;
+  rebounds_created_per60: number | null;
+  deflections_per60: number | null;
+  points_per60: number | null;
+  primary_points_per60: number | null;
 }
 
 export interface PlayerAdvancedStats {

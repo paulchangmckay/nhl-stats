@@ -25,8 +25,15 @@ const MOCK_ADVANCED: PlayerAdvancedStats = {
     },
   },
   trend: [
-    { season_id: "20232024", cf_pct: 55.0 },
-    { season_id: "20242025", cf_pct: 60.0 },
+    { season_id: "20232024", strength_state: "5v5", cf_pct: 55.0, ff_pct: 54.0, hdcf_pct: 58.0,
+      primary_points: 10, pdo: 998.0, shots_per60: 20.0, chances_per60: 6.0,
+      rebounds_created_per60: 3.0, deflections_per60: 1.0, points_per60: 15.0, primary_points_per60: 10.0 },
+    { season_id: "20242025", strength_state: "5v5", cf_pct: 60.0, ff_pct: 60.0, hdcf_pct: 66.7,
+      primary_points: 15, pdo: 1005.3, shots_per60: 24.0, chances_per60: 8.0,
+      rebounds_created_per60: 4.0, deflections_per60: 2.0, points_per60: 20.0, primary_points_per60: 15.0 },
+    { season_id: "20242025", strength_state: "5v4", cf_pct: 80.0, ff_pct: 83.3, hdcf_pct: 80.0,
+      primary_points: 5, pdo: null, shots_per60: null, chances_per60: null,
+      rebounds_created_per60: null, deflections_per60: null, points_per60: null, primary_points_per60: null },
   ],
   pdo: 1005.3,
 };
