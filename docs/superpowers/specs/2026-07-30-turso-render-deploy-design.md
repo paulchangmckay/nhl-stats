@@ -89,23 +89,42 @@ One required code change: the migration loop in `run_migrations()` currently doe
 idempotent. This must also catch libSQL's equivalent "duplicate column" error type when
 running against a Turso connection, or migrations will crash on second run against Turso.
 
+**Future schema changes:** `app.py` never calls `create_all_tables()`/`run_migrations()`
+itself — only `scripts/setup_db.py` does, and only when run manually. This stays true
+after the Turso migration: applying a future schema change to production means manually
+running `scripts/setup_db.py` with `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` set, as a
+deliberate step you run yourself. Render and CI never run it automatically — this avoids
+two Render instances racing to `ALTER TABLE` against the same remote DB on a cold start,
+and keeps the existing manual-migration pattern unchanged.
+
+**Connection lifecycle:** stays per-request connect/close, exactly as today — `app.py`
+opens a fresh connection per request and closes it. Against remote Turso this means each
+request pays a full connection-establishment cost (not just one query round trip), but a
+persistent/pooled connection reused across requests is deliberately out of scope for the
+first version: it adds thread-safety and reconnect-on-drop concerns under gunicorn worker
+processes that aren't worth taking on before knowing whether latency is actually a
+problem for a low-traffic personal dashboard. Revisit only if real usage shows it matters.
+
 `scripts/sync.py`'s docstring contains a literal `sqlite3 data/nhl_stats.db "DELETE
 FROM sync_log ..."` CLI example; update it to reflect the new dual-backend reality (or
 note it's dev-only guidance) so it doesn't mislead future readers.
 
 ## 2. Data migration (one-time)
 
-Import the existing `data/nhl_stats.db` (1.48GB) directly into a new Turso database using
-Turso's CLI import-from-file capability — libSQL reads native SQLite file format, so this
-is a direct file import, not a custom export/transform script. After import, verify row
-counts per table against the source file (spot-check the largest tables: `game_events`,
-`player_shifts`, `player_game_stats`) before treating Turso as the source of truth.
+Exact cutover sequence, to avoid a window where local-file and Turso data diverge:
 
-Going forward, ETL scripts (`scripts/run_all_etl.py`, `scripts/sync.py`, all `etl/*.py`
-modules) continue to run locally on the developer's machine exactly as today, but with
-`TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` set so `get_connection()` targets Turso instead
-of the local file. Local sqlite remains only for dev/testing, not as a production data
-store.
+1. Run a final local ETL sync so `data/nhl_stats.db` is fully up to date.
+2. Import that exact file into a new Turso database via Turso's CLI import-from-file
+   capability — libSQL reads native SQLite file format, so this is a direct file import,
+   not a custom export/transform script.
+3. Verify row counts per table between the local file and Turso match (spot-check the
+   largest tables: `game_events`, `player_shifts`, `player_game_stats`).
+4. Only after verification passes, set `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` in the
+   local ETL environment so all subsequent ETL runs write to Turso. From this point the
+   local file is no longer a write target for real data — it remains dev/test-only.
+
+Running ETL against the local file for any period *after* the Turso import would let the
+two silently diverge, so step 4 happens immediately after step 3 passes, not on a delay.
 
 ## 3. Deployment (Render)
 
@@ -130,7 +149,28 @@ store.
 
 `.github/workflows/ci.yml` is unchanged — tests continue to run against a local,
 file-backed sqlite DB with no Turso credentials required in CI. No new CI job is needed
-since Render's GitHub integration handles deploy natively.
+since Render's GitHub integration handles deploy natively. This means the `libsql`/Turso
+branch of `get_connection()` is never exercised by automated tests — accepted, since it's
+a small (~10 line) connection-opening branch, verified once by the spike below and once
+by an actual pre-deploy run against real Turso, while all query logic in `app.py`/`etl/*`
+stays fully covered by the existing local-sqlite test suite regardless of which backend
+runs it.
+
+`ci.yml` also still triggers on PRs only, not on push to `main`; Render's auto-deploy
+triggers on every push to `main` with no test gate of its own. Accepted as-is — PRs
+already gate merges to `main` in the normal flow for this solo project, and wiring a
+required-status-check between GitHub Actions and Render's deploy trigger isn't worth the
+added pipeline complexity to guard against an accidental direct push.
+
+## Implementation ordering note
+
+The claim that existing query code needs zero changes against `libsql` rests on
+assumptions about that package's API (sqlite3.Row-style dict row access, `?`
+placeholders, `INSERT OR REPLACE`/`ON CONFLICT...excluded.*` support, and a catchable
+duplicate-column error equivalent to `sqlite3.OperationalError`). The implementation plan
+must start with a small spike — connect to a throwaway Turso test database via `libsql`,
+run one insert/upsert/read round trip and one intentionally-duplicate `ALTER TABLE ADD
+COLUMN` — to confirm these before writing any other migration code.
 
 ## Out of scope
 
