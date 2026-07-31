@@ -514,6 +514,13 @@ _ADVANCED_STATS_MIGRATIONS = [
 
 
 def get_connection(db_path=DB_PATH):
+    turso_url = os.environ.get("TURSO_DATABASE_URL")
+    if turso_url:
+        import libsql
+        raw = libsql.connect(database=turso_url, auth_token=os.environ["TURSO_AUTH_TOKEN"])
+        conn = _TursoConnection(raw)
+        conn.execute("PRAGMA foreign_keys = ON")
+        return conn
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
