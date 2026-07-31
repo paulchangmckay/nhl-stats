@@ -517,6 +517,7 @@ def get_connection(db_path=DB_PATH):
     turso_url = os.environ.get("TURSO_DATABASE_URL")
     if turso_url:
         import libsql
+        # wolf-debt: per-request remote connection (handshake + PRAGMA round trip on every Flask request), upgrade trigger: noticeable API latency or Turso free-tier quota pressure
         raw = libsql.connect(database=turso_url, auth_token=os.environ["TURSO_AUTH_TOKEN"])
         conn = _TursoConnection(raw)
         conn.execute("PRAGMA foreign_keys = ON")
