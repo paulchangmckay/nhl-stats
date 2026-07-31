@@ -81,13 +81,31 @@ stdlib `sqlite3` untouched, so `tests/conftest.py`'s file-backed fixture and the
 `get_connection`-monkeypatching in `tests/test_app_advanced_stats.py` need no changes.
 CI does not need Turso credentials.
 
-Existing query code (`app.py`, `etl/*.py`, `scripts/*.py`) needs no SQL changes — the
-`sqlite3.Row`-style dict access and `?` placeholders both work unchanged against libSQL.
+**Correction from empirical testing (2026-07-30):** installing `libsql` (0.1.x, current
+PyPI release) and testing directly showed two things the original design got wrong:
 
-One required code change: the migration loop in `run_migrations()` currently does
-`except sqlite3.OperationalError: pass` to make repeated `ALTER TABLE ADD COLUMN`
-idempotent. This must also catch libSQL's equivalent "duplicate column" error type when
-running against a Turso connection, or migrations will crash on second run against Turso.
+1. `libsql`'s `Connection` has **no `row_factory` attribute at all** — assigning
+   `conn.row_factory = sqlite3.Row` raises `AttributeError`. Query results come back as
+   plain tuples, not dict-accessible rows. Since `row["column_name"]` access is pervasive
+   across `app.py`, `src/database.py`, and the test suite, this is a real compatibility
+   gap, not a non-issue as originally assumed.
+2. Re-running a duplicate `ALTER TABLE ADD COLUMN` against libsql raises **`ValueError`**
+   ("duplicate column name: ..."), not `sqlite3.OperationalError` as SQLite raises. The
+   `except sqlite3.OperationalError: pass` catch in `run_migrations()` must also catch
+   `ValueError` when running against a Turso connection, or migrations crash on second
+   run.
+
+`?` placeholders, `INSERT OR REPLACE`/`INSERT OR IGNORE`, and `ON CONFLICT(...) DO UPDATE
+SET ... excluded.*` all execute correctly against libsql at the SQL level — only *row
+access after the query* is affected. `cursor.description` works identically to sqlite3's
+(a sequence of 7-tuples, first element the column name), which makes a compatibility
+shim straightforward: wrap the libsql connection so `execute()` returns a cursor whose
+`fetchone()`/`fetchall()` convert raw tuples into `sqlite3.Row`-compatible objects using
+`cursor.description` for column names. This wrapper is the one piece of new code query
+callers depend on — once it's in place, `app.py`/`etl/*.py`/`scripts/*.py` genuinely need
+no changes, because the wrapper preserves the exact `row["col"]` interface they already
+use. The wrapper only needs to intercept `execute()`; `commit()`, `close()`, and
+`executemany()` all exist directly on the libsql connection with matching signatures.
 
 **Future schema changes:** `app.py` never calls `create_all_tables()`/`run_migrations()`
 itself — only `scripts/setup_db.py` does, and only when run manually. This stays true
@@ -162,15 +180,13 @@ already gate merges to `main` in the normal flow for this solo project, and wiri
 required-status-check between GitHub Actions and Render's deploy trigger isn't worth the
 added pipeline complexity to guard against an accidental direct push.
 
-## Implementation ordering note
+## Implementation ordering note (resolved)
 
-The claim that existing query code needs zero changes against `libsql` rests on
-assumptions about that package's API (sqlite3.Row-style dict row access, `?`
-placeholders, `INSERT OR REPLACE`/`ON CONFLICT...excluded.*` support, and a catchable
-duplicate-column error equivalent to `sqlite3.OperationalError`). The implementation plan
-must start with a small spike — connect to a throwaway Turso test database via `libsql`,
-run one insert/upsert/read round trip and one intentionally-duplicate `ALTER TABLE ADD
-COLUMN` — to confirm these before writing any other migration code.
+The API-assumption spike this design originally called for as a first implementation
+step was run during grilling (2026-07-30), against a real local `libsql` install — see
+the "Correction from empirical testing" note in section 1 above for what it found. The
+implementation plan's first task is now the row-adapter wrapper and duplicate-column
+`ValueError` handling directly, rather than a separate exploratory spike.
 
 ## Out of scope
 
