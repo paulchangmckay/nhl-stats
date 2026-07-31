@@ -110,6 +110,92 @@ def _load_player_type(conn, season_id, game_type, player_type):
     return total_loaded
 
 
+def _parse_toi_seconds(toi):
+    if not toi:
+        return 0
+    minutes, _, seconds = toi.partition(":")
+    try:
+        return int(minutes) * 60 + int(seconds)
+    except ValueError:
+        return 0
+
+
+def _format_toi_seconds(total_seconds):
+    minutes, seconds = divmod(total_seconds, 60)
+    return f"{minutes:02d}:{seconds:02d}"
+
+
+def _fill_missing_skater_season_stats(conn, season_id, game_type):
+    """Aggregate a season-stats row directly from player_game_stats for any
+    skater who has games this season/game_type but never showed up in the
+    bulk stats REST API response (e.g. fringe players with very few games
+    that the leaderboard endpoint excludes). Goalies are skipped on purpose:
+    player_game_stats never captures goaltending-specific stats (saves,
+    shots-against, decision), so there is nothing accurate to aggregate for
+    them yet -- see GitHub issue #84."""
+    candidates = conn.execute("""
+        SELECT DISTINCT pgs.player_id
+        FROM player_game_stats pgs
+        JOIN games g ON g.game_id = pgs.game_id
+        JOIN players p ON p.player_id = pgs.player_id
+        WHERE g.season_id = ? AND g.game_type = ?
+          AND COALESCE(p.position_code, '') != 'G'
+          AND NOT EXISTS (
+              SELECT 1 FROM player_season_stats pss
+              WHERE pss.player_id = pgs.player_id
+                AND pss.season_id = ? AND pss.game_type = ?
+          )
+    """, (season_id, game_type, season_id, game_type)).fetchall()
+
+    filled = 0
+    for row in candidates:
+        player_id = row["player_id"]
+
+        games = conn.execute("""
+            SELECT pgs.goals, pgs.assists, pgs.points, pgs.plus_minus, pgs.pim,
+                   pgs.shots_on_goal, pgs.toi, t.abbrev
+            FROM player_game_stats pgs
+            JOIN games g ON g.game_id = pgs.game_id
+            LEFT JOIN teams t ON t.team_id = pgs.team_id
+            WHERE pgs.player_id = ? AND g.season_id = ? AND g.game_type = ?
+        """, (player_id, season_id, game_type)).fetchall()
+
+        position_code = conn.execute(
+            "SELECT position_code FROM players WHERE player_id = ?", (player_id,)
+        ).fetchone()["position_code"]
+
+        gp = len(games)
+        goals = sum(g["goals"] or 0 for g in games)
+        assists = sum(g["assists"] or 0 for g in games)
+        points = sum(g["points"] or 0 for g in games)
+        plus_minus = sum(g["plus_minus"] or 0 for g in games)
+        pim = sum(g["pim"] or 0 for g in games)
+        shots = sum(g["shots_on_goal"] or 0 for g in games)
+        total_toi_seconds = sum(_parse_toi_seconds(g["toi"]) for g in games)
+        team_abbrevs = ",".join(sorted({g["abbrev"] for g in games if g["abbrev"]}))
+
+        database.upsert_season_stats(conn, {
+            "player_id": player_id,
+            "season_id": season_id,
+            "game_type": game_type,
+            "team_abbrevs": team_abbrevs or None,
+            "position_code": position_code,
+            "gp": gp,
+            "goals": goals,
+            "assists": assists,
+            "points": points,
+            "plus_minus": plus_minus,
+            "pim": pim,
+            "shots": shots,
+            "shooting_pct": (goals / shots * 100) if shots else None,
+            "avg_toi": _format_toi_seconds(total_toi_seconds // gp) if gp else None,
+        })
+        filled += 1
+
+    conn.commit()
+    return filled
+
+
 def run(conn):
     print("Loading historical season stats (stats REST API)...")
     grand_total = 0
@@ -129,6 +215,11 @@ def run(conn):
                 print(f"  {season_id} {label} {player_type}s: {n}")
                 season_total += n
                 time.sleep(0.3)
+
+            fallback_n = _fill_missing_skater_season_stats(conn, season_id, game_type)
+            if fallback_n:
+                print(f"  {season_id} {label} fallback (skaters missing from bulk API): {fallback_n}")
+                season_total += fallback_n
         print(f"  Season {season_id} total: {season_total} records")
         grand_total += season_total
 
