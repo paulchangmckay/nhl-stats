@@ -14,8 +14,10 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import type { TooltipContentProps } from "recharts";
 import { User } from "lucide-react";
 import { teamColors, logoUrl } from "@/lib/teamBranding";
+import { formatSeasonId } from "@/lib/utils";
 import type { Player, PlayerStats, PlayerAdvancedStats } from "@/lib/types";
 
 const STRENGTH_STATES = ["5v5", "5v4", "4v5"] as const;
@@ -86,6 +88,19 @@ function StatCell({ label, value }: StatCellProps) {
     <div>
       <div className="text-muted-foreground text-xs">{label}</div>
       <div className="tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+export function CFTrendTooltip({ active, payload, label }: TooltipContentProps<number, string>) {
+  if (!active || !payload?.length) return null;
+  const value = payload[0].value;
+  return (
+    <div className="rounded-lg bg-popover p-2.5 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10">
+      <div className="text-xs text-muted-foreground">{formatSeasonId(label ?? "")}</div>
+      <div className="tabular-nums font-semibold">
+        CF% {value == null ? "-" : `${value}%`}
+      </div>
     </div>
   );
 }
@@ -327,9 +342,9 @@ export function PlayerProfilePanel({
                 <div className="h-40 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={state.data.trend}>
-                      <XAxis dataKey="season_id" tick={{ fontSize: 10 }} />
+                      <XAxis dataKey="season_id" tickFormatter={formatSeasonId} tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip />
+                      <Tooltip content={<CFTrendTooltip />} filterNull={false} />
                       <Line type="monotone" dataKey="cf_pct" stroke="var(--color-sky-500)" dot />
                     </LineChart>
                   </ResponsiveContainer>

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { PlayerProfilePanel } from "./PlayerProfilePanel";
+import { PlayerProfilePanel, CFTrendTooltip } from "./PlayerProfilePanel";
 import { MOCK_PLAYERS, MOCK_STATS } from "@/lib/mock-data";
 import type { PlayerAdvancedStats } from "@/lib/types";
 
@@ -183,5 +183,44 @@ describe("PlayerProfilePanel", () => {
         onOpenChange={() => {}} />
     );
     await waitFor(() => expect(screen.getAllByText("N/A").length).toBeGreaterThan(0));
+  });
+});
+
+describe("CFTrendTooltip", () => {
+  it("shows the friendly season and formatted CF% value when active", () => {
+    render(
+      <CFTrendTooltip
+        active
+        payload={[{ value: 55, graphicalItemId: "cf_pct" }]}
+        label="20232024"
+      />
+    );
+    expect(screen.getByText("2023–24")).toBeInTheDocument();
+    expect(screen.getByText("CF% 55%")).toBeInTheDocument();
+  });
+
+  it("renders nothing when inactive", () => {
+    const { container } = render(
+      <CFTrendTooltip active={false} payload={[{ value: 55, graphicalItemId: "cf_pct" }]} label="20232024" />
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("renders nothing when payload is empty", () => {
+    const { container } = render(
+      <CFTrendTooltip active payload={[]} label="20232024" />
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("shows a dash for a null value instead of the literal null", () => {
+    render(
+      <CFTrendTooltip
+        active
+        payload={[{ value: null, graphicalItemId: "cf_pct" }]}
+        label="20232024"
+      />
+    );
+    expect(screen.getByText("CF% -")).toBeInTheDocument();
   });
 });
