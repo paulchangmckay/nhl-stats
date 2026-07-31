@@ -164,6 +164,15 @@ def test_fetch_player_advanced_headline_pdo_excludes_playoff_game_type(conn):
     # This test seeds both regular-season (game_type=2) and playoff (game_type=3) team data
     # for the same team+season+strength_state, with drastically different shot metrics.
     # The returned headline pdo must match only the game_type=2 calculation.
+    #
+    # CRITICAL: Insertion order matters for this test to be valid. SQLite's fetchone()
+    # without ORDER BY returns rows in insertion order (rowid). Seeding the playoff row
+    # FIRST and regular-season SECOND ensures that without the game_type=2 filter in the
+    # query, fetchone() would return the wrong (playoff) row with inflated values (pdo
+    # from 999 shots). With the filter present, the query skips the playoff row and
+    # correctly returns the regular-season row. This test would pass on buggy code
+    # (no filter) if the regular-season row was seeded first — so the order is the test
+    # harness that proves the filter actually works.
     database.upsert_player_stub(conn, {
         "player_id": 1, "first_name": "Test", "last_name": "Player",
         "position_code": "C", "shoots_catches": None,
@@ -172,10 +181,10 @@ def test_fetch_player_advanced_headline_pdo_excludes_playoff_game_type(conn):
                                  "place_name": "Home", "conference": None, "division": None})
     _seed_season_row(conn, 1, "20242025", "5v5", cf=60, ca=40, ff=45, fa=30, hdcf=10, hdca=5,
                       primary_points=15, team_abbrevs="HOM")
-    # Regular season: gf=30, ga=25, shots_for=300, shots_against=280
-    _seed_team_season_row(conn, HOME, "20242025", "5v5", gf=30, ga=25, shots_for=300, shots_against=280, game_type=2)
-    # Playoff (contaminating): drastically different values to detect if it leaks in
+    # Playoff (seeded FIRST): drastically different values to detect if it leaks in
     _seed_team_season_row(conn, HOME, "20242025", "5v5", gf=999, ga=1, shots_for=999, shots_against=1, game_type=3)
+    # Regular season (seeded SECOND): gf=30, ga=25, shots_for=300, shots_against=280
+    _seed_team_season_row(conn, HOME, "20242025", "5v5", gf=30, ga=25, shots_for=300, shots_against=280, game_type=2)
 
     result = _fetch_player_advanced(conn, player_id=1, season_id="20242025")
 
