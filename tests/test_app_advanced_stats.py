@@ -32,13 +32,13 @@ def _seed_percentile_row(conn, player_id, season_id, strength_state, cf_pctile):
     conn.commit()
 
 
-def _seed_team_season_row(conn, team_id, season_id, strength_state, gf, ga, shots_for, shots_against):
+def _seed_team_season_row(conn, team_id, season_id, strength_state, gf, ga, shots_for, shots_against, game_type=2):
     conn.execute("""
         INSERT INTO team_season_advanced_stats
             (team_id, season_id, game_type, strength_state,
              cf, ca, ff, fa, gf, ga, shots_for, shots_against)
-        VALUES (?, ?, 2, ?, 1, 1, 1, 1, ?, ?, ?, ?)
-    """, (team_id, season_id, strength_state, gf, ga, shots_for, shots_against))
+        VALUES (?, ?, ?, ?, 1, 1, 1, 1, ?, ?, ?, ?)
+    """, (team_id, season_id, game_type, strength_state, gf, ga, shots_for, shots_against))
     conn.commit()
 
 
@@ -155,6 +155,31 @@ def test_fetch_player_advanced_pdo_comes_from_team_context(conn):
     result = _fetch_player_advanced(conn, player_id=1, season_id="20242025")
 
     # PDO = (shooting% + save%) * 1000 = (30/300 + (280-25)/280) * 1000
+    expected_pdo = round((30 / 300 + (280 - 25) / 280) * 1000, 1)
+    assert result["pdo"] == expected_pdo
+
+
+def test_fetch_player_advanced_headline_pdo_excludes_playoff_game_type(conn):
+    # Regression test: headline PDO block must filter by game_type=2, not mix in playoff rows.
+    # This test seeds both regular-season (game_type=2) and playoff (game_type=3) team data
+    # for the same team+season+strength_state, with drastically different shot metrics.
+    # The returned headline pdo must match only the game_type=2 calculation.
+    database.upsert_player_stub(conn, {
+        "player_id": 1, "first_name": "Test", "last_name": "Player",
+        "position_code": "C", "shoots_catches": None,
+    })
+    database.upsert_team(conn, {"team_id": HOME, "abbrev": "HOM", "common_name": "Home",
+                                 "place_name": "Home", "conference": None, "division": None})
+    _seed_season_row(conn, 1, "20242025", "5v5", cf=60, ca=40, ff=45, fa=30, hdcf=10, hdca=5,
+                      primary_points=15, team_abbrevs="HOM")
+    # Regular season: gf=30, ga=25, shots_for=300, shots_against=280
+    _seed_team_season_row(conn, HOME, "20242025", "5v5", gf=30, ga=25, shots_for=300, shots_against=280, game_type=2)
+    # Playoff (contaminating): drastically different values to detect if it leaks in
+    _seed_team_season_row(conn, HOME, "20242025", "5v5", gf=999, ga=1, shots_for=999, shots_against=1, game_type=3)
+
+    result = _fetch_player_advanced(conn, player_id=1, season_id="20242025")
+
+    # PDO should come from game_type=2 only: (30/300 + (280-25)/280) * 1000
     expected_pdo = round((30 / 300 + (280 - 25) / 280) * 1000, 1)
     assert result["pdo"] == expected_pdo
 

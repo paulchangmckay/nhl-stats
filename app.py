@@ -353,6 +353,7 @@ def _fetch_player_advanced(conn, player_id, season_id):
             FROM team_season_advanced_stats tsas
             JOIN teams t ON t.team_id = tsas.team_id
             WHERE t.abbrev = ? AND tsas.season_id = ? AND tsas.strength_state = '5v5'
+              AND tsas.game_type = 2
         """, (first_abbrev, season_id)).fetchone()
         if team_row and team_row["shots_for"] and team_row["shots_against"]:
             shooting_pct = team_row["gf"] / team_row["shots_for"]
