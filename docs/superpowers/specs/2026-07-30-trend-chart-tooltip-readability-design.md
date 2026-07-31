@@ -43,12 +43,16 @@ box-explanation-tooltip feature covered by the separate spec above.
 
 ### 1. Season formatting helper
 
-New pure function in `frontend/src/lib/utils.ts`:
+New pure function in `frontend/src/lib/utils.ts`. Accepts `string | number`
+because Recharts calls it two different ways: `XAxis`'s `tickFormatter`
+passes `value: any`, while the tooltip's `label` is typed `string | number`
+— both get normalized to a string internally:
 
 ```ts
-export function formatSeasonId(seasonId: string): string {
-  if (!/^\d{8}$/.test(seasonId)) return seasonId; // fallback for unexpected input
-  return `${seasonId.slice(0, 4)}–${seasonId.slice(6, 8)}`; // "20232024" -> "2023–24"
+export function formatSeasonId(seasonId: string | number): string {
+  const str = String(seasonId);
+  if (!/^\d{8}$/.test(str)) return str; // fallback for unexpected input
+  return `${str.slice(0, 4)}–${str.slice(6, 8)}`; // "20232024" -> "2023–24"
 }
 ```
 
@@ -62,15 +66,24 @@ throwing or showing garbled output.
 
 A small `CFTrendTooltip` component defined locally in
 `PlayerProfilePanel.tsx`, colocated the same way the file already
-colocates `PercentileBox`/`ZScoreBox`/`StatCell`:
+colocates `PercentileBox`/`ZScoreBox`/`StatCell` — but **exported** (unlike
+those) so it can be unit-tested directly without rendering the full chart
+(see Testing Plan).
+
+Note the type is `TooltipContentProps`, not `TooltipProps` — `TooltipProps`
+is what you pass *to* `<Tooltip>` (includes `content`, `cursor`, etc.);
+`TooltipContentProps` is what Recharts actually passes to the `content`
+render function (`active`, `payload`, `label`, `coordinate`, ...):
 
 ```tsx
-function CFTrendTooltip({ active, payload, label }: TooltipProps<number, string>) {
+import type { TooltipContentProps } from "recharts";
+
+export function CFTrendTooltip({ active, payload, label }: TooltipContentProps<number, string>) {
   if (!active || !payload?.length) return null;
-  const value = payload[0].value as number | null;
+  const value = payload[0].value;
   return (
     <div className="rounded-lg bg-popover p-2.5 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10">
-      <div className="text-xs text-muted-foreground">{formatSeasonId(label)}</div>
+      <div className="text-xs text-muted-foreground">{formatSeasonId(label ?? "")}</div>
       <div className="tabular-nums font-semibold">
         CF% {value == null ? "-" : `${value}%`}
       </div>
@@ -91,18 +104,27 @@ for numbers). Null values render as `-`, matching `PercentileBox`/
 ```tsx
 <XAxis dataKey="season_id" tickFormatter={formatSeasonId} tick={{ fontSize: 10 }} />
 <YAxis tick={{ fontSize: 10 }} />
-<Tooltip content={<CFTrendTooltip />} />
+<Tooltip content={<CFTrendTooltip />} filterNull={false} />
 <Line type="monotone" dataKey="cf_pct" stroke="var(--color-sky-500)" dot />
 ```
 
 Axis ticks get the same friendly season format as the tooltip. Line
 color/data/behavior are unchanged.
 
+`filterNull={false}` is required: Recharts' `<Tooltip>` defaults to
+`filterNull: true`, which strips any payload entry whose value is
+`null`/`undefined` *before* `content` ever sees it. Without this override,
+a season with `cf_pct: null` would receive an empty `payload` and the
+tooltip would silently render nothing at all — inconsistent with every
+other null-value display in this file, which shows `-` rather than
+vanishing.
+
 ## Edge Cases
 
 - `cf_pct` is `null` for a given season (per `AdvancedTrendPoint`'s type)
-  → tooltip shows `CF% -`, matching the `-` convention used for null
-  values in `PercentileBox`/`ZScoreBox`.
+  → with `filterNull={false}`, the payload entry still reaches
+  `CFTrendTooltip`, which shows `CF% -`, matching the `-` convention used
+  for null values in `PercentileBox`/`ZScoreBox`.
 - `season_id` doesn't match the expected 8-digit shape → `formatSeasonId`
   falls back to the raw string rather than producing a malformed label.
 - Hovering outside any data point (`active` is `false`, or `payload` is
@@ -111,16 +133,28 @@ color/data/behavior are unchanged.
 
 ## Testing Plan
 
+This codebase has no existing test that renders the trend chart or any
+Recharts output, and its `vitest.config.ts` uses `environment: "jsdom"`
+with only a no-op `ResizeObserver` polyfill (`test-setup.ts:11-17`) — not
+a real layout engine. Recharts' `ResponsiveContainer` needs a non-zero
+container size to render its SVG/children, which jsdom doesn't provide
+without additional mocking. Rather than introduce that mocking (and
+hover-event simulation on generated SVG nodes) for the first time here,
+`CFTrendTooltip` is tested directly as an exported component with
+constructed props — the standard pattern for testing custom Recharts
+tooltip content, and independent of chart-sizing concerns entirely.
+
 **Frontend** (`PlayerProfilePanel.test.tsx`):
 - `formatSeasonId`: valid 8-digit input formats correctly (`"20232024"` →
-  `"2023–24"`); malformed input (wrong length/non-numeric) falls back to
-  the raw string unchanged.
-- Trend chart renders the friendly season label (not the raw `season_id`)
-  somewhere in the rendered output for the axis.
-- Hovering/simulating an active tooltip payload shows `"CF%"` and a
-  formatted percentage value, not the raw `cf_pct` key.
-- A trend point with `cf_pct: null` renders `-` in the tooltip rather than
-  `null`/`undefined`/blank.
+  `"2023–24"`); malformed input (wrong length/non-numeric, including a raw
+  number) falls back to the raw string unchanged.
+- `CFTrendTooltip`, rendered directly with `active payload={[{ value: 55 }]}
+  label="20232024"`, shows `"CF% 55%"` and the formatted season
+  `"2023–24"`, not the raw key/id.
+- `CFTrendTooltip`, rendered with `active={false}` (or an empty `payload`),
+  renders nothing.
+- `CFTrendTooltip`, rendered with `payload={[{ value: null }]}`, shows
+  `"CF% -"` rather than `null`/`undefined`/blank.
 
 **Manual verification** (per `verification-before-completion`): open the
 player overlay for a skater with multiple seasons of trend data, hover
