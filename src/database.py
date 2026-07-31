@@ -532,8 +532,8 @@ def run_migrations(conn):
     for sql in _PLAYER_MIGRATIONS + _GAME_EVENTS_MIGRATIONS + _ADVANCED_STATS_MIGRATIONS:
         try:
             conn.execute(sql)
-        except sqlite3.OperationalError:
-            pass  # column already exists
+        except (sqlite3.OperationalError, ValueError):
+            pass  # column already exists (sqlite3.OperationalError locally, ValueError via libsql)
     conn.commit()
 
 
