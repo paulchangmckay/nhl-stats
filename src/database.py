@@ -1,6 +1,73 @@
 import sqlite3
 import os
 
+
+class _TursoRow:
+    """sqlite3.Row-compatible wrapper around a libsql result tuple."""
+
+    __slots__ = ("_columns", "_values")
+
+    def __init__(self, columns, values):
+        self._columns = columns
+        self._values = values
+
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            return self._values[self._columns.index(key)]
+        return self._values[key]
+
+    def keys(self):
+        return list(self._columns)
+
+    def __iter__(self):
+        return iter(self._values)
+
+    def __repr__(self):
+        return f"<_TursoRow {dict(zip(self._columns, self._values))}>"
+
+
+class _TursoCursor:
+    """Wraps a libsql cursor so fetchone/fetchall return _TursoRow objects."""
+
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def _columns(self):
+        return [d[0] for d in self._cursor.description]
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        return _TursoRow(self._columns(), row) if row is not None else None
+
+    def fetchall(self):
+        columns = self._columns()
+        return [_TursoRow(columns, row) for row in self._cursor.fetchall()]
+
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+
+
+class _TursoConnection:
+    """Wraps a libsql connection so conn.execute(...).fetchone()/.fetchall()
+    return sqlite3.Row-compatible objects, matching the interface every
+    caller in this codebase already relies on."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, sql, params=()):
+        return _TursoCursor(self._conn.execute(sql, params))
+
+    def executemany(self, sql, seq_of_params):
+        return self._conn.executemany(sql, seq_of_params)
+
+    def commit(self):
+        self._conn.commit()
+
+    def close(self):
+        self._conn.close()
+
+
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "nhl_stats.db")
 
 CREATE_TEAMS = """
