@@ -14,7 +14,7 @@
 - `"20252026"` must remain the **last** entry in `etl/load_season_stats.py`'s `SEASONS` list — `run()`'s `current_season = SEASONS[-1]` logic depends on this position.
 - No changes to `run_all_etl.py` or `scripts/sync.py` — both already iterate the `SEASONS`/`sync_log` state and pick up new seasons automatically.
 - Every ETL step touched here is already idempotent/resumable — nothing in this plan should break that property.
-- Full regression suite (`pytest tests/ -v`, `node --test tests/js/search.test.js`, `cd frontend && npm test`) must pass before the backfill (Task 5) is considered done.
+- Full regression suite (`pytest tests/ -v`, `cd frontend && npm test`) must pass before the backfill (Task 5) is considered done. (The README also documents `node --test tests/js/search.test.js`, but that file doesn't exist anywhere in the repo — confirmed during the final whole-branch review. Pre-existing doc/reality drift, not introduced by this plan; dropped from this gate rather than perpetuated.)
 
 ---
 
@@ -558,7 +558,6 @@ Expected: real game counts for all 3 new seasons (~1,300 each); `hdcf IS NULL` r
 
 ```bash
 python -m pytest tests/ -v
-node --test tests/js/search.test.js
 cd frontend && npm test
 ```
 
