@@ -329,9 +329,11 @@ def test_compute_zscores_filters_by_game_type_regular_season_only(conn):
 
 
 def test_compute_percentiles_hdcf_pctile_null_when_hdcf_null_excluded_from_population(conn):
-    # Player 1 and 2 have real HD data; player 3's season HD data is NULL
-    # (e.g. a 2017-18/2018-19 season with zero rink-side coverage all year).
-    for player_id, hdcf, hdca in [(1, 8, 2), (2, 4, 4)]:
+    # 20 players with real HD data (meets the min-population floor for a
+    # meaningful ranking); player 21's season HD data is NULL (e.g. a
+    # 2017-18/2018-19 season with zero rink-side coverage all year) and must
+    # not affect anyone else's ranking.
+    for player_id in range(1, 21):
         database.upsert_player_stub(conn, {
             "player_id": player_id, "first_name": "P", "last_name": str(player_id),
             "position_code": "C", "shoots_catches": None,
@@ -340,30 +342,84 @@ def test_compute_percentiles_hdcf_pctile_null_when_hdcf_null_excluded_from_popul
             INSERT INTO player_season_advanced_stats
                 (player_id, season_id, game_type, team_abbrevs, strength_state,
                  cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp)
-            VALUES (?, '20172018', 2, 'HOM', '5v5', 20, 10, 20, 10, ?, ?, 1, 1, 1, 900, 12)
-        """, (player_id, hdcf, hdca))
+            VALUES (?, '20172018', 2, 'HOM', '5v5', 20, 10, 20, 10, ?, 1, 1, 1, 1, 900, 12)
+        """, (player_id, player_id))  # distinct hdcf per player -- unambiguous ranking
     database.upsert_player_stub(conn, {
-        "player_id": 3, "first_name": "P", "last_name": "3",
+        "player_id": 21, "first_name": "P", "last_name": "21",
         "position_code": "C", "shoots_catches": None,
     })
     conn.execute("""
         INSERT INTO player_season_advanced_stats
             (player_id, season_id, game_type, team_abbrevs, strength_state,
              cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp)
-        VALUES (3, '20172018', 2, 'HOM', '5v5', 20, 10, 20, 10, NULL, NULL, 1, 1, 1, 900, 12)
+        VALUES (21, '20172018', 2, 'HOM', '5v5', 20, 10, 20, 10, NULL, NULL, 1, 1, 1, 900, 12)
     """)
     conn.commit()
 
     module.compute_percentiles(conn, season_id="20172018")
 
-    p1 = conn.execute(
-        "SELECT hdcf_pct_pctile FROM player_advanced_percentiles WHERE player_id = 1"
+    top = conn.execute(
+        "SELECT hdcf_pct_pctile FROM player_advanced_percentiles WHERE player_id = 20"
     ).fetchone()
-    p3 = conn.execute(
-        "SELECT hdcf_pct_pctile FROM player_advanced_percentiles WHERE player_id = 3"
+    null_player = conn.execute(
+        "SELECT hdcf_pct_pctile FROM player_advanced_percentiles WHERE player_id = 21"
     ).fetchone()
-    assert p1["hdcf_pct_pctile"] == 100.0  # ranked only against player 2, unaffected by player 3
-    assert p3["hdcf_pct_pctile"] is None
+    assert top["hdcf_pct_pctile"] == 100.0  # ranked against the 20-player real-HD population
+    assert null_player["hdcf_pct_pctile"] is None
+
+
+def test_compute_percentiles_hdcf_pctile_null_for_everyone_when_hd_population_below_floor(conn):
+    # 25 players total (well above PERCENTILE_MIN_GP), but only 2 have real HD
+    # data -- too few to rank meaningfully. hdcf_pct_pctile must be None for
+    # EVERYONE in this group, including the 2 with real data, not just the 23
+    # who are NULL. cf_pct_pctile (unrelated to HD) must still compute normally.
+    for player_id in range(1, 26):
+        database.upsert_player_stub(conn, {
+            "player_id": player_id, "first_name": "P", "last_name": str(player_id),
+            "position_code": "C", "shoots_catches": None,
+        })
+        hdcf, hdca = (8, 2) if player_id <= 2 else (None, None)
+        conn.execute("""
+            INSERT INTO player_season_advanced_stats
+                (player_id, season_id, game_type, team_abbrevs, strength_state,
+                 cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp)
+            VALUES (?, '20172018', 2, 'HOM', '5v5', ?, 10, 20, 10, ?, ?, 1, 1, 1, 900, 12)
+        """, (player_id, player_id, hdcf, hdca))
+    conn.commit()
+
+    module.compute_percentiles(conn, season_id="20172018")
+
+    real_hd_player = conn.execute(
+        "SELECT hdcf_pct_pctile, cf_pct_pctile FROM player_advanced_percentiles WHERE player_id = 1"
+    ).fetchone()
+    assert real_hd_player["hdcf_pct_pctile"] is None  # only 2 real-HD players -- below the floor
+    assert real_hd_player["cf_pct_pctile"] is not None  # unrelated to HD, computes normally
+
+
+def test_compute_percentiles_all_null_hd_season_does_not_crash(conn):
+    # Realistic 2017-18/2018-19 shape: EVERY qualifying player's hdcf/hdca is
+    # NULL, not just some. Must not crash, and cf_pct_pctile (unrelated to HD)
+    # must still compute normally for everyone.
+    for player_id in range(1, 4):
+        database.upsert_player_stub(conn, {
+            "player_id": player_id, "first_name": "P", "last_name": str(player_id),
+            "position_code": "C", "shoots_catches": None,
+        })
+        conn.execute("""
+            INSERT INTO player_season_advanced_stats
+                (player_id, season_id, game_type, team_abbrevs, strength_state,
+                 cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp)
+            VALUES (?, '20172018', 2, 'HOM', '5v5', ?, 10, 20, 10, NULL, NULL, 1, 1, 1, 900, 12)
+        """, (player_id, player_id * 10))
+    conn.commit()
+
+    module.compute_percentiles(conn, season_id="20172018")
+
+    row = conn.execute(
+        "SELECT hdcf_pct_pctile, cf_pct_pctile FROM player_advanced_percentiles WHERE player_id = 1"
+    ).fetchone()
+    assert row["hdcf_pct_pctile"] is None
+    assert row["cf_pct_pctile"] is not None
 
 
 def test_compute_zscores_chances_per60_z_null_when_ihdcf_null(conn):
@@ -394,3 +450,61 @@ def test_compute_zscores_chances_per60_z_null_when_ihdcf_null(conn):
     ).fetchone()
     assert p1["chances_per60_z"] is None
     assert p1["shots_per60_z"] is not None  # icf-based, unaffected
+
+
+def test_compute_zscores_chances_per60_z_null_for_everyone_when_hd_population_below_floor(conn):
+    # 20 qualifying players (meets ZSCORE_MIN_POPULATION overall), but only 2
+    # have real ihdcf -- too few to compute a meaningful chances_per60_z. Must
+    # be None for EVERYONE in the group, including those 2, while
+    # shots_per60_z (icf-based, unaffected) still computes normally for all.
+    for player_id in range(1, 21):
+        database.upsert_player_stub(conn, {
+            "player_id": player_id, "first_name": "P", "last_name": str(player_id),
+            "position_code": "C", "shoots_catches": None,
+        })
+        ihdcf = str(player_id) if player_id <= 2 else "NULL"
+        conn.execute(f"""
+            INSERT INTO player_season_advanced_stats
+                (player_id, season_id, game_type, team_abbrevs, strength_state,
+                 cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp,
+                 icf, ihdcf, rebounds_created, deflections, points)
+            VALUES (?, '20172018', 2, 'HOM', '5v5', 1,1,1,1,1,1,1,1,1, 3600, 12,
+                    ?, {ihdcf}, 1, 1, 5)
+        """, (player_id, player_id))
+    conn.commit()
+
+    module.compute_zscores(conn, season_id="20172018")
+
+    real_ihdcf_player = conn.execute(
+        "SELECT chances_per60_z, shots_per60_z FROM player_rate_zscores WHERE player_id = 1"
+    ).fetchone()
+    assert real_ihdcf_player["chances_per60_z"] is None  # only 2 real-ihdcf players -- below the floor
+    assert real_ihdcf_player["shots_per60_z"] is not None  # icf-based, unaffected
+
+
+def test_compute_zscores_all_null_ihdcf_season_does_not_crash(conn):
+    # Realistic 2017-18/2018-19 shape: EVERY qualifying player's ihdcf is NULL.
+    # Must not crash (empty population, _zscore never called for this metric),
+    # and the other 5 rate z-scores must still compute normally.
+    for player_id in range(1, 21):
+        database.upsert_player_stub(conn, {
+            "player_id": player_id, "first_name": "P", "last_name": str(player_id),
+            "position_code": "C", "shoots_catches": None,
+        })
+        conn.execute("""
+            INSERT INTO player_season_advanced_stats
+                (player_id, season_id, game_type, team_abbrevs, strength_state,
+                 cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp,
+                 icf, ihdcf, rebounds_created, deflections, points)
+            VALUES (?, '20172018', 2, 'HOM', '5v5', 1,1,1,1,1,1,1,1,1, 3600, 12,
+                    ?, NULL, 1, 1, 5)
+        """, (player_id, player_id))
+    conn.commit()
+
+    module.compute_zscores(conn, season_id="20172018")
+
+    row = conn.execute(
+        "SELECT chances_per60_z, shots_per60_z FROM player_rate_zscores WHERE player_id = 1"
+    ).fetchone()
+    assert row["chances_per60_z"] is None
+    assert row["shots_per60_z"] is not None

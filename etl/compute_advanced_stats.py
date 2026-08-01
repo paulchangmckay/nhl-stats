@@ -156,8 +156,15 @@ def compute_percentiles(conn, season_id):
             all_hdcf_pct = [v for v in (_hd_pct_of(r) for r in rows) if v is not None]
             all_pp = [r["primary_points"] for r in rows]
 
+            # A season/strength-state/position-group where most players lack rink-side
+            # data (e.g. 2017-18/2018-19) can leave only a handful of players with real
+            # HD data -- too few for _percentile_rank's ranking to mean anything (its
+            # own len<=1 case returns a hardcoded 100.0). Reuse ZSCORE_MIN_POPULATION as
+            # the "large enough to rank" floor for this filtered population specifically.
+            hd_population_sufficient = len(all_hdcf_pct) >= ZSCORE_MIN_POPULATION
+
             for r in rows:
-                hd_pct = _hd_pct_of(r)
+                hd_pct = _hd_pct_of(r) if hd_population_sufficient else None
                 database.upsert_player_advanced_percentiles(conn, {
                     "season_id": season_id, "player_id": r["player_id"],
                     "strength_state": strength_state, "position_group": position_group,
@@ -201,10 +208,24 @@ def compute_zscores(conn, season_id):
             for z_key, count_key in rate_fields.items()
         }
 
+        # Per-metric min-population floor: chances_per60_z's population can be much
+        # smaller than the other 5 metrics' (its own count_key, ihdcf, is the one
+        # Task 1 can null out for a whole season). The other 5 populations always
+        # equal len(rows), which already passed the ZSCORE_MIN_POPULATION check
+        # above, so this loop is a no-op for them -- checked generically per-metric
+        # rather than special-cased by name.
+        sufficient_population = {
+            z_key: len(population) >= ZSCORE_MIN_POPULATION
+            for z_key, population in populations.items()
+        }
+
         for r in rows:
             record = {"season_id": season_id, "player_id": r["player_id"],
                       "position_group": position_group}
             for z_key, count_key in rate_fields.items():
+                if not sufficient_population[z_key]:
+                    record[z_key] = None
+                    continue
                 rate_val = _rate(r, count_key)
                 record[z_key] = _zscore(rate_val, populations[z_key]) if rate_val is not None else None
             database.upsert_player_rate_zscores(conn, record)
