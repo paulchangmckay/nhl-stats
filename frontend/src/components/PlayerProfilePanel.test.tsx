@@ -217,7 +217,7 @@ describe("CFTrendTooltip", () => {
     render(
       <CFTrendTooltip
         active
-        payload={[{ value: null, graphicalItemId: "cf_pct" }]}
+        payload={[{ value: null as unknown as number, graphicalItemId: "cf_pct" }]} // Recharts' ValueType omits null even though filterNull={false} lets it reach here at runtime
         label="20232024"
       />
     );

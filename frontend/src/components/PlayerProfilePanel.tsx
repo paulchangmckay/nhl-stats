@@ -92,7 +92,7 @@ function StatCell({ label, value }: StatCellProps) {
   );
 }
 
-export function CFTrendTooltip({ active, payload, label }: TooltipContentProps<number, string>) {
+export function CFTrendTooltip({ active, payload, label }: Partial<TooltipContentProps<number, string>>) {
   if (!active || !payload?.length) return null;
   const value = payload[0].value;
   return (
