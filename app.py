@@ -392,5 +392,10 @@ def _debug_enabled():
     return os.environ.get("FLASK_DEBUG") == "1"
 
 
+def _host_port():
+    return os.environ.get("HOST", "127.0.0.1"), int(os.environ.get("PORT", "5099"))
+
+
 if __name__ == "__main__":
-    app.run(debug=_debug_enabled(), port=5099)
+    host, port = _host_port()
+    app.run(debug=_debug_enabled(), host=host, port=port)

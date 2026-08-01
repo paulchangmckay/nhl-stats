@@ -1,4 +1,4 @@
-from app import _toi_str, _height_str, _debug_enabled, _fetch_players
+from app import _toi_str, _height_str, _debug_enabled, _fetch_players, _host_port
 from src import database
 
 
@@ -116,3 +116,17 @@ def test_fetch_players_undrafted_player_has_null_draft_and_photo_fields(conn):
     assert players[0]["headshot_url"] is None
     assert players[0]["birth_city"] == ""
     assert players[0]["birth_state_province"] == ""
+
+
+def test_host_port_defaults_to_localhost_5099(monkeypatch):
+    monkeypatch.delenv("HOST", raising=False)
+    monkeypatch.delenv("PORT", raising=False)
+
+    assert _host_port() == ("127.0.0.1", 5099)
+
+
+def test_host_port_reads_env_overrides(monkeypatch):
+    monkeypatch.setenv("HOST", "0.0.0.0")
+    monkeypatch.setenv("PORT", "7860")
+
+    assert _host_port() == ("0.0.0.0", 7860)
