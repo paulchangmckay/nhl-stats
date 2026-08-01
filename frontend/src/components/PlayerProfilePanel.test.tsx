@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { PlayerProfilePanel } from "./PlayerProfilePanel";
+import { PlayerProfilePanel, TrendTooltip } from "./PlayerProfilePanel";
 import { MOCK_PLAYERS, MOCK_STATS } from "@/lib/mock-data";
 import type { PlayerAdvancedStats } from "@/lib/types";
 
@@ -288,5 +288,59 @@ describe("PlayerProfilePanel", () => {
     await userEvent.click(screen.getByRole("button", { name: /Shots\/60/ }));
     await userEvent.click(screen.getByRole("button", { name: "5v4" }));
     expect(screen.getByText("Shots/60", { selector: "span" })).toBeInTheDocument();
+  });
+});
+
+describe("TrendTooltip", () => {
+  it("shows the friendly season and each selected metric's formatted value when active", () => {
+    render(
+      <TrendTooltip
+        active
+        payload={[
+          { dataKey: "cf_pct", value: 55, color: "blue", graphicalItemId: "cf_pct" },
+          { dataKey: "ff_pct", value: 60, color: "orange", graphicalItemId: "ff_pct" },
+        ]}
+        label="20232024"
+      />
+    );
+    expect(screen.getByText("2023–24")).toBeInTheDocument();
+    expect(screen.getByText("CF% 55%")).toBeInTheDocument();
+    expect(screen.getByText("FF% 60%")).toBeInTheDocument();
+  });
+
+  it("formats a non-percentage metric without a % suffix", () => {
+    render(
+      <TrendTooltip
+        active
+        payload={[{ dataKey: "shots_per60", value: 12.34, color: "blue", graphicalItemId: "shots_per60" }]}
+        label="20232024"
+      />
+    );
+    expect(screen.getByText("Shots/60 12.34")).toBeInTheDocument();
+  });
+
+  it("renders nothing when inactive", () => {
+    const { container } = render(
+      <TrendTooltip active={false} payload={[{ dataKey: "cf_pct", value: 55, color: "blue", graphicalItemId: "cf_pct" }]} label="20232024" />
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("renders nothing when payload is empty", () => {
+    const { container } = render(
+      <TrendTooltip active payload={[]} label="20232024" />
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("shows a dash for a null value instead of the literal null", () => {
+    render(
+      <TrendTooltip
+        active
+        payload={[{ dataKey: "cf_pct", value: null as unknown as number, color: "blue", graphicalItemId: "cf_pct" }]} // Recharts' ValueType omits null even though filterNull={false} lets it reach here at runtime
+        label="20232024"
+      />
+    );
+    expect(screen.getByText("CF% -")).toBeInTheDocument();
   });
 });

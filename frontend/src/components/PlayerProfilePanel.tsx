@@ -14,8 +14,10 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts";
+import type { TooltipContentProps } from "recharts";
 import { User } from "lucide-react";
 import { teamColors, logoUrl } from "@/lib/teamBranding";
+import { formatSeasonId } from "@/lib/utils";
 import type { Player, PlayerStats, PlayerAdvancedStats } from "@/lib/types";
 import { METRIC_DEFINITIONS, type MetricKey } from "@/lib/metricDefinitions";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -142,6 +144,26 @@ function StatCell({ label, value }: StatCellProps) {
     <div>
       <div className="text-muted-foreground text-xs">{label}</div>
       <div className="tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+export function TrendTooltip({ active, payload, label }: Partial<TooltipContentProps<number, string>>) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg bg-popover p-2.5 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10">
+      <div className="text-xs text-muted-foreground">{formatSeasonId(label ?? "")}</div>
+      {payload.map((entry) => {
+        const key = entry.dataKey as MetricKey;
+        const def = METRIC_DEFINITIONS[key];
+        const value = entry.value;
+        const formatted = value == null ? "-" : def.family === "percentage" ? `${value}%` : String(value);
+        return (
+          <div key={key} className="tabular-nums font-semibold" style={{ color: entry.color }}>
+            {def.label} {formatted}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -388,7 +410,7 @@ export function PlayerProfilePanel({
                     label="Chances/60"
                     rate={state.data.strength_states["5v5"]?.chances_per60}
                     z={state.data.strength_states["5v5"]?.chances_per60_z}
-                    nullReason="Below the 10-GP floor, or league sample too small this season" />
+                    nullReason="Below the 10-GP floor, league sample too small this season, or high-danger zone data unavailable for this era" />
                   <ZScoreBox metricKey="rebounds_created_per60" selected={selectedMetrics.has("rebounds_created_per60")} onToggle={toggleMetric}
                     label="Rebounds Created/60"
                     rate={state.data.strength_states["5v5"]?.rebounds_created_per60}
@@ -412,7 +434,7 @@ export function PlayerProfilePanel({
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <div className="flex gap-3 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                     {Array.from(selectedMetrics).map((key, i) => (
                       <span key={key} className="flex items-center gap-1">
                         <span
@@ -426,9 +448,9 @@ export function PlayerProfilePanel({
                   <div className="h-40 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={chartData}>
-                        <XAxis dataKey="season_id" tick={{ fontSize: 10 }} />
+                        <XAxis dataKey="season_id" tickFormatter={formatSeasonId} tick={{ fontSize: 10 }} />
                         <YAxis tick={{ fontSize: 10 }} />
-                        <RechartsTooltip />
+                        <RechartsTooltip content={<TrendTooltip />} filterNull={false} />
                         {Array.from(selectedMetrics).map((key, i) => (
                           <Line key={key} type="monotone" dataKey={key} stroke={LINE_COLORS[i % LINE_COLORS.length]} dot />
                         ))}

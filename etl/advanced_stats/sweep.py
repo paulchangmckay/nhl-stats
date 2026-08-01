@@ -60,6 +60,11 @@ def compute_game_advanced_stats(shifts, events, home_team_id, game_type):
         event_list.append({**e, "t": t})
     event_list.sort(key=lambda e: e["t"])
 
+    game_has_rink_side_data = any(
+        e["event_type"] in SHOT_ATTEMPT_TYPES and e.get("home_team_defending_side") is not None
+        for e in event_list
+    )
+
     all_team_ids = {iv["team_id"] for iv in shift_intervals if iv["team_id"] is not None}
     all_team_ids |= {e.get("event_owner_team_id") for e in event_list
                       if e.get("event_owner_team_id") is not None}
@@ -222,5 +227,11 @@ def compute_game_advanced_stats(shifts, events, home_team_id, game_type):
                 t_against["shots_against"] += 1
             if is_goal:
                 t_against["ga"] += 1
+
+    if not game_has_rink_side_data:
+        for row in player_stats.values():
+            row["hdcf"] = None
+            row["hdca"] = None
+            row["ihdcf"] = None
 
     return list(player_stats.values()), list(team_stats.values())
