@@ -22,6 +22,11 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 
 const STRENGTH_STATES = ["5v5", "5v4", "4v5"] as const;
 
+const LINE_COLORS = [
+  "var(--color-sky-500)", "var(--color-amber-500)", "var(--color-emerald-500)",
+  "var(--color-rose-500)", "var(--color-violet-500)", "var(--color-cyan-500)",
+];
+
 type FetchState =
   | { status: "loading" }
   | { status: "error"; message: string }
@@ -238,6 +243,11 @@ export function PlayerProfilePanel({
   }, [open, playerId, isGoalie]);
 
   const current = state.status === "ready" ? state.data.strength_states[strengthState] : undefined;
+  const primaryMetricKey = selectedMetrics.values().next().value as MetricKey;
+  const graphStrengthState = METRIC_DEFINITIONS[primaryMetricKey].strengthAware ? strengthState : "5v5";
+  const chartData = state.status === "ready"
+    ? state.data.trend.filter((row) => row.strength_state === graphStrengthState)
+    : [];
   const playerName = stats
     ? `${stats.first_name} ${stats.last_name}`
     : bio
@@ -401,15 +411,30 @@ export function PlayerProfilePanel({
                     nullReason="Below the 10-GP floor, or league sample too small this season" />
                 </div>
 
-                <div className="h-40 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={state.data.trend}>
-                      <XAxis dataKey="season_id" tick={{ fontSize: 10 }} />
-                      <YAxis tick={{ fontSize: 10 }} />
-                      <RechartsTooltip />
-                      <Line type="monotone" dataKey="cf_pct" stroke="var(--color-sky-500)" dot />
-                    </LineChart>
-                  </ResponsiveContainer>
+                <div className="flex flex-col gap-1">
+                  <div className="flex gap-3 text-xs text-muted-foreground">
+                    {Array.from(selectedMetrics).map((key, i) => (
+                      <span key={key} className="flex items-center gap-1">
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: LINE_COLORS[i % LINE_COLORS.length] }}
+                        />
+                        {METRIC_DEFINITIONS[key].label}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="h-40 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData}>
+                        <XAxis dataKey="season_id" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} />
+                        <RechartsTooltip />
+                        {Array.from(selectedMetrics).map((key, i) => (
+                          <Line key={key} type="monotone" dataKey={key} stroke={LINE_COLORS[i % LINE_COLORS.length]} dot />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
               </TooltipProvider>

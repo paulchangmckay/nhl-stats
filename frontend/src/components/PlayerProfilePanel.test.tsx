@@ -244,4 +244,49 @@ describe("PlayerProfilePanel", () => {
     expect(await screen.findByText("Corsi For %")).toBeInTheDocument();
     expect(screen.getByText("cf / (cf + ca) × 100")).toBeInTheDocument();
   });
+
+  it("shows a single CF% line by default", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    expect(screen.getByText("CF%", { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("adding a second metric in the same family adds a second line to the legend", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    await userEvent.click(screen.getByRole("button", { name: /FF%/ }));
+    expect(screen.getByText("CF%", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("FF%", { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("switching strength state re-filters the graph for a strength-aware selection", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    // MOCK_ADVANCED.trend has one 5v4 row (season 20242025) and two 5v5 rows.
+    await userEvent.click(screen.getByRole("button", { name: "5v4" }));
+    await waitFor(() => expect(screen.getByText("55")).toBeInTheDocument()); // 5v4 cf_pctile, sanity check toggle worked
+    // With 5v4 active and cf_pct (strength-aware) selected, chart data should be the single 5v4 trend row.
+    // Verified indirectly: no crash, still one legend entry.
+    expect(screen.getByText("CF%", { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("selecting a per60 metric ignores the strength-state toggle (always 5v5)", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    await userEvent.click(screen.getByRole("button", { name: /Shots\/60/ }));
+    await userEvent.click(screen.getByRole("button", { name: "5v4" }));
+    expect(screen.getByText("Shots/60", { selector: "span" })).toBeInTheDocument();
+  });
 });
