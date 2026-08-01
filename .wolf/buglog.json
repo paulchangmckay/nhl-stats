@@ -365,6 +365,44 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-27T00:00:00.000Z"
+    },
+    {
+      "id": "bug-024",
+      "timestamp": "2026-07-31T04:30:00Z",
+      "error_message": "_fetch_player_advanced()'s headline `pdo` block (app.py) omitted the `game_type = 2` filter that was added everywhere else in the same function during the same change, so a team that made the playoffs could still have its playoff team_season_advanced_stats row mixed into the current-season PDO stat box value, even after trend/strength_states were fixed.",
+      "file": "app.py",
+      "root_cause": "The Task 1 plan for the player-metric-tooltips-and-graph-filter feature (docs/superpowers/plans/2026-07-31-...md) added `AND game_type = 2` to the season_rows query and the new trend loop's per-season PDO lookup, but the plan's own Step 3 code sample never applied the same fix to the pre-existing final `pdo` block a few lines below -- an oversight in the plan text itself, faithfully transcribed by the implementer subagent.",
+      "fix": "Caught during subagent-driven-development's task review (task reviewer flagged it as a Cannot-verify/inconsistency item; controller re-read the plan and confirmed it was a real gap). Fixed by adding `AND tsas.game_type = 2` to the headline pdo block's WHERE clause, matching the trend loop's pattern. Commit cdf0e93.",
+      "tags": [
+        "backend",
+        "game_type",
+        "playoffs",
+        "data-integrity",
+        "fixed"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-07-31T04:30:00Z"
+    },
+    {
+      "id": "bug-025",
+      "timestamp": "2026-07-31T04:30:00Z",
+      "error_message": "The regression test added to prove bug-024's fix (test_fetch_player_advanced_headline_pdo_excludes_playoff_game_type, tests/test_app_advanced_stats.py) initially passed even WITHOUT the fix applied -- a false-positive test that would have shipped no real coverage for the bug it was written to catch.",
+      "file": "tests/test_app_advanced_stats.py",
+      "root_cause": "The test seeded the regular-season (game_type=2) team_season_advanced_stats row BEFORE the playoff (game_type=3) row. SQLite's fetchone() without an ORDER BY returns rows in insertion/rowid order for a simple scan, so the query returned the game_type=2 row first regardless of whether the `AND game_type = 2` WHERE clause was present at all -- the test was insensitive to the very filter it was meant to verify.",
+      "fix": "Swapped the insertion order (playoff row seeded first, regular-season row second), so an unfiltered query would incorrectly return the playoff row first, producing a wrong PDO value. Verified genuine RED (pdo=1000.0, contaminated) without the filter, then GREEN (pdo=1010.7, correct) with it restored. Added an inline comment explaining why insertion order is load-bearing for this test's validity. Commit 4036300.",
+      "tags": [
+        "testing",
+        "false-positive-test",
+        "sqlite",
+        "test-quality",
+        "fixed"
+      ],
+      "related_bugs": [
+        "bug-024"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-07-31T04:30:00Z"
     }
   ]
 }
