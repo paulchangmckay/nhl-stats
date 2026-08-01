@@ -191,4 +191,45 @@ describe("PlayerProfilePanel", () => {
     );
     await waitFor(() => expect(screen.getAllByText("N/A").length).toBeGreaterThan(0));
   });
+
+  it("highlights CF% by default and toggles selection within the percentage family", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    const cfBox = screen.getByRole("button", { name: "CF%" });
+    expect(cfBox).toHaveAttribute("aria-pressed", "true");
+
+    const ffBox = screen.getByRole("button", { name: /FF%/ });
+    expect(ffBox).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(ffBox);
+    expect(ffBox).toHaveAttribute("aria-pressed", "true");
+    expect(cfBox).toHaveAttribute("aria-pressed", "true"); // both selected, same family
+  });
+
+  it("clicking a box in a different family replaces the selection", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    const cfBox = screen.getByRole("button", { name: "CF%" });
+    const pdoBox = screen.getByRole("button", { name: /PDO/ });
+
+    await userEvent.click(pdoBox);
+    expect(pdoBox).toHaveAttribute("aria-pressed", "true");
+    expect(cfBox).toHaveAttribute("aria-pressed", "false"); // replaced, different family
+  });
+
+  it("clicking the sole selected box is a no-op (never empties the selection)", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    const cfBox = screen.getByRole("button", { name: "CF%" });
+    await userEvent.click(cfBox);
+    expect(cfBox).toHaveAttribute("aria-pressed", "true");
+  });
 });
