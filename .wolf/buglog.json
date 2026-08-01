@@ -403,6 +403,27 @@
       ],
       "occurrences": 1,
       "last_seen": "2026-07-31T04:30:00Z"
+    },
+    {
+      "id": "bug-026",
+      "timestamp": "2026-07-31T04:35:00Z",
+      "error_message": "_fetch_team_advanced() (app.py) is the last of three sibling advanced-stats query functions with no game_type filter -- _fetch_player_advanced()'s season_rows/trend queries and the headline pdo block were fixed for the #85 branch (bug-024), but _fetch_team_advanced() still queries team_season_advanced_stats without excluding playoff (game_type=3) rows, so a team's playoff and regular-season strength_state rows would collide (last row wins by dict overwrite in the strength_states loop).",
+      "file": "app.py",
+      "root_cause": "NOT YET FIXED -- open, deferred. Currently moot in practice: team_season_advanced_stats has zero rows in data/nhl_stats.db (see GitHub issue #94), so there's nothing to collide yet. Out of scope for the #85 branch (which only touched _fetch_player_advanced), but flagged during that branch's final whole-branch review since it left two of three sibling query functions consistent and the third inconsistent.",
+      "fix": "NOT YET FIXED -- add AND game_type = 2 to _fetch_team_advanced()'s query, matching the pattern already established in _fetch_player_advanced(). Low urgency until team_season_advanced_stats is actually populated (issue #94).",
+      "tags": [
+        "backend",
+        "game_type",
+        "playoffs",
+        "data-integrity",
+        "deferred",
+        "open"
+      ],
+      "related_bugs": [
+        "bug-024"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-07-31T04:35:00Z"
     }
   ]
 }
