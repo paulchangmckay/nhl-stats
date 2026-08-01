@@ -232,4 +232,16 @@ describe("PlayerProfilePanel", () => {
     await userEvent.click(cfBox);
     expect(cfBox).toHaveAttribute("aria-pressed", "true");
   });
+
+  it("shows the metric's name, description, and formula on hover", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    const cfBox = screen.getByRole("button", { name: "CF%" });
+    await userEvent.hover(cfBox);
+    expect(await screen.findByText("Corsi For %")).toBeInTheDocument();
+    expect(screen.getByText("cf / (cf + ca) × 100")).toBeInTheDocument();
+  });
 });

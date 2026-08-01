@@ -11,13 +11,14 @@ import {
   Line,
   XAxis,
   YAxis,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts";
 import { User } from "lucide-react";
 import { teamColors, logoUrl } from "@/lib/teamBranding";
 import type { Player, PlayerStats, PlayerAdvancedStats } from "@/lib/types";
 import { METRIC_DEFINITIONS, type MetricKey } from "@/lib/metricDefinitions";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 const STRENGTH_STATES = ["5v5", "5v4", "4v5"] as const;
 
@@ -61,10 +62,11 @@ interface ZScoreBoxProps {
   onToggle: (key: MetricKey) => void;
 }
 
-function ZScoreBox({ metricKey, label, rate, z, nullReason: _nullReason, selected, onToggle }: ZScoreBoxProps) {
+function ZScoreBox({ metricKey, label, rate, z, nullReason, selected, onToggle }: ZScoreBoxProps) {
   if (z === null || z === undefined) {
     return (
-      <SelectableStatBox metricKey={metricKey} selected={selected} onToggle={onToggle} colorClass="bg-muted opacity-60">
+      <SelectableStatBox metricKey={metricKey} selected={selected} onToggle={onToggle}
+        colorClass="bg-muted opacity-60" extraNote={nullReason}>
         <div className="text-xs text-muted-foreground">{label}</div>
         <div className="text-2xl font-semibold tabular-nums">N/A</div>
       </SelectableStatBox>
@@ -87,27 +89,41 @@ interface SelectableStatBoxProps {
   selected: boolean;
   onToggle: (key: MetricKey) => void;
   colorClass: string;
+  extraNote?: string;
   children: React.ReactNode;
 }
 
-function SelectableStatBox({ metricKey, selected, onToggle, colorClass, children }: SelectableStatBoxProps) {
+function SelectableStatBox({ metricKey, selected, onToggle, colorClass, extraNote, children }: SelectableStatBoxProps) {
+  const def = METRIC_DEFINITIONS[metricKey];
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-pressed={selected}
-      aria-label={METRIC_DEFINITIONS[metricKey].label}
-      onClick={() => onToggle(metricKey)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onToggle(metricKey);
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <div
+            role="button"
+            tabIndex={0}
+            aria-pressed={selected}
+            aria-label={def.label}
+            onClick={() => onToggle(metricKey)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onToggle(metricKey);
+              }
+            }}
+            className={`rounded-lg p-3 text-center cursor-pointer ${colorClass} ${selected ? "ring-2 ring-sky-400" : ""}`}
+          />
         }
-      }}
-      className={`rounded-lg p-3 text-center cursor-pointer ${colorClass} ${selected ? "ring-2 ring-sky-400" : ""}`}
-    >
-      {children}
-    </div>
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent>
+        <div className="font-medium">{def.name}</div>
+        <div>{def.description}</div>
+        <div className="text-muted-foreground">{def.formula}</div>
+        {extraNote && <div className="text-muted-foreground italic">{extraNote}</div>}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -320,6 +336,7 @@ export function PlayerProfilePanel({
             )}
 
             {state.status === "ready" && (
+              <TooltipProvider delay={300}>
               <div className="flex flex-col gap-4">
                 <div className="flex gap-2">
                   {STRENGTH_STATES.map((s) => (
@@ -389,12 +406,13 @@ export function PlayerProfilePanel({
                     <LineChart data={state.data.trend}>
                       <XAxis dataKey="season_id" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip />
+                      <RechartsTooltip />
                       <Line type="monotone" dataKey="cf_pct" stroke="var(--color-sky-500)" dot />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
+              </TooltipProvider>
             )}
           </>
         )}
