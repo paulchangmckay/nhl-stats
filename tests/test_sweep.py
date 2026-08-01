@@ -11,13 +11,13 @@ def _shift(player_id, team_id, period, start, end, position_code="C"):
 
 def _event(event_type, period, time_in_period, situation_code, event_owner_team_id,
            x_coord=0, y_coord=0, shooting_player_id=None, assist1_player_id=None,
-           assist2_player_id=None, shot_type=None):
+           assist2_player_id=None, shot_type=None, home_team_defending_side="right"):
     return {"event_type": event_type, "period": period, "time_in_period": time_in_period,
             "situation_code": situation_code, "event_owner_team_id": event_owner_team_id,
             "x_coord": x_coord, "y_coord": y_coord,
             "shooting_player_id": shooting_player_id, "assist1_player_id": assist1_player_id,
             "assist2_player_id": assist2_player_id, "shot_type": shot_type,
-            "home_team_defending_side": "right"}
+            "home_team_defending_side": home_team_defending_side}
 
 
 def test_shot_credits_on_ice_skaters_both_sides():
@@ -271,3 +271,33 @@ def test_points_credits_scorer_and_both_assists_primary_points_excludes_secondar
     assert scorer["points"] == 1 and scorer["primary_points"] == 1
     assert primary_assister["points"] == 1 and primary_assister["primary_points"] == 1
     assert secondary_assister["points"] == 1 and secondary_assister["primary_points"] == 0
+
+
+def test_hd_stats_null_when_game_has_no_rink_side_data():
+    shifts = [_shift(1, HOME, 1, "00:00", "20:00"), _shift(2, AWAY, 1, "00:00", "20:00")]
+    events = [_event("shot-on-goal", 1, "00:10", "1551", HOME, x_coord=-85, y_coord=0,
+                      shooting_player_id=1, home_team_defending_side=None)]
+
+    player_rows, _ = compute_game_advanced_stats(shifts, events, home_team_id=HOME, game_type=2)
+
+    home_row = next(r for r in player_rows if r["player_id"] == 1)
+    assert home_row["cf"] == 1  # Corsi doesn't need rink side -- unaffected
+    assert home_row["icf"] == 1
+    assert home_row["hdcf"] is None
+    assert home_row["ihdcf"] is None
+
+    away_row = next(r for r in player_rows if r["player_id"] == 2)
+    assert away_row["ca"] == 1  # Corsi against unaffected
+    assert away_row["hdca"] is None
+
+
+def test_hd_stats_still_computed_when_game_has_rink_side_data():
+    shifts = [_shift(1, HOME, 1, "00:00", "20:00"), _shift(2, AWAY, 1, "00:00", "20:00")]
+    events = [_event("shot-on-goal", 1, "00:10", "1551", HOME, x_coord=-85, y_coord=0,
+                      shooting_player_id=1, home_team_defending_side="right")]
+
+    player_rows, _ = compute_game_advanced_stats(shifts, events, home_team_id=HOME, game_type=2)
+
+    home_row = next(r for r in player_rows if r["player_id"] == 1)
+    assert home_row["hdcf"] == 1
+    assert home_row["ihdcf"] == 1

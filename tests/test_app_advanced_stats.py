@@ -232,3 +232,24 @@ def test_players_stats_season_query_includes_shots_per60_5v5(conn, monkeypatch):
     assert resp.status_code == 200
     player = next(p for p in resp.get_json() if p["player_id"] == 1)
     assert player["shots_per60_5v5"] == 24.0
+
+
+def test_fetch_player_advanced_handles_null_hd_stats_without_crashing(conn):
+    # 2017-18/2018-19-shaped row: hdcf/hdca/ihdcf are all NULL (no rink-side
+    # data for that era). hdcf_pct and chances_per60 must degrade to None
+    # instead of raising TypeError on None + None / None / toi_hours.
+    database.upsert_player_stub(conn, {
+        "player_id": 1, "first_name": "Test", "last_name": "Player",
+        "position_code": "C", "shoots_catches": None,
+    })
+    database.upsert_team(conn, {"team_id": HOME, "abbrev": "HOM", "common_name": "Home",
+                                 "place_name": "Home", "conference": None, "division": None})
+    _seed_season_row(conn, 1, "20172018", "5v5", cf=60, ca=40, ff=45, fa=30,
+                      hdcf=None, hdca=None, primary_points=15, icf=30, ihdcf=None,
+                      toi_seconds=3600)
+
+    result = _fetch_player_advanced(conn, player_id=1, season_id="20172018")
+
+    s5v5 = result["strength_states"]["5v5"]
+    assert s5v5["hdcf_pct"] is None
+    assert s5v5["chances_per60"] is None

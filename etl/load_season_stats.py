@@ -6,6 +6,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from src import api_client, database
 
 SEASONS = [
+    "20172018",
+    "20182019",
+    "20192020",
     "20202021",
     "20212022",
     "20222023",

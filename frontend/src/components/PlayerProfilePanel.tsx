@@ -319,7 +319,7 @@ export function PlayerProfilePanel({
                   <ZScoreBox label="Chances/60"
                     rate={state.data.strength_states["5v5"]?.chances_per60}
                     z={state.data.strength_states["5v5"]?.chances_per60_z}
-                    nullReason="Below the 10-GP floor, or league sample too small this season" />
+                    nullReason="Below the 10-GP floor, league sample too small this season, or high-danger zone data unavailable for this era" />
                   <ZScoreBox label="Rebounds Created/60"
                     rate={state.data.strength_states["5v5"]?.rebounds_created_per60}
                     z={state.data.strength_states["5v5"]?.rebounds_created_per60_z}
