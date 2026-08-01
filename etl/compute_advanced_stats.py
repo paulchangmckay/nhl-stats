@@ -192,16 +192,21 @@ def compute_zscores(conn, season_id):
             continue
 
         def _rate(row, count_key):
+            if row[count_key] is None:
+                return None
             return row[count_key] / (row["toi_seconds"] / 3600.0)
 
-        populations = {z_key: [_rate(r, count_key) for r in rows]
-                       for z_key, count_key in rate_fields.items()}
+        populations = {
+            z_key: [v for v in (_rate(r, count_key) for r in rows) if v is not None]
+            for z_key, count_key in rate_fields.items()
+        }
 
         for r in rows:
             record = {"season_id": season_id, "player_id": r["player_id"],
                       "position_group": position_group}
             for z_key, count_key in rate_fields.items():
-                record[z_key] = _zscore(_rate(r, count_key), populations[z_key])
+                rate_val = _rate(r, count_key)
+                record[z_key] = _zscore(rate_val, populations[z_key]) if rate_val is not None else None
             database.upsert_player_rate_zscores(conn, record)
     conn.commit()
 

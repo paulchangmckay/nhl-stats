@@ -364,3 +364,33 @@ def test_compute_percentiles_hdcf_pctile_null_when_hdcf_null_excluded_from_popul
     ).fetchone()
     assert p1["hdcf_pct_pctile"] == 100.0  # ranked only against player 2, unaffected by player 3
     assert p3["hdcf_pct_pctile"] is None
+
+
+def test_compute_zscores_chances_per60_z_null_when_ihdcf_null(conn):
+    # 20 qualifying players (meets ZSCORE_MIN_POPULATION); player 1's ihdcf
+    # is NULL (e.g. a fully rink-side-missing season) while everyone else's
+    # is real -- player 1 should get chances_per60_z = NULL but a normal
+    # shots_per60_z (icf-based, unaffected by the HD-only NULL).
+    for player_id in range(1, 21):
+        database.upsert_player_stub(conn, {
+            "player_id": player_id, "first_name": "P", "last_name": str(player_id),
+            "position_code": "C", "shoots_catches": None,
+        })
+        ihdcf = "NULL" if player_id == 1 else str(player_id)
+        conn.execute(f"""
+            INSERT INTO player_season_advanced_stats
+                (player_id, season_id, game_type, team_abbrevs, strength_state,
+                 cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp,
+                 icf, ihdcf, rebounds_created, deflections, points)
+            VALUES (?, '20172018', 2, 'HOM', '5v5', 1,1,1,1,1,1,1,1,1, 3600, 12,
+                    ?, {ihdcf}, 1, 1, 5)
+        """, (player_id, player_id))
+    conn.commit()
+
+    module.compute_zscores(conn, season_id="20172018")
+
+    p1 = conn.execute(
+        "SELECT chances_per60_z, shots_per60_z FROM player_rate_zscores WHERE player_id = 1"
+    ).fetchone()
+    assert p1["chances_per60_z"] is None
+    assert p1["shots_per60_z"] is not None  # icf-based, unaffected
