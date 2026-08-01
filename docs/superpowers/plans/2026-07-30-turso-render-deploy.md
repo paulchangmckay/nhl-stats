@@ -39,7 +39,7 @@ cd "/Users/paulmckay/Desktop/NHL Stats Project"
 ./.venv312/bin/pip install -r requirements.txt -r requirements-dev.txt
 ```
 
-Expected: installs cleanly, no wheel-build errors. Use `./.venv312/bin/python` / `./.venv312/bin/pytest` for every command in this plan from here on.
+Expected: installs cleanly, no wheel-build errors. Use `./.venv312/bin/python` / `./.venv312/bin/python -m pytest` for every command in this plan from here on.
 
 - [ ] **Step 2: Add the `libsql` dependency**
 
@@ -132,7 +132,7 @@ def test_on_conflict_upsert_and_row_access_together(tmp_path):
 - [ ] **Step 4: Run the tests to verify they fail**
 
 ```bash
-./.venv312/bin/pytest tests/test_database_libsql_adapter.py -v
+./.venv312/bin/python -m pytest tests/test_database_libsql_adapter.py -v
 ```
 
 Expected: FAIL with `ImportError: cannot import name '_TursoConnection' from 'src.database'` (the class doesn't exist yet).
@@ -211,7 +211,7 @@ class _TursoConnection:
 - [ ] **Step 6: Run the tests to verify they pass**
 
 ```bash
-./.venv312/bin/pytest tests/test_database_libsql_adapter.py -v
+./.venv312/bin/python -m pytest tests/test_database_libsql_adapter.py -v
 ```
 
 Expected: 5 passed.
@@ -219,7 +219,7 @@ Expected: 5 passed.
 - [ ] **Step 7: Run the full existing test suite to confirm no regression**
 
 ```bash
-./.venv312/bin/pytest tests/ -v
+./.venv312/bin/python -m pytest tests/ -v
 ```
 
 Expected: all existing tests still pass (this task only adds new classes; nothing existing imports or calls them yet).
@@ -307,7 +307,7 @@ def test_get_connection_uses_libsql_when_turso_url_set(monkeypatch):
 - [ ] **Step 2: Run to verify failure**
 
 ```bash
-./.venv312/bin/pytest tests/test_database_get_connection.py -v
+./.venv312/bin/python -m pytest tests/test_database_get_connection.py -v
 ```
 
 Expected: `test_get_connection_uses_libsql_when_turso_url_set` FAILs (still returns a plain `sqlite3.Connection` since the branch doesn't exist yet); the sqlite test passes already (no regression risk there).
@@ -337,7 +337,7 @@ The `import libsql` stays inside the branch (not a module-level import) so local
 - [ ] **Step 4: Run to verify both tests pass**
 
 ```bash
-./.venv312/bin/pytest tests/test_database_get_connection.py -v
+./.venv312/bin/python -m pytest tests/test_database_get_connection.py -v
 ```
 
 Expected: 2 passed.
@@ -345,7 +345,7 @@ Expected: 2 passed.
 - [ ] **Step 5: Run the full suite**
 
 ```bash
-./.venv312/bin/pytest tests/ -v
+./.venv312/bin/python -m pytest tests/ -v
 ```
 
 Expected: all pass, including `tests/conftest.py`'s `conn` fixture (which calls `get_connection` with no `TURSO_DATABASE_URL` set in CI/local dev, so it takes the unchanged sqlite path).
@@ -396,7 +396,7 @@ def test_run_migrations_is_idempotent_against_libsql_backend(tmp_path):
 - [ ] **Step 2: Run to verify it fails**
 
 ```bash
-./.venv312/bin/pytest tests/test_database_migrations_libsql.py -v
+./.venv312/bin/python -m pytest tests/test_database_migrations_libsql.py -v
 ```
 
 Expected: FAIL with `ValueError: duplicate column name: position_code` (uncaught, since `run_migrations` only catches `sqlite3.OperationalError` today).
@@ -418,7 +418,7 @@ def run_migrations(conn):
 - [ ] **Step 4: Run to verify it passes**
 
 ```bash
-./.venv312/bin/pytest tests/test_database_migrations_libsql.py -v
+./.venv312/bin/python -m pytest tests/test_database_migrations_libsql.py -v
 ```
 
 Expected: PASS.
@@ -426,7 +426,7 @@ Expected: PASS.
 - [ ] **Step 5: Run the full suite**
 
 ```bash
-./.venv312/bin/pytest tests/ -v
+./.venv312/bin/python -m pytest tests/ -v
 ```
 
 Expected: all pass (the local-sqlite migration path is unaffected — `sqlite3.OperationalError` is still caught, `ValueError` is just an additional caught type that sqlite3 never raises for this case).
@@ -475,7 +475,7 @@ def test_host_port_reads_env_overrides(monkeypatch):
 - [ ] **Step 2: Run to verify failure**
 
 ```bash
-./.venv312/bin/pytest tests/test_app_helpers.py -v
+./.venv312/bin/python -m pytest tests/test_app_helpers.py -v
 ```
 
 Expected: FAIL with `ImportError: cannot import name '_host_port' from 'app'`.
@@ -501,7 +501,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run to verify it passes**
 
 ```bash
-./.venv312/bin/pytest tests/test_app_helpers.py -v
+./.venv312/bin/python -m pytest tests/test_app_helpers.py -v
 ```
 
 Expected: PASS (all tests in the file, including the pre-existing ones).
