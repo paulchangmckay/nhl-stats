@@ -9,14 +9,14 @@ AWAY = 2
 def _seed_season_row(conn, player_id, season_id, strength_state, cf, ca, ff, fa,
                       hdcf, hdca, primary_points, team_abbrevs="HOM",
                       icf=0, ihdcf=0, rebounds_created=0, deflections=0, points=0,
-                      toi_seconds=900):
+                      toi_seconds=900, game_type=2):
     conn.execute("""
         INSERT INTO player_season_advanced_stats
             (player_id, season_id, game_type, team_abbrevs, strength_state,
              cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp,
              icf, ihdcf, rebounds_created, deflections, points)
-        VALUES (?, ?, 2, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, 20, ?, ?, ?, ?, ?)
-    """, (player_id, season_id, team_abbrevs, strength_state, cf, ca, ff, fa,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, 20, ?, ?, ?, ?, ?)
+    """, (player_id, season_id, game_type, team_abbrevs, strength_state, cf, ca, ff, fa,
           hdcf, hdca, primary_points, toi_seconds,
           icf, ihdcf, rebounds_created, deflections, points))
     conn.commit()
@@ -32,13 +32,13 @@ def _seed_percentile_row(conn, player_id, season_id, strength_state, cf_pctile):
     conn.commit()
 
 
-def _seed_team_season_row(conn, team_id, season_id, strength_state, gf, ga, shots_for, shots_against):
+def _seed_team_season_row(conn, team_id, season_id, strength_state, gf, ga, shots_for, shots_against, game_type=2):
     conn.execute("""
         INSERT INTO team_season_advanced_stats
             (team_id, season_id, game_type, strength_state,
              cf, ca, ff, fa, gf, ga, shots_for, shots_against)
-        VALUES (?, ?, 2, ?, 1, 1, 1, 1, ?, ?, ?, ?)
-    """, (team_id, season_id, strength_state, gf, ga, shots_for, shots_against))
+        VALUES (?, ?, ?, ?, 1, 1, 1, 1, ?, ?, ?, ?)
+    """, (team_id, season_id, game_type, strength_state, gf, ga, shots_for, shots_against))
     conn.commit()
 
 
@@ -75,6 +75,70 @@ def test_fetch_player_advanced_includes_trend_across_seasons(conn):
 
     trend_seasons = [t["season_id"] for t in result["trend"]]
     assert trend_seasons == ["20232024", "20242025"]
+    row = result["trend"][1]
+    assert row["strength_state"] == "5v5"
+    assert row["cf_pct"] == 60.0
+    assert row["ff_pct"] == 60.0
+    assert row["primary_points"] == 15
+
+
+def test_fetch_player_advanced_trend_includes_all_strength_states_per_season(conn):
+    database.upsert_player_stub(conn, {
+        "player_id": 1, "first_name": "Test", "last_name": "Player",
+        "position_code": "C", "shoots_catches": None,
+    })
+    _seed_season_row(conn, 1, "20242025", "5v5", cf=60, ca=40, ff=45, fa=30, hdcf=10, hdca=5, primary_points=15)
+    _seed_season_row(conn, 1, "20242025", "5v4", cf=20, ca=5, ff=15, fa=3, hdcf=4, hdca=1, primary_points=5)
+    _seed_season_row(conn, 1, "20242025", "4v5", cf=5, ca=20, ff=3, fa=15, hdcf=1, hdca=4, primary_points=1)
+
+    result = _fetch_player_advanced(conn, player_id=1, season_id="20242025")
+
+    states = {row["strength_state"] for row in result["trend"] if row["season_id"] == "20242025"}
+    assert states == {"5v5", "5v4", "4v5"}
+    by_state = {row["strength_state"]: row for row in result["trend"] if row["season_id"] == "20242025"}
+    assert by_state["5v4"]["cf_pct"] == 80.0  # 20 / (20+5) * 100
+
+
+def test_fetch_player_advanced_trend_per60_and_pdo_are_5v5_only(conn):
+    database.upsert_player_stub(conn, {
+        "player_id": 1, "first_name": "Test", "last_name": "Player",
+        "position_code": "C", "shoots_catches": None,
+    })
+    database.upsert_team(conn, {"team_id": HOME, "abbrev": "HOM", "common_name": "Home",
+                                 "place_name": "Home", "conference": None, "division": None})
+    _seed_season_row(conn, 1, "20242025", "5v5", cf=60, ca=40, ff=45, fa=30, hdcf=10, hdca=5,
+                      primary_points=15, icf=30, ihdcf=8, rebounds_created=4, deflections=2,
+                      points=20, toi_seconds=3600, team_abbrevs="HOM")
+    _seed_season_row(conn, 1, "20242025", "5v4", cf=20, ca=5, ff=15, fa=3, hdcf=4, hdca=1,
+                      primary_points=5, icf=99, toi_seconds=900, team_abbrevs="HOM")
+    _seed_team_season_row(conn, HOME, "20242025", "5v5", gf=30, ga=25, shots_for=300, shots_against=280)
+
+    result = _fetch_player_advanced(conn, player_id=1, season_id="20242025")
+
+    by_state = {row["strength_state"]: row for row in result["trend"] if row["season_id"] == "20242025"}
+    assert by_state["5v5"]["shots_per60"] == 30.0
+    expected_pdo = round((30 / 300 + (280 - 25) / 280) * 1000, 1)
+    assert by_state["5v5"]["pdo"] == expected_pdo
+    assert by_state["5v4"]["shots_per60"] is None
+    assert by_state["5v4"]["pdo"] is None
+
+
+def test_fetch_player_advanced_excludes_playoff_game_type(conn):
+    database.upsert_player_stub(conn, {
+        "player_id": 1, "first_name": "Test", "last_name": "Player",
+        "position_code": "C", "shoots_catches": None,
+    })
+    _seed_season_row(conn, 1, "20242025", "5v5", cf=60, ca=40, ff=45, fa=30, hdcf=10, hdca=5,
+                      primary_points=15, game_type=2)
+    _seed_season_row(conn, 1, "20242025", "5v5", cf=999, ca=1, ff=999, fa=1, hdcf=999, hdca=1,
+                      primary_points=999, game_type=3)
+
+    result = _fetch_player_advanced(conn, player_id=1, season_id="20242025")
+
+    trend_5v5 = [row for row in result["trend"] if row["season_id"] == "20242025" and row["strength_state"] == "5v5"]
+    assert len(trend_5v5) == 1
+    assert trend_5v5[0]["cf_pct"] == 60.0  # not the game_type=3 row's inflated value
+    assert result["strength_states"]["5v5"]["cf"] == 60  # season_rows query also excludes playoffs
 
 
 def test_fetch_player_advanced_pdo_comes_from_team_context(conn):
@@ -91,6 +155,40 @@ def test_fetch_player_advanced_pdo_comes_from_team_context(conn):
     result = _fetch_player_advanced(conn, player_id=1, season_id="20242025")
 
     # PDO = (shooting% + save%) * 1000 = (30/300 + (280-25)/280) * 1000
+    expected_pdo = round((30 / 300 + (280 - 25) / 280) * 1000, 1)
+    assert result["pdo"] == expected_pdo
+
+
+def test_fetch_player_advanced_headline_pdo_excludes_playoff_game_type(conn):
+    # Regression test: headline PDO block must filter by game_type=2, not mix in playoff rows.
+    # This test seeds both regular-season (game_type=2) and playoff (game_type=3) team data
+    # for the same team+season+strength_state, with drastically different shot metrics.
+    # The returned headline pdo must match only the game_type=2 calculation.
+    #
+    # CRITICAL: Insertion order matters for this test to be valid. SQLite's fetchone()
+    # without ORDER BY returns rows in insertion order (rowid). Seeding the playoff row
+    # FIRST and regular-season SECOND ensures that without the game_type=2 filter in the
+    # query, fetchone() would return the wrong (playoff) row with inflated values (pdo
+    # from 999 shots). With the filter present, the query skips the playoff row and
+    # correctly returns the regular-season row. This test would pass on buggy code
+    # (no filter) if the regular-season row was seeded first — so the order is the test
+    # harness that proves the filter actually works.
+    database.upsert_player_stub(conn, {
+        "player_id": 1, "first_name": "Test", "last_name": "Player",
+        "position_code": "C", "shoots_catches": None,
+    })
+    database.upsert_team(conn, {"team_id": HOME, "abbrev": "HOM", "common_name": "Home",
+                                 "place_name": "Home", "conference": None, "division": None})
+    _seed_season_row(conn, 1, "20242025", "5v5", cf=60, ca=40, ff=45, fa=30, hdcf=10, hdca=5,
+                      primary_points=15, team_abbrevs="HOM")
+    # Playoff (seeded FIRST): drastically different values to detect if it leaks in
+    _seed_team_season_row(conn, HOME, "20242025", "5v5", gf=999, ga=1, shots_for=999, shots_against=1, game_type=3)
+    # Regular season (seeded SECOND): gf=30, ga=25, shots_for=300, shots_against=280
+    _seed_team_season_row(conn, HOME, "20242025", "5v5", gf=30, ga=25, shots_for=300, shots_against=280, game_type=2)
+
+    result = _fetch_player_advanced(conn, player_id=1, season_id="20242025")
+
+    # PDO should come from game_type=2 only: (30/300 + (280-25)/280) * 1000
     expected_pdo = round((30 / 300 + (280 - 25) / 280) * 1000, 1)
     assert result["pdo"] == expected_pdo
 
@@ -253,3 +351,9 @@ def test_fetch_player_advanced_handles_null_hd_stats_without_crashing(conn):
     s5v5 = result["strength_states"]["5v5"]
     assert s5v5["hdcf_pct"] is None
     assert s5v5["chances_per60"] is None
+
+    # trend carries the same null hd-stats and must degrade the same way,
+    # not raise TypeError on None + None / None / toi_hours.
+    trend_row = next(r for r in result["trend"] if r["season_id"] == "20172018")
+    assert trend_row["hdcf_pct"] is None
+    assert trend_row["chances_per60"] is None

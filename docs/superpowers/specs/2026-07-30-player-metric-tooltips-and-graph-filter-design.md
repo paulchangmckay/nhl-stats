@@ -48,6 +48,29 @@ behavior/graph exactly).
 
 ### Backend: extend `GET /api/players/<id>/advanced`
 
+**Prerequisite fix, in scope for this spec:** `player_season_advanced_stats`
+has a `game_type` dimension (2=regular season, 3=playoffs), with a separate
+row per player/season/game_type/strength_state. Neither of
+`_fetch_player_advanced`'s existing queries — the current-season
+`season_rows` query (`app.py:246-251`) nor the single-metric `trend` query
+being replaced (`app.py:301-307`) — filters by `game_type`, so a player
+who's made the playoffs has both rows pulled in undifferentiated for the
+same `season_id`. This is a known, already-logged gap
+(`.wolf/buglog.json`, found while grilling the 2026-07-27
+shot-generation-rate-stats spec): `compute_zscores()` already established
+the fix pattern (`AND game_type = 2`), and the buglog entry explicitly
+recommends applying it "when this gets fixed" in a future touch of this
+area. Since this spec is already rewriting the trend query and this exact
+function, both `season_rows` and the new trend query add
+`AND game_type = 2`. (`player_advanced_percentiles`'s population — the
+`compute_percentiles()` ETL step — has the same underlying gap but at the
+*compute* stage, not just the query stage; fixing that requires an ETL
+logic change and a rerun, a materially bigger task than this spec's
+frontend-focused scope, so it stays deferred exactly as buglog.json
+already tracks it.) Existing test fixtures (`tests/test_app_advanced_stats.py`,
+`_seed_season_row`) already hardcode `game_type=2` for every row, so this
+fix doesn't change any existing test's expected values.
+
 `_fetch_player_advanced` (`app.py`) replaces its current single-metric
 trend query with one parameterized query producing a flat, season-ordered
 array — one row per `(season_id, strength_state)` — instead of today's
@@ -78,8 +101,16 @@ trend: [
 shape. `tests/test_app_advanced_stats.py`'s
 `test_fetch_player_advanced_includes_trend_across_seasons` is updated for
 the new row shape (still flat/season-ordered — additive change, not a
-rewrite), plus a new case asserting per-60/PDO fields are `null` on
-non-5v5 rows.
+rewrite), plus new cases: per-60/PDO fields are `null` on non-5v5 rows,
+and a `game_type=3` (playoff) row seeded for a season is excluded from
+both `trend` and `strength_states` (covering the `game_type = 2` fix
+above).
+
+`frontend/src/lib/types.ts`'s `AdvancedTrendPoint` type is updated from
+`{ season_id, cf_pct }` to the full new row shape (all fields except
+`season_id`/`strength_state` nullable). `frontend/src/lib/mock-data.ts`'s
+trend fixture is updated to match, for use in the new frontend tests
+below.
 
 ### Frontend: metric definitions
 
@@ -183,6 +214,9 @@ for strength-aware selections; it's a no-op for per60/PDO selections
   `*_per60` fields; the `5v5` row for that season has them populated.
 - New case: `cf_pct`/`ff_pct`/`hdcf_pct`/`primary_points` differ correctly
   across the three strength-state rows for the same season.
+- New case: a `game_type=3` (playoff) row seeded for a player/season is
+  excluded from both `trend` and `strength_states` — covers the
+  `game_type = 2` fix to both queries.
 
 **Frontend** (`PlayerProfilePanel.test.tsx`):
 - Hovering/focusing a box shows its tooltip with the expected name/

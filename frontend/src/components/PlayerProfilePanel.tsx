@@ -11,7 +11,7 @@ import {
   Line,
   XAxis,
   YAxis,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts";
 import type { TooltipContentProps } from "recharts";
@@ -19,8 +19,15 @@ import { User } from "lucide-react";
 import { teamColors, logoUrl } from "@/lib/teamBranding";
 import { formatSeasonId } from "@/lib/utils";
 import type { Player, PlayerStats, PlayerAdvancedStats } from "@/lib/types";
+import { METRIC_DEFINITIONS, type MetricKey } from "@/lib/metricDefinitions";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 const STRENGTH_STATES = ["5v5", "5v4", "4v5"] as const;
+
+const LINE_COLORS = [
+  "var(--color-sky-500)", "var(--color-amber-500)", "var(--color-emerald-500)",
+  "var(--color-rose-500)", "var(--color-violet-500)", "var(--color-cyan-500)",
+];
 
 type FetchState =
   | { status: "loading" }
@@ -28,16 +35,19 @@ type FetchState =
   | { status: "ready"; data: PlayerAdvancedStats };
 
 interface PercentileBoxProps {
+  metricKey: MetricKey;
   label: string;
   value: number | null;
   pctile: number | null;
+  selected: boolean;
+  onToggle: (key: MetricKey) => void;
 }
 
-function PercentileBox({ label, value, pctile }: PercentileBoxProps) {
+function PercentileBox({ metricKey, label, value, pctile, selected, onToggle }: PercentileBoxProps) {
   const color =
     pctile === null ? "bg-muted" : pctile >= 50 ? "bg-sky-500/20" : "bg-rose-500/20";
   return (
-    <div className={`rounded-lg p-3 text-center ${color}`}>
+    <SelectableStatBox metricKey={metricKey} selected={selected} onToggle={onToggle} colorClass={color}>
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="text-2xl font-semibold tabular-nums">
         {pctile === null ? "-" : Math.round(pctile)}
@@ -45,36 +55,82 @@ function PercentileBox({ label, value, pctile }: PercentileBoxProps) {
       <div className="text-xs text-muted-foreground tabular-nums">
         {value === null ? "-" : `${value}%`}
       </div>
-    </div>
+    </SelectableStatBox>
   );
 }
 
 interface ZScoreBoxProps {
+  metricKey: MetricKey;
   label: string;
   rate: number | null | undefined;
   z: number | null | undefined;
   nullReason: string;
-  tooltip?: string;
+  selected: boolean;
+  onToggle: (key: MetricKey) => void;
 }
 
-function ZScoreBox({ label, rate, z, nullReason, tooltip }: ZScoreBoxProps) {
+function ZScoreBox({ metricKey, label, rate, z, nullReason, selected, onToggle }: ZScoreBoxProps) {
   if (z === null || z === undefined) {
     return (
-      <div className="rounded-lg bg-muted p-3 text-center opacity-60" title={nullReason}>
+      <SelectableStatBox metricKey={metricKey} selected={selected} onToggle={onToggle}
+        colorClass="bg-muted opacity-60" extraNote={nullReason}>
         <div className="text-xs text-muted-foreground">{label}</div>
         <div className="text-2xl font-semibold tabular-nums">N/A</div>
-      </div>
+      </SelectableStatBox>
     );
   }
   const color = z >= 0 ? "bg-sky-500/20" : "bg-rose-500/20";
   return (
-    <div className={`rounded-lg p-3 text-center ${color}`} title={tooltip}>
+    <SelectableStatBox metricKey={metricKey} selected={selected} onToggle={onToggle} colorClass={color}>
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="text-2xl font-semibold tabular-nums">{z.toFixed(2)}</div>
       <div className="text-xs text-muted-foreground tabular-nums">
         {rate == null ? "-" : rate.toFixed(2)}
       </div>
-    </div>
+    </SelectableStatBox>
+  );
+}
+
+interface SelectableStatBoxProps {
+  metricKey: MetricKey;
+  selected: boolean;
+  onToggle: (key: MetricKey) => void;
+  colorClass: string;
+  extraNote?: string;
+  children: React.ReactNode;
+}
+
+function SelectableStatBox({ metricKey, selected, onToggle, colorClass, extraNote, children }: SelectableStatBoxProps) {
+  const def = METRIC_DEFINITIONS[metricKey];
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <div
+            role="button"
+            tabIndex={0}
+            aria-pressed={selected}
+            aria-label={def.label}
+            onClick={() => onToggle(metricKey)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onToggle(metricKey);
+              }
+            }}
+            className={`rounded-lg p-3 text-center cursor-pointer ${colorClass} ${selected ? "ring-2 ring-sky-400" : ""}`}
+          />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent>
+        <div className="font-medium">{def.name}</div>
+        <div>{def.description}</div>
+        <div className="text-muted-foreground">{def.formula}</div>
+        {extraNote && <div className="text-muted-foreground italic">{extraNote}</div>}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -92,15 +148,22 @@ function StatCell({ label, value }: StatCellProps) {
   );
 }
 
-export function CFTrendTooltip({ active, payload, label }: Partial<TooltipContentProps<number, string>>) {
+export function TrendTooltip({ active, payload, label }: Partial<TooltipContentProps<number, string>>) {
   if (!active || !payload?.length) return null;
-  const value = payload[0].value;
   return (
     <div className="rounded-lg bg-popover p-2.5 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10">
       <div className="text-xs text-muted-foreground">{formatSeasonId(label ?? "")}</div>
-      <div className="tabular-nums font-semibold">
-        CF% {value == null ? "-" : `${value}%`}
-      </div>
+      {payload.map((entry) => {
+        const key = entry.dataKey as MetricKey;
+        const def = METRIC_DEFINITIONS[key];
+        const value = entry.value;
+        const formatted = value == null ? "-" : def.family === "percentage" ? `${value}%` : String(value);
+        return (
+          <div key={key} className="tabular-nums font-semibold" style={{ color: entry.color }}>
+            {def.label} {formatted}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -161,12 +224,32 @@ export function PlayerProfilePanel({
   const [strengthState, setStrengthState] = useState<(typeof STRENGTH_STATES)[number]>("5v5");
   const [photoFailed, setPhotoFailed] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
+  const [selectedMetrics, setSelectedMetrics] = useState<Set<MetricKey>>(() => new Set(["cf_pct"]));
+
+  function toggleMetric(key: MetricKey) {
+    setSelectedMetrics((prev) => {
+      const first = prev.values().next().value as MetricKey | undefined;
+      const currentFamily = first ? METRIC_DEFINITIONS[first].family : null;
+      const newFamily = METRIC_DEFINITIONS[key].family;
+      if (currentFamily !== null && currentFamily !== newFamily) {
+        return new Set([key]);
+      }
+      const next = new Set(prev);
+      if (next.has(key)) {
+        if (next.size > 1) next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
 
   const isGoalie = (bio?.position_code ?? stats?.position_code) === "G";
 
   useEffect(() => {
     setPhotoFailed(false);
     setLogoFailed(false);
+    setSelectedMetrics(new Set(["cf_pct"]));
   }, [playerId]);
 
   useEffect(() => {
@@ -182,6 +265,11 @@ export function PlayerProfilePanel({
   }, [open, playerId, isGoalie]);
 
   const current = state.status === "ready" ? state.data.strength_states[strengthState] : undefined;
+  const primaryMetricKey = selectedMetrics.values().next().value as MetricKey;
+  const graphStrengthState = METRIC_DEFINITIONS[primaryMetricKey].strengthAware ? strengthState : "5v5";
+  const chartData = state.status === "ready"
+    ? state.data.trend.filter((row) => row.strength_state === graphStrengthState)
+    : [];
   const playerName = stats
     ? `${stats.first_name} ${stats.last_name}`
     : bio
@@ -280,6 +368,7 @@ export function PlayerProfilePanel({
             )}
 
             {state.status === "ready" && (
+              <TooltipProvider delay={300}>
               <div className="flex flex-col gap-4">
                 <div className="flex gap-2">
                   {STRENGTH_STATES.map((s) => (
@@ -295,61 +384,82 @@ export function PlayerProfilePanel({
                 </div>
 
                 <div className="grid grid-cols-5 gap-2">
-                  <PercentileBox label="CF%" value={current?.cf_pct ?? null} pctile={current?.cf_pctile ?? null} />
-                  <PercentileBox label="FF%" value={current?.ff_pct ?? null} pctile={current?.ff_pctile ?? null} />
-                  <PercentileBox label="HDCF%" value={current?.hdcf_pct ?? null} pctile={current?.hdcf_pctile ?? null} />
-                  <PercentileBox
-                    label="Primary Pts"
-                    value={current?.primary_points ?? null}
-                    pctile={current?.primary_points_pctile ?? null}
-                  />
-                  <div className="rounded-lg bg-muted p-3 text-center">
+                  <PercentileBox metricKey="cf_pct" selected={selectedMetrics.has("cf_pct")} onToggle={toggleMetric}
+                    label="CF%" value={current?.cf_pct ?? null} pctile={current?.cf_pctile ?? null} />
+                  <PercentileBox metricKey="ff_pct" selected={selectedMetrics.has("ff_pct")} onToggle={toggleMetric}
+                    label="FF%" value={current?.ff_pct ?? null} pctile={current?.ff_pctile ?? null} />
+                  <PercentileBox metricKey="hdcf_pct" selected={selectedMetrics.has("hdcf_pct")} onToggle={toggleMetric}
+                    label="HDCF%" value={current?.hdcf_pct ?? null} pctile={current?.hdcf_pctile ?? null} />
+                  <PercentileBox metricKey="primary_points" selected={selectedMetrics.has("primary_points")} onToggle={toggleMetric}
+                    label="Primary Pts" value={current?.primary_points ?? null} pctile={current?.primary_points_pctile ?? null} />
+                  <SelectableStatBox metricKey="pdo" selected={selectedMetrics.has("pdo")} onToggle={toggleMetric} colorClass="bg-muted">
                     <div className="text-xs text-muted-foreground">PDO</div>
                     <div className="text-2xl font-semibold tabular-nums">
                       {state.data.pdo === null ? "-" : state.data.pdo}
                     </div>
-                  </div>
+                  </SelectableStatBox>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
-                  <ZScoreBox label="Shots/60"
+                  <ZScoreBox metricKey="shots_per60" selected={selectedMetrics.has("shots_per60")} onToggle={toggleMetric}
+                    label="Shots/60"
                     rate={state.data.strength_states["5v5"]?.shots_per60}
                     z={state.data.strength_states["5v5"]?.shots_per60_z}
                     nullReason="Below the 10-GP floor, or league sample too small this season" />
-                  <ZScoreBox label="Chances/60"
+                  <ZScoreBox metricKey="chances_per60" selected={selectedMetrics.has("chances_per60")} onToggle={toggleMetric}
+                    label="Chances/60"
                     rate={state.data.strength_states["5v5"]?.chances_per60}
                     z={state.data.strength_states["5v5"]?.chances_per60_z}
                     nullReason="Below the 10-GP floor, league sample too small this season, or high-danger zone data unavailable for this era" />
-                  <ZScoreBox label="Rebounds Created/60"
+                  <ZScoreBox metricKey="rebounds_created_per60" selected={selectedMetrics.has("rebounds_created_per60")} onToggle={toggleMetric}
+                    label="Rebounds Created/60"
                     rate={state.data.strength_states["5v5"]?.rebounds_created_per60}
                     z={state.data.strength_states["5v5"]?.rebounds_created_per60_z}
-                    nullReason="Below the 10-GP floor, or league sample too small this season"
-                    tooltip="Heuristic: a shot attempt within 3 seconds of this player's own shot attempt, same team. Not possession-confirmed." />
-                  <ZScoreBox label="Deflections/60"
+                    nullReason="Below the 10-GP floor, or league sample too small this season" />
+                  <ZScoreBox metricKey="deflections_per60" selected={selectedMetrics.has("deflections_per60")} onToggle={toggleMetric}
+                    label="Deflections/60"
                     rate={state.data.strength_states["5v5"]?.deflections_per60}
                     z={state.data.strength_states["5v5"]?.deflections_per60_z}
                     nullReason="Below the 10-GP floor, or league sample too small this season" />
-                  <ZScoreBox label="Points/60"
+                  <ZScoreBox metricKey="points_per60" selected={selectedMetrics.has("points_per60")} onToggle={toggleMetric}
+                    label="Points/60"
                     rate={state.data.strength_states["5v5"]?.points_per60}
                     z={state.data.strength_states["5v5"]?.points_per60_z}
                     nullReason="Below the 10-GP floor, or league sample too small this season" />
-                  <ZScoreBox label="Primary Points/60"
+                  <ZScoreBox metricKey="primary_points_per60" selected={selectedMetrics.has("primary_points_per60")} onToggle={toggleMetric}
+                    label="Primary Points/60"
                     rate={state.data.strength_states["5v5"]?.primary_points_per60}
                     z={state.data.strength_states["5v5"]?.primary_points_per60_z}
                     nullReason="Below the 10-GP floor, or league sample too small this season" />
                 </div>
 
-                <div className="h-40 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={state.data.trend}>
-                      <XAxis dataKey="season_id" tickFormatter={formatSeasonId} tick={{ fontSize: 10 }} />
-                      <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip content={<CFTrendTooltip />} filterNull={false} />
-                      <Line type="monotone" dataKey="cf_pct" stroke="var(--color-sky-500)" dot />
-                    </LineChart>
-                  </ResponsiveContainer>
+                <div className="flex flex-col gap-1">
+                  <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                    {Array.from(selectedMetrics).map((key, i) => (
+                      <span key={key} className="flex items-center gap-1">
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: LINE_COLORS[i % LINE_COLORS.length] }}
+                        />
+                        {METRIC_DEFINITIONS[key].label}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="h-40 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData}>
+                        <XAxis dataKey="season_id" tickFormatter={formatSeasonId} tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} />
+                        <RechartsTooltip content={<TrendTooltip />} filterNull={false} />
+                        {Array.from(selectedMetrics).map((key, i) => (
+                          <Line key={key} type="monotone" dataKey={key} stroke={LINE_COLORS[i % LINE_COLORS.length]} dot />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
+              </TooltipProvider>
             )}
           </>
         )}
