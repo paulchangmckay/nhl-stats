@@ -8,6 +8,7 @@ PORT=5099
 URL="http://127.0.0.1:${PORT}/"
 LOG_DIR="$PROJECT_DIR/.run"
 LOG_FILE="$LOG_DIR/app.log"
+BUILT_SHA_FILE="$LOG_DIR/built-sha"
 
 mkdir -p "$LOG_DIR"
 
@@ -116,7 +117,7 @@ BEFORE_SHA=$(git rev-parse HEAD)
 AFTER_SHA=$(sync_with_origin)
 
 NEEDS_REBUILD=false
-if [ "$AFTER_SHA" != "$BEFORE_SHA" ] || [ ! -d "$PROJECT_DIR/static/dist" ]; then
+if [ ! -d "$PROJECT_DIR/static/dist" ] || [ ! -f "$BUILT_SHA_FILE" ] || [ "$(cat "$BUILT_SHA_FILE" 2>/dev/null)" != "$AFTER_SHA" ]; then
   NEEDS_REBUILD=true
 fi
 
@@ -128,6 +129,7 @@ if [ "$NEEDS_REBUILD" = false ]; then
 else
   kill_stale_server
   rebuild_frontend "$BEFORE_SHA" "$AFTER_SHA"
+  echo "$AFTER_SHA" > "$BUILT_SHA_FILE"
 fi
 
 if [ ! -f "$PROJECT_DIR/.venv/bin/activate" ]; then
