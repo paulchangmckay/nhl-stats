@@ -71,8 +71,8 @@ export interface AdvancedStrengthState {
   ff: number;
   fa: number;
   ff_pct: number | null;
-  hdcf: number;
-  hdca: number;
+  hdcf: number | null;
+  hdca: number | null;
   hdcf_pct: number | null;
   primary_points: number;
   cf_pctile: number | null;
