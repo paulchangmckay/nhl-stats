@@ -44,3 +44,27 @@
 [2026-07-16T22:00:00.826Z] [INFO] Executing task: Full anatomy rescan
 [2026-07-16T22:00:01.115Z] [ERROR] Task Full anatomy rescan failed (attempt 15): Cannot read properties of undefined (reading 'push')
 [2026-07-16T22:00:01.116Z] [ERROR] Task anatomy-rescan failed: TypeError: Cannot read properties of undefined (reading 'push')
+[2026-07-28T04:00:00.233Z] [INFO] Executing task: Full anatomy rescan
+[2026-07-28T04:00:00.409Z] [ERROR] Task Full anatomy rescan failed (attempt 30): Cannot read properties of undefined (reading 'push')
+[2026-07-28T04:00:00.409Z] [ERROR] Task anatomy-rescan failed: TypeError: Cannot read properties of undefined (reading 'push')
+[2026-07-28T22:00:00.822Z] [INFO] Executing task: Full anatomy rescan
+[2026-07-28T22:00:01.079Z] [ERROR] Task Full anatomy rescan failed (attempt 31): Cannot read properties of undefined (reading 'push')
+[2026-07-28T22:00:01.079Z] [ERROR] Task anatomy-rescan failed: TypeError: Cannot read properties of undefined (reading 'push')
+[2026-07-29T04:00:00.247Z] [INFO] Executing task: Full anatomy rescan
+[2026-07-29T04:00:00.412Z] [ERROR] Task Full anatomy rescan failed (attempt 32): Cannot read properties of undefined (reading 'push')
+[2026-07-29T04:00:00.412Z] [ERROR] Task anatomy-rescan failed: TypeError: Cannot read properties of undefined (reading 'push')
+[2026-07-29T22:00:00.570Z] [INFO] Executing task: Full anatomy rescan
+[2026-07-29T22:00:00.752Z] [ERROR] Task Full anatomy rescan failed (attempt 33): Cannot read properties of undefined (reading 'push')
+[2026-07-29T22:00:00.752Z] [ERROR] Task anatomy-rescan failed: TypeError: Cannot read properties of undefined (reading 'push')
+[2026-07-30T04:00:00.191Z] [INFO] Executing task: Full anatomy rescan
+[2026-07-30T04:00:00.464Z] [ERROR] Task Full anatomy rescan failed (attempt 34): Cannot read properties of undefined (reading 'push')
+[2026-07-30T04:00:00.464Z] [ERROR] Task anatomy-rescan failed: TypeError: Cannot read properties of undefined (reading 'push')
+[2026-07-31T04:00:00.513Z] [INFO] Executing task: Full anatomy rescan
+[2026-07-31T04:00:00.700Z] [ERROR] Task Full anatomy rescan failed (attempt 35): Cannot read properties of undefined (reading 'push')
+[2026-07-31T04:00:00.701Z] [ERROR] Task anatomy-rescan failed: TypeError: Cannot read properties of undefined (reading 'push')
+[2026-07-31T22:00:00.578Z] [INFO] Executing task: Full anatomy rescan
+[2026-07-31T22:00:00.900Z] [ERROR] Task Full anatomy rescan failed (attempt 36): Cannot read properties of undefined (reading 'push')
+[2026-07-31T22:00:00.901Z] [ERROR] Task anatomy-rescan failed: TypeError: Cannot read properties of undefined (reading 'push')
+[2026-08-01T04:00:00.169Z] [INFO] Executing task: Full anatomy rescan
+[2026-08-01T04:00:00.418Z] [ERROR] Task Full anatomy rescan failed (attempt 37): Cannot read properties of undefined (reading 'push')
+[2026-08-01T04:00:00.418Z] [ERROR] Task anatomy-rescan failed: TypeError: Cannot read properties of undefined (reading 'push')

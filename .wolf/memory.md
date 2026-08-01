@@ -156,3 +156,16 @@
 | — | Discovered recurring rebase conflict | — | local main's OWN old doc commits (content-identical to already-squash-merged PRs, different SHAs) will conflict on every future auto-sync rebase; `git merge` tolerates this, `git rebase` does not | — |
 | — | User ran `git reset --hard origin/main` | — | permanently ends the recurring conflict; confirmed zero divergence afterward | — |
 | — | Learned (the hard way): local-only commits to main get discarded by reset | .wolf/cerebrum.md, .wolf/memory.md | first attempt at merge-conflict-resolution for these files was committed directly to local main (violating this project's own documented convention) and was wiped out by the reset since it was never pushed; redone via a proper worktree + PR (this session-reflect commit) | — |
+
+## Session: 2026-07-30 (missing player data + historical data expansion)
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| — | Investigated "some stat data missing for some players" | .wolf/buglog.json, sync_log, players.enriched_at | root cause: scripts/sync.py hadn't run since 2026-07-02/03 (manual-only, no scheduler) despite new player stubs arriving via load_boxscores | — |
+| — | Fixed + logged bug-021 | scripts/sync.py (run, no code change) | 807 players/34 rosters refreshed, 1410 season-stat rows resynced for 20252026, 1100/1101 players enriched; enriched_at NULL count 57 → 0 | — |
+| — | Discovered + logged bug-022 (open) | etl/load_season_stats.py | 25 goalies (1-4 GP each, mostly emergency backup goalies) have player_game_stats but no player_season_stats row even after resync — NHL stats REST bulk endpoint appears to exclude them below some games/roster threshold; needs a local-aggregation fallback, not yet fixed | — |
+| — | Brainstormed historical data expansion | docs/superpowers/specs/2026-07-30-historical-data-expansion-design.md | design spec: add seasons 20172018-20192020, full parity, run all 3 at once (user's explicit choice over staged rollout); approved, committed | — |
+| — | Filed GitHub issue #83 for bug-022, created worktree | .worktrees/83-goalie-season-stats-fallback, branch fix/83-goalie-season-stats-fallback | TDD implementation started | — |
+| — | Mid-implementation discovery: goalie stats never captured | etl/load_boxscores.py, src/database.py | player_game_stats has 0 for every column for ALL goalies in ALL seasons, even full-60-min games (verified: player 8483548, game 2025030416) — original bug-022 fix (aggregate from player_game_stats) can't work for goalies at all, it's not specific to the 25 low-GP ones | — |
+| — | User decision: skaters now, goalies as separate issue | — | scope narrowed on #83, filed #84 for the goalie per-game-stats gap (schema migration + load_boxscores.py + historical backfill — a real feature, not a patch) | — |
+| — | Fixed bug-022 (skaters only) via TDD | etl/load_season_stats.py, tests/test_load_season_stats.py | added `_fill_missing_skater_season_stats()`; 3 new tests, red-green verified, 108/108 suite passing, bandit clean; goalies intentionally excluded (see bug-023/#84) | — |

@@ -365,6 +365,68 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-07-27T00:00:00.000Z"
+    },
+    {
+      "id": "bug-021",
+      "timestamp": "2026-07-31T03:39:08Z",
+      "error_message": "User reported 'some NHL stat data is missing for some players' -- 57 players stuck as boxscore stubs (truncated names like 'T. Gauthier', no bio/height/headshot), 25 players missing season-stats rows for the current season, roster potentially stale.",
+      "file": "scripts/sync.py, etl/enrich_players.py, etl/load_season_stats.py",
+      "root_cause": "scripts/sync.py / run_all_etl.py had not been run since 2026-07-02/07-03 (confirmed via MAX(players.enriched_at) and sync_log timestamps), even though new player stubs kept arriving via load_boxscores as new games were played. This is a manual, non-scheduled project (no cron/launchd job runs sync) -- the gap was purely operational staleness, not a code defect. Verified the fix path first: fetched live landing-API data for one affected player (8481526, Taylor Gauthier) to confirm enrichment would succeed before running.",
+      "fix": "Ran `python scripts/sync.py` (rosters + incremental season stats + player enrichment). Result: 807 players refreshed across 34 rosters, 1410 season-stat rows reloaded for 20252026, 1100/1101 players enriched (1 transient SSL error on a re-enrichment retry, not a data gap -- that player was already enriched from a prior run). Verified via SQL: `players.enriched_at IS NULL` count went from 57 to 0.",
+      "tags": [
+        "etl",
+        "staleness",
+        "deployment-gap",
+        "data-gap",
+        "operational"
+      ],
+      "related_bugs": [
+        "bug-016"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-07-31T03:39:08Z"
+    },
+    {
+      "id": "bug-022",
+      "timestamp": "2026-07-31T03:39:08Z",
+      "error_message": "25 goalies (all with only 1-4 games played this season, mostly emergency backup goalies e.g. Taylor Gauthier, Matt Villalta) have player_game_stats rows but no player_season_stats row for 20252026, even immediately after a full season-stats resync. [UPDATED: scope narrowed to skaters after investigation revealed goalie per-game stats were never captured at all -- see bug-023.]",
+      "file": "etl/load_season_stats.py",
+      "root_cause": "NOT YET FIXED -- open finding, not a staleness issue like bug-021. load_season_stats.py's _load_player_type() pages exclusively through the NHL stats REST API's bulk /goalie/summary (and /skater/summary) leaderboard endpoint. That endpoint appears to exclude goalies below some minimum-games/roster-status threshold -- likely an API-side filter for emergency/AHL call-up goalies -- so no rerun of the existing pipeline will ever produce a season_stats row for these 25 players. Confirmed via direct SQL: all 25 affected players are position_code='G' with games_played 1-4 in player_game_stats, and the gap persisted immediately after a full resync of season_stats:20252026.",
+      "fix": "FIXED for skaters (GitHub issue #83, PR pending): added etl/load_season_stats.py:_fill_missing_skater_season_stats(), which aggregates gp/goals/assists/points/plus_minus/pim/shots/shooting_pct/avg_toi/team_abbrevs directly from player_game_stats for any skater with games in a season/game_type but no bulk-API row. Goalies remain unfixed -- see bug-023/issue #84, since player_game_stats has no goaltending columns to aggregate from. Verified via TDD red-green cycle (3 new tests in tests/test_load_season_stats.py fail without the fix, pass with it) plus a full 108-test regression pass and clean bandit scan.",
+      "tags": [
+        "etl",
+        "goalies",
+        "fixed-partial",
+        "open",
+        "season-stats",
+        "data-gap",
+        "api-limitation"
+      ],
+      "related_bugs": [
+        "bug-021"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-07-31T04:03:04Z"
+    },
+    {
+      "id": "bug-023",
+      "timestamp": "2026-07-31T04:03:04Z",
+      "error_message": "player_game_stats has never captured goaltending stats (saves/shots-against/decision) for any goalie, in any season -- discovered while implementing the bug-022 fix. Verified: even a goalie who played a full 60-minute game (player 8483548, game 2025030416) has 0 for every stat column in player_game_stats.",
+      "file": "etl/load_boxscores.py, src/database.py",
+      "root_cause": "NOT YET FIXED -- open, tracked as GitHub issue #84. etl/load_boxscores.py's _extract_player_stats() only reads the generic skater-shaped fields from the boxscore API (goals/assists/points/plusMinus/pim/hits/sog/blockedShots/toi). The boxscore API does return goalie-specific fields (saves, shotsAgainst, goalsAgainst, decision, etc. -- confirmed via a live API call against game 2025021223) but they're discarded on the way in, and player_game_stats's schema has no columns for them.",
+      "fix": "NOT YET FIXED -- deferred, needs its own design pass (schema migration + load_boxscores.py change + historical backfill re-reading ~8,000 games' boxscores), not a quick patch. User explicitly chose to scope this out of bug-022/#83 and track separately.",
+      "tags": [
+        "etl",
+        "goalies",
+        "schema-gap",
+        "data-gap",
+        "open"
+      ],
+      "related_bugs": [
+        "bug-022"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-07-31T04:03:04Z"
     }
   ]
 }
