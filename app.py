@@ -271,7 +271,9 @@ def _fetch_player_advanced(conn, player_id, season_id):
         entry = {
             "cf": r["cf"], "ca": r["ca"], "cf_pct": _pct(r["cf"], r["cf"] + r["ca"]),
             "ff": r["ff"], "fa": r["fa"], "ff_pct": _pct(r["ff"], r["ff"] + r["fa"]),
-            "hdcf": r["hdcf"], "hdca": r["hdca"], "hdcf_pct": _pct(r["hdcf"], r["hdcf"] + r["hdca"]),
+            "hdcf": r["hdcf"], "hdca": r["hdca"],
+            "hdcf_pct": (_pct(r["hdcf"], r["hdcf"] + r["hdca"])
+                         if r["hdcf"] is not None and r["hdca"] is not None else None),
             "primary_points": r["primary_points"],
             "cf_pctile": pctile["cf_pct_pctile"] if pctile else None,
             "ff_pctile": pctile["ff_pct_pctile"] if pctile else None,
@@ -282,7 +284,8 @@ def _fetch_player_advanced(conn, player_id, season_id):
             toi_hours = r["toi_seconds"] / 3600.0 if r["toi_seconds"] else None
             entry.update({
                 "shots_per60": round(r["icf"] / toi_hours, 2) if toi_hours else None,
-                "chances_per60": round(r["ihdcf"] / toi_hours, 2) if toi_hours else None,
+                "chances_per60": (round(r["ihdcf"] / toi_hours, 2)
+                                  if toi_hours and r["ihdcf"] is not None else None),
                 "rebounds_created_per60": round(r["rebounds_created"] / toi_hours, 2) if toi_hours else None,
                 "deflections_per60": round(r["deflections"] / toi_hours, 2) if toi_hours else None,
                 "points_per60": round(r["points"] / toi_hours, 2) if toi_hours else None,

@@ -15,12 +15,31 @@ against the DB), and no validation rejects season IDs outside 2020-2026. The two
 (confirmed via codebase search — see Non-Goals for what was checked and ruled out).
 
 Pre-2020 NHL data is untested territory for this project: there is no prior
-cerebrum/buglog entry about older-season data quality, and community knowledge
-suggests older shift-chart/play-by-play data can be sparser or differently
-formatted than recent seasons. This spec proceeds on the recommendation to run
-all 3 seasons in one pass (user's explicit choice over a staged single-season
-spot-check), accepting that any format surprise surfaces as warning-count spikes
-in script output rather than being caught before committing to the full range.
+cerebrum/buglog entry about older-season data quality. This spec proceeds on
+the recommendation to run all 3 seasons in one pass (user's explicit choice
+over a staged single-season spot-check), accepting that any format surprise
+surfaces as warning-count spikes in script output rather than being caught
+before committing to the full range.
+
+**Confirmed during grilling (live API calls, not speculation):** for
+shot-attempt event types specifically (`shot-on-goal`, `missed-shot`,
+`blocked-shot`, `goal` — the only types `_is_high_danger()` in
+`etl/advanced_stats/sweep.py` is ever called on), `homeTeamDefendingSide` is
+**entirely absent** in 2017-18 and 2018-19 (0/124 and 0/136 shot-attempt plays
+tested), and **fully present** in 2019-20 (matching current-season behavior).
+An earlier partial-coverage reading for 2019-20 (316/376 plays) turned out to
+be a red herring: the missing 60 were all `stoppage`/`period-end`/`game-end`
+events, which never carry the field in any era and are irrelevant to
+high-danger computation. So the real impact is scoped precisely to **2017-18
+and 2018-19 only**.
+
+`_is_high_danger()` returns `False` (not an error, not `None`) when
+`home_team_defending_side is None` for a given shot. Left unaddressed, this
+means HDCF/HDCA for 2017-18/2018-19 wouldn't be *missing* — they'd silently
+compute to near-zero, indistinguishable from a real (if implausible) "team
+generated almost no high-danger chances" reading. This spec now includes a
+fix for that (see Scope item 6 and HD-Stat NULL Propagation below), rather
+than shipping data that looks real but isn't.
 
 ## Scope
 
@@ -45,6 +64,12 @@ in script output rather than being caught before committing to the full range.
    8. `python etl/enrich_players.py`
 5. Run the existing test suites (`pytest tests/ -v`, `node --test tests/js/search.test.js`,
    plus `frontend`'s test runner) afterward as a regression check.
+6. **HD-stat NULL propagation** (added during grilling — see HD-Stat NULL
+   Propagation section below): a small code change to `etl/advanced_stats/sweep.py`
+   and `etl/compute_advanced_stats.py` so that a game with zero rink-side
+   coverage on its shot-attempt plays stores `hdcf`/`hdca`/`ihdcf` as `NULL`
+   for that game, instead of silently aggregating to a misleadingly-low
+   real number.
 
 **Out of scope / non-goals:**
 - No new scripts, no CLI-configurable season ranges. The `SEASONS` lists stay
@@ -53,9 +78,10 @@ in script output rather than being caught before committing to the full range.
 - No changes to `run_all_etl.py` or `scripts/sync.py` — both already iterate
   whatever the `SEASONS` lists (or `sync_log`/`NOT EXISTS` gates) say, so they
   pick up the new seasons automatically once the constants change.
-- No changes to `etl/advanced_stats/decoding.py` or `sweep.py` — their game-ID
-  references (e.g. `2020020003`) are illustrative doc comments only, not
-  season-range gates.
+- No changes to `etl/advanced_stats/decoding.py` — its game-ID references
+  (e.g. `2020020003`) are illustrative doc comments only, not season-range
+  gates. (`sweep.py` **does** change now, per Scope item 6 above — the
+  original assumption that it wouldn't need to didn't survive grilling.)
 - Frontend/backend test files were checked (`SeasonPicker.test.tsx`,
   `Toolbar.test.tsx`, `App.test.tsx`, `PlayerProfilePanel.test.tsx`,
   `tests/test_load_historical_schedule.py`) — none assert the full season list
@@ -79,6 +105,38 @@ a no-op if the older seasons' API responses include the field like current
 seasons do, and fills the gap automatically if they don't — without needing to
 know in advance which case applies.
 
+## HD-Stat NULL Propagation
+
+`etl/advanced_stats/sweep.py`'s `player_row()`/`team_row()` initialize `hdcf`/
+`hdca` (and the individual variant `ihdcf`) as plain integer counters starting
+at `0`, incremented whenever `_is_high_danger()` returns `True` for a shot.
+There's currently no way to distinguish "this game genuinely had zero
+high-danger chances" from "this game's data can't tell us." The fix:
+
+1. **Per-game detection, computed once** (not per-shot): before building
+   player/team rows for a game, check whether *any* shot-attempt-type play
+   (`shot-on-goal`/`missed-shot`/`blocked-shot`/`goal`) in that game carries a
+   non-null `home_team_defending_side`. If none do, mark the game as
+   `hd_data_unavailable = True` for the rest of processing.
+2. **Row initialization**: when `hd_data_unavailable`, initialize `hdcf`/
+   `hdca`/`ihdcf` as `None` instead of `0`, and skip incrementing them
+   entirely (incrementing `None` would error, and there's nothing meaningful
+   to increment toward anyway).
+3. **Season/career aggregation needs no change.** `compute_advanced_stats.py:105`
+   already aggregates via `SUM(pgas.hdcf)`, and standard SQL `SUM()` ignores
+   `NULL` rows rather than treating them as zero — a player's season HDCF
+   naturally sums only across the games where the data actually exists,
+   verified by inspection of the existing query rather than assumed.
+4. **Percentile/rate computations** (`_hd_pct_of()` at `compute_advanced_stats.py:150`,
+   the z-score functions) already guard their denominators (`if (row["hdcf"] + row["hdca"]) else 0`)
+   — these need a `None`-check added alongside the existing zero-check, since
+   `None + None` raises `TypeError` where `0 + 0` doesn't.
+
+This only affects 2017-18 and 2018-19 per the confirmed data above; every
+other season (including the 3 currently in the middle of being added,
+2019-20, and all 6 pre-existing seasons) is unaffected and behaves exactly as
+today.
+
 ## Error Handling
 
 No new error-handling code. Every existing script already wraps per-game API
@@ -94,12 +152,17 @@ closer look on this run than it normally would.
 
 ## Testing
 
-No new logic is introduced (this is a data-constant change plus reruns of
-existing, already-tested ETL scripts), so no new unit tests are needed. Full
-regression pass: `python -m pytest tests/ -v`, `node --test tests/js/search.test.js`,
-and the frontend test runner, all run after the constant changes and before the
-backfill is considered done, to confirm nothing implicitly assumed a 6-season
-range.
+The `SEASONS`-constant changes and backfill rerun introduce no new logic, so
+no new tests are needed for those parts. The HD-stat NULL propagation (Scope
+item 6) **does** need new tests, following this project's established TDD
+convention (see `tests/test_sweep.py` for the existing per-game aggregation
+test pattern): one test confirming a game with zero rink-side coverage on its
+shot-attempt plays produces `hdcf`/`hdca`/`ihdcf` as `NULL`, and one
+confirming a game with full coverage (today's existing behavior) is
+unaffected. Full regression pass: `python -m pytest tests/ -v`,
+`node --test tests/js/search.test.js`, and the frontend test runner, all run
+after all code changes and before the backfill is considered done, to confirm
+nothing implicitly assumed a 6-season range or non-null HD stats.
 
 ## Sizing
 
