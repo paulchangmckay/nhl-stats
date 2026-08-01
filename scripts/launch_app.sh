@@ -49,14 +49,14 @@ sync_with_origin() {
     return 0
   fi
 
-  if ! git rebase origin/main >> "$LOG_FILE" 2>&1; then
-    git rebase --abort >> "$LOG_FILE" 2>&1
+  if ! git merge --no-edit origin/main >> "$LOG_FILE" 2>&1; then
+    git merge --abort >> "$LOG_FILE" 2>&1
     if [ "$dirty" = true ] && ! git stash pop >> "$LOG_FILE" 2>&1; then
       alert "Auto-sync hit a conflict merging GitHub changes, then hit a second conflict restoring your local changes. Resolve manually in a terminal (see git stash list). Launching on the current local state for now."
       echo "$before_sha"
       return 0
     fi
-    alert "Auto-sync hit a conflict merging the latest GitHub changes. Resolve manually in a terminal (git rebase origin/main), then relaunch. Launching on the current local state for now."
+    alert "Auto-sync hit a conflict merging the latest GitHub changes. Resolve manually in a terminal (git merge origin/main), then relaunch. Launching on the current local state for now."
     echo "$before_sha"
     return 0
   fi
