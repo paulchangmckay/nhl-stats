@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { PlayerProfilePanel, CFTrendTooltip } from "./PlayerProfilePanel";
+import { PlayerProfilePanel, TrendTooltip } from "./PlayerProfilePanel";
 import { MOCK_PLAYERS, MOCK_STATS } from "@/lib/mock-data";
 import type { PlayerAdvancedStats } from "@/lib/types";
 
@@ -25,8 +25,15 @@ const MOCK_ADVANCED: PlayerAdvancedStats = {
     },
   },
   trend: [
-    { season_id: "20232024", cf_pct: 55.0 },
-    { season_id: "20242025", cf_pct: 60.0 },
+    { season_id: "20232024", strength_state: "5v5", cf_pct: 55.0, ff_pct: 54.0, hdcf_pct: 58.0,
+      primary_points: 10, pdo: 998.0, shots_per60: 20.0, chances_per60: 6.0,
+      rebounds_created_per60: 3.0, deflections_per60: 1.0, points_per60: 15.0, primary_points_per60: 10.0 },
+    { season_id: "20242025", strength_state: "5v5", cf_pct: 60.0, ff_pct: 60.0, hdcf_pct: 66.7,
+      primary_points: 15, pdo: 1005.3, shots_per60: 24.0, chances_per60: 8.0,
+      rebounds_created_per60: 4.0, deflections_per60: 2.0, points_per60: 20.0, primary_points_per60: 15.0 },
+    { season_id: "20242025", strength_state: "5v4", cf_pct: 80.0, ff_pct: 83.3, hdcf_pct: 80.0,
+      primary_points: 5, pdo: null, shots_per60: null, chances_per60: null,
+      rebounds_created_per60: null, deflections_per60: null, points_per60: null, primary_points_per60: null },
   ],
   pdo: 1005.3,
 };
@@ -184,40 +191,153 @@ describe("PlayerProfilePanel", () => {
     );
     await waitFor(() => expect(screen.getAllByText("N/A").length).toBeGreaterThan(0));
   });
+
+  it("highlights CF% by default and toggles selection within the percentage family", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    const cfBox = screen.getByRole("button", { name: "CF%" });
+    expect(cfBox).toHaveAttribute("aria-pressed", "true");
+
+    const ffBox = screen.getByRole("button", { name: /FF%/ });
+    expect(ffBox).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(ffBox);
+    expect(ffBox).toHaveAttribute("aria-pressed", "true");
+    expect(cfBox).toHaveAttribute("aria-pressed", "true"); // both selected, same family
+  });
+
+  it("clicking a box in a different family replaces the selection", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    const cfBox = screen.getByRole("button", { name: "CF%" });
+    const pdoBox = screen.getByRole("button", { name: /PDO/ });
+
+    await userEvent.click(pdoBox);
+    expect(pdoBox).toHaveAttribute("aria-pressed", "true");
+    expect(cfBox).toHaveAttribute("aria-pressed", "false"); // replaced, different family
+  });
+
+  it("clicking the sole selected box is a no-op (never empties the selection)", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    const cfBox = screen.getByRole("button", { name: "CF%" });
+    await userEvent.click(cfBox);
+    expect(cfBox).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("shows the metric's name, description, and formula on hover", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    const cfBox = screen.getByRole("button", { name: "CF%" });
+    await userEvent.hover(cfBox);
+    expect(await screen.findByText("Corsi For %")).toBeInTheDocument();
+    expect(screen.getByText("cf / (cf + ca) × 100")).toBeInTheDocument();
+  });
+
+  it("shows a single CF% line by default", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    expect(screen.getByText("CF%", { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("adding a second metric in the same family adds a second line to the legend", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    await userEvent.click(screen.getByRole("button", { name: /FF%/ }));
+    expect(screen.getByText("CF%", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("FF%", { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("switching strength state re-filters the graph for a strength-aware selection", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    // MOCK_ADVANCED.trend has one 5v4 row (season 20242025) and two 5v5 rows.
+    await userEvent.click(screen.getByRole("button", { name: "5v4" }));
+    await waitFor(() => expect(screen.getByText("55")).toBeInTheDocument()); // 5v4 cf_pctile, sanity check toggle worked
+    // With 5v4 active and cf_pct (strength-aware) selected, chart data should be the single 5v4 trend row.
+    // Verified indirectly: no crash, still one legend entry.
+    expect(screen.getByText("CF%", { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("selecting a per60 metric ignores the strength-state toggle (always 5v5)", async () => {
+    render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    await userEvent.click(screen.getByRole("button", { name: /Shots\/60/ }));
+    await userEvent.click(screen.getByRole("button", { name: "5v4" }));
+    expect(screen.getByText("Shots/60", { selector: "span" })).toBeInTheDocument();
+  });
 });
 
-describe("CFTrendTooltip", () => {
-  it("shows the friendly season and formatted CF% value when active", () => {
+describe("TrendTooltip", () => {
+  it("shows the friendly season and each selected metric's formatted value when active", () => {
     render(
-      <CFTrendTooltip
+      <TrendTooltip
         active
-        payload={[{ value: 55, graphicalItemId: "cf_pct" }]}
+        payload={[
+          { dataKey: "cf_pct", value: 55, color: "blue", graphicalItemId: "cf_pct" },
+          { dataKey: "ff_pct", value: 60, color: "orange", graphicalItemId: "ff_pct" },
+        ]}
         label="20232024"
       />
     );
     expect(screen.getByText("2023–24")).toBeInTheDocument();
     expect(screen.getByText("CF% 55%")).toBeInTheDocument();
+    expect(screen.getByText("FF% 60%")).toBeInTheDocument();
+  });
+
+  it("formats a non-percentage metric without a % suffix", () => {
+    render(
+      <TrendTooltip
+        active
+        payload={[{ dataKey: "shots_per60", value: 12.34, color: "blue", graphicalItemId: "shots_per60" }]}
+        label="20232024"
+      />
+    );
+    expect(screen.getByText("Shots/60 12.34")).toBeInTheDocument();
   });
 
   it("renders nothing when inactive", () => {
     const { container } = render(
-      <CFTrendTooltip active={false} payload={[{ value: 55, graphicalItemId: "cf_pct" }]} label="20232024" />
+      <TrendTooltip active={false} payload={[{ dataKey: "cf_pct", value: 55, color: "blue", graphicalItemId: "cf_pct" }]} label="20232024" />
     );
     expect(container).toBeEmptyDOMElement();
   });
 
   it("renders nothing when payload is empty", () => {
     const { container } = render(
-      <CFTrendTooltip active payload={[]} label="20232024" />
+      <TrendTooltip active payload={[]} label="20232024" />
     );
     expect(container).toBeEmptyDOMElement();
   });
 
   it("shows a dash for a null value instead of the literal null", () => {
     render(
-      <CFTrendTooltip
+      <TrendTooltip
         active
-        payload={[{ value: null as unknown as number, graphicalItemId: "cf_pct" }]} // Recharts' ValueType omits null even though filterNull={false} lets it reach here at runtime
+        payload={[{ dataKey: "cf_pct", value: null as unknown as number, color: "blue", graphicalItemId: "cf_pct" }]} // Recharts' ValueType omits null even though filterNull={false} lets it reach here at runtime
         label="20232024"
       />
     );

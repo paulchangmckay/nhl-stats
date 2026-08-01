@@ -18,8 +18,9 @@ NHL Web API — `https://api-web.nhle.com/v1/` (free, no auth required)
 ## Setup
 
 ```bash
-# 1. Create a virtual environment
-python3 -m venv .venv
+# 1. Create a virtual environment (Python 3.12 required — libsql has no
+#    prebuilt wheel for 3.14 yet; matches the version CI uses)
+python3.12 -m venv .venv
 source .venv/bin/activate
 
 # 2. Install dependencies
