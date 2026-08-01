@@ -326,3 +326,41 @@ def test_compute_zscores_filters_by_game_type_regular_season_only(conn):
     module.compute_zscores(conn, season_id="20242025")
     row = conn.execute("SELECT * FROM player_rate_zscores WHERE player_id = 21").fetchone()
     assert row is None
+
+
+def test_compute_percentiles_hdcf_pctile_null_when_hdcf_null_excluded_from_population(conn):
+    # Player 1 and 2 have real HD data; player 3's season HD data is NULL
+    # (e.g. a 2017-18/2018-19 season with zero rink-side coverage all year).
+    for player_id, hdcf, hdca in [(1, 8, 2), (2, 4, 4)]:
+        database.upsert_player_stub(conn, {
+            "player_id": player_id, "first_name": "P", "last_name": str(player_id),
+            "position_code": "C", "shoots_catches": None,
+        })
+        conn.execute("""
+            INSERT INTO player_season_advanced_stats
+                (player_id, season_id, game_type, team_abbrevs, strength_state,
+                 cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp)
+            VALUES (?, '20172018', 2, 'HOM', '5v5', 20, 10, 20, 10, ?, ?, 1, 1, 1, 900, 12)
+        """, (player_id, hdcf, hdca))
+    database.upsert_player_stub(conn, {
+        "player_id": 3, "first_name": "P", "last_name": "3",
+        "position_code": "C", "shoots_catches": None,
+    })
+    conn.execute("""
+        INSERT INTO player_season_advanced_stats
+            (player_id, season_id, game_type, team_abbrevs, strength_state,
+             cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp)
+        VALUES (3, '20172018', 2, 'HOM', '5v5', 20, 10, 20, 10, NULL, NULL, 1, 1, 1, 900, 12)
+    """)
+    conn.commit()
+
+    module.compute_percentiles(conn, season_id="20172018")
+
+    p1 = conn.execute(
+        "SELECT hdcf_pct_pctile FROM player_advanced_percentiles WHERE player_id = 1"
+    ).fetchone()
+    p3 = conn.execute(
+        "SELECT hdcf_pct_pctile FROM player_advanced_percentiles WHERE player_id = 3"
+    ).fetchone()
+    assert p1["hdcf_pct_pctile"] == 100.0  # ranked only against player 2, unaffected by player 3
+    assert p3["hdcf_pct_pctile"] is None
