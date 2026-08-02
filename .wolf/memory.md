@@ -156,3 +156,22 @@
 | — | Discovered recurring rebase conflict | — | local main's OWN old doc commits (content-identical to already-squash-merged PRs, different SHAs) will conflict on every future auto-sync rebase; `git merge` tolerates this, `git rebase` does not | — |
 | — | User ran `git reset --hard origin/main` | — | permanently ends the recurring conflict; confirmed zero divergence afterward | — |
 | — | Learned (the hard way): local-only commits to main get discarded by reset | .wolf/cerebrum.md, .wolf/memory.md | first attempt at merge-conflict-resolution for these files was committed directly to local main (violating this project's own documented convention) and was wiped out by the reset since it was never pushed; redone via a proper worktree + PR (this session-reflect commit) | — |
+
+## Session: 2026-08-01/02 (Turso DB migration + Render deploy)
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| — | User asked how to deploy the Cloudflare Page connected to this repo | — | investigated the actual stack (Flask + 1.48GB local SQLite, Vite/React frontend) and found Python Workers can't run Flask (stdlib-only in production) — ruled out Cloudflare as the app host | — |
+| — | Explored HF Docker Spaces as an alternative | — | Docker Spaces started requiring a paid Pro plan mid-investigation (recent, undocumented platform change) — ruled out | — |
+| — | Surveyed free DB options (user asked directly) | — | HF Dataset repo, Turso, Neon, Supabase compared; Turso (5GB free, SQLite-compatible) chosen after user said "let's try turso.tech" | — |
+| — | Brainstorm + grill (incl. a live empirical libsql spike) | docs/superpowers/specs/2026-07-30-turso-render-deploy-design.md | discovered mid-grilling that `libsql` has no `row_factory` (plain tuples, not dict rows) and raises `ValueError` not `sqlite3.OperationalError` on duplicate columns — corrected the spec before planning; also settled remote-only connection mode, exact cutover sequence, manual-only future migrations | — |
+| — | Filed GitHub issue #82, wrote 8-task plan | docs/superpowers/plans/2026-07-30-turso-render-deploy.md | subagent-driven execution: libsql row-adapter, get_connection() branching, migration idempotency fix, configurable host/port, Dockerfile+gunicorn, sync.py docstring fix | — |
+| — | Final whole-branch review (Opus) found + fixed 1 Critical | tests/conftest.py, README.md, src/database.py | `conn` fixture had no isolation from `TURSO_DATABASE_URL` — would have let `pytest` silently write fixture data into production Turso once the env var was exported locally; fixed via `monkeypatch.delenv` | — |
+| — | Pushed branch, opened PR #88 | — | tracks issue #82 | — |
+| — | Manually provisioned Turso (Task 7) | data/nhl_stats.db | `turso db create --from-file` first attempt silently produced an empty DB (source file wasn't in WAL mode, no error even on the 1.48GB file); fixed via `PRAGMA journal_mode=WAL` + `--wait`, re-verified via exact row-count match on the 3 largest tables | — |
+| — | Confirmed ETL→Turso end-to-end | scripts/sync.py | ran from the PR worktree (main checkout doesn't have the Turso code until merge); verified via a fresh `sync_log` timestamp read directly from Turso, not just the script's own stdout | — |
+| — | Reconciled PR #88 with main (5 commits had landed since branch point) | docs/superpowers/specs/2026-07-30-historical-data-expansion-design.md | one add/add conflict (stale local-main draft vs. the real squash-merged spec) — took origin's version; 127/127 tests passed post-merge | — |
+| — | Merged PR #88, cleaned up worktree/branches | — | issue #82 auto-closed | — |
+| — | User created Render service, added TURSO_DATABASE_URL/TURSO_AUTH_TOKEN secrets | — | verified live: `/` → 200, `/api/teams` → 200 with real Turso data; confirmed auto-deploy-on-push using a real subsequent PR (#100) as the test case | — |
+| — | Post-deploy cleanup: found `.env.turso` (live secret) was untracked AND unignored | .gitignore | filed + merged PR #101 (`.env.*` pattern) same day | — |
+| — | `git reset --hard origin/main` blocked by the auto-mode permission classifier | — | blocked even after explicit in-chat user confirmation; requires a settings.json permission rule or the user running it in a real terminal — gave the user the exact command instead of retrying | — |
