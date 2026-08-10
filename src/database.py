@@ -1,6 +1,8 @@
 import sqlite3
 import os
 
+import requests
+
 
 class _TursoRow:
     """sqlite3.Row-compatible wrapper around a libsql result tuple."""
@@ -66,6 +68,127 @@ class _TursoConnection:
 
     def close(self):
         self._conn.close()
+
+
+def _encode_hrana_value(value):
+    """Encode a Python param into a Hrana v2 wire-format value object."""
+    if value is None:
+        return {"type": "null"}
+    if isinstance(value, bool):
+        return {"type": "integer", "value": str(int(value))}
+    if isinstance(value, int):
+        return {"type": "integer", "value": str(value)}
+    if isinstance(value, float):
+        return {"type": "float", "value": value}
+    return {"type": "text", "value": str(value)}
+
+
+def _decode_hrana_value(value_obj):
+    """Decode a Hrana v2 wire-format value object back into a native Python value."""
+    vtype = value_obj.get("type")
+    if vtype == "null":
+        return None
+    if vtype == "integer":
+        return int(value_obj["value"])
+    if vtype == "float":
+        return float(value_obj["value"])
+    # wolf-debt: no "blob" case (base64-keyed, not value-keyed) -- silently
+    # returns None instead of raising, since no BLOB column exists today.
+    # upgrade trigger: any BLOB column added to this schema.
+    return value_obj.get("value")
+
+
+class _TursoHttpCursor:
+    """Cursor-like wrapper around one Hrana v2 /v2/pipeline execute result.
+
+    Matches the sliver of sqlite3.Cursor's interface _TursoCursor relies on:
+    `.description` (list where each entry's [0] is the column name) and
+    `.fetchone()`/`.fetchall()` returning plain value tuples.
+    """
+
+    def __init__(self, result):
+        self.description = [(c["name"],) for c in result.get("cols", [])]
+        self._rows = [
+            tuple(_decode_hrana_value(v) for v in row)
+            for row in result.get("rows", [])
+        ]
+        self._pos = 0
+
+    def fetchone(self):
+        if self._pos >= len(self._rows):
+            return None
+        row = self._rows[self._pos]
+        self._pos += 1
+        return row
+
+    def fetchall(self):
+        rows = self._rows[self._pos:]
+        self._pos = len(self._rows)
+        return rows
+
+
+class _TursoHttpClient:
+    """Raw Turso connection over the HTTPS Hrana v2 pipeline API.
+
+    Replaces the native `libsql://` remote protocol (unstable — see
+    https://github.com/paulchangmckay/nhl-stats/issues/111), issuing one
+    self-contained execute+close request per statement over a shared
+    requests.Session (so statements within one get_connection() lifetime
+    reuse the same TCP/TLS connection instead of each re-handshaking).
+
+    Every statement is committed immediately server-side, so .commit() is a
+    no-op here. Safe for this codebase specifically because every write
+    helper in this module (upsert_*/insert_*) uses INSERT OR REPLACE/IGNORE
+    or ON CONFLICT DO UPDATE -- i.e. is idempotent -- so a caller that writes
+    several rows in a loop and calls .commit() once at the end (the common
+    ETL pattern here) still converges to the same end state even though
+    each row was already durably written before that final .commit() call,
+    not batched into one all-or-nothing transaction as sqlite3 would do.
+    """
+
+    def __init__(self, base_url, auth_token):
+        self._base_url = base_url
+        self._auth_token = auth_token
+        self._session = requests.Session()
+
+    def execute(self, sql, params=()):
+        body = {
+            "requests": [
+                {"type": "execute", "stmt": {
+                    "sql": sql,
+                    "args": [_encode_hrana_value(p) for p in params],
+                }},
+                {"type": "close"},
+            ]
+        }
+        response = self._session.post(
+            f"{self._base_url}/v2/pipeline",
+            json=body,
+            headers={
+                "Authorization": f"Bearer {self._auth_token}",
+                "Content-Type": "application/json",
+            },
+            timeout=15,
+        )
+        response.raise_for_status()
+        try:
+            first = response.json()["results"][0]
+            if first["type"] == "error":
+                raise ValueError(f"Hrana: {first['error']['message']}")
+            result = first["response"]["result"]
+        except (IndexError, KeyError) as e:
+            raise ValueError(f"Hrana: malformed /v2/pipeline response, missing {e}")
+        return _TursoHttpCursor(result)
+
+    def executemany(self, sql, seq_of_params):
+        for params in seq_of_params:
+            self.execute(sql, params)
+
+    def commit(self):
+        pass  # each statement is already committed by execute() -- see class docstring
+
+    def close(self):
+        self._session.close()
 
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "nhl_stats.db")
@@ -516,9 +639,8 @@ _ADVANCED_STATS_MIGRATIONS = [
 def get_connection(db_path=DB_PATH):
     turso_url = os.environ.get("TURSO_DATABASE_URL")
     if turso_url:
-        import libsql
-        # wolf-debt: per-request remote connection (handshake + PRAGMA round trip on every Flask request), upgrade trigger: noticeable API latency or Turso free-tier quota pressure
-        raw = libsql.connect(database=turso_url, auth_token=os.environ["TURSO_AUTH_TOKEN"])
+        base_url = turso_url.replace("libsql://", "https://", 1)
+        raw = _TursoHttpClient(base_url, os.environ["TURSO_AUTH_TOKEN"])
         conn = _TursoConnection(raw)
         conn.execute("PRAGMA foreign_keys = ON")
         return conn
