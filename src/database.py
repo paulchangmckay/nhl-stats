@@ -92,6 +92,9 @@ def _decode_hrana_value(value_obj):
         return int(value_obj["value"])
     if vtype == "float":
         return float(value_obj["value"])
+    # wolf-debt: no "blob" case (base64-keyed, not value-keyed) -- silently
+    # returns None instead of raising, since no BLOB column exists today.
+    # upgrade trigger: any BLOB column added to this schema.
     return value_obj.get("value")
 
 
@@ -129,14 +132,24 @@ class _TursoHttpClient:
 
     Replaces the native `libsql://` remote protocol (unstable — see
     https://github.com/paulchangmckay/nhl-stats/issues/111), issuing one
-    self-contained execute+close request per statement. Every statement is
-    therefore committed immediately: fine for this codebase, which never
-    opens an explicit multi-statement transaction.
+    self-contained execute+close request per statement over a shared
+    requests.Session (so statements within one get_connection() lifetime
+    reuse the same TCP/TLS connection instead of each re-handshaking).
+
+    Every statement is committed immediately server-side, so .commit() is a
+    no-op here. Safe for this codebase specifically because every write
+    helper in this module (upsert_*/insert_*) uses INSERT OR REPLACE/IGNORE
+    or ON CONFLICT DO UPDATE -- i.e. is idempotent -- so a caller that writes
+    several rows in a loop and calls .commit() once at the end (the common
+    ETL pattern here) still converges to the same end state even though
+    each row was already durably written before that final .commit() call,
+    not batched into one all-or-nothing transaction as sqlite3 would do.
     """
 
     def __init__(self, base_url, auth_token):
         self._base_url = base_url
         self._auth_token = auth_token
+        self._session = requests.Session()
 
     def execute(self, sql, params=()):
         body = {
@@ -148,7 +161,7 @@ class _TursoHttpClient:
                 {"type": "close"},
             ]
         }
-        response = requests.post(
+        response = self._session.post(
             f"{self._base_url}/v2/pipeline",
             json=body,
             headers={
@@ -158,11 +171,14 @@ class _TursoHttpClient:
             timeout=15,
         )
         response.raise_for_status()
-        results = response.json()["results"]
-        first = results[0]
-        if first["type"] == "error":
-            raise ValueError(f"Hrana: {first['error']['message']}")
-        return _TursoHttpCursor(first["response"]["result"])
+        try:
+            first = response.json()["results"][0]
+            if first["type"] == "error":
+                raise ValueError(f"Hrana: {first['error']['message']}")
+            result = first["response"]["result"]
+        except (IndexError, KeyError) as e:
+            raise ValueError(f"Hrana: malformed /v2/pipeline response, missing {e}")
+        return _TursoHttpCursor(result)
 
     def executemany(self, sql, seq_of_params):
         for params in seq_of_params:
@@ -172,7 +188,7 @@ class _TursoHttpClient:
         pass  # each statement is already committed by execute() -- see class docstring
 
     def close(self):
-        pass  # no persistent session/socket to release
+        self._session.close()
 
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "nhl_stats.db")

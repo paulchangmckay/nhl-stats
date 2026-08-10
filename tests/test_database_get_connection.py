@@ -19,30 +19,34 @@ def test_get_connection_uses_turso_http_client_when_turso_url_set(monkeypatch):
 
     captured = {}
 
-    def fake_post(url, json=None, headers=None, timeout=None):
-        captured["url"] = url
-        captured["json"] = json
-        captured["headers"] = headers
+    class _FakeSession:
+        def post(self, url, json=None, headers=None, timeout=None):
+            captured["url"] = url
+            captured["json"] = json
+            captured["headers"] = headers
 
-        class _FakeResponse:
-            status_code = 200
+            class _FakeResponse:
+                status_code = 200
 
-            def raise_for_status(self):
-                pass
+                def raise_for_status(self):
+                    pass
 
-            def json(self):
-                return {
-                    "results": [
-                        {"type": "ok", "response": {"type": "execute", "result": {
-                            "cols": [], "rows": [],
-                        }}},
-                        {"type": "ok", "response": {"type": "close"}},
-                    ]
-                }
+                def json(self):
+                    return {
+                        "results": [
+                            {"type": "ok", "response": {"type": "execute", "result": {
+                                "cols": [], "rows": [],
+                            }}},
+                            {"type": "ok", "response": {"type": "close"}},
+                        ]
+                    }
 
-        return _FakeResponse()
+            return _FakeResponse()
 
-    monkeypatch.setattr(database.requests, "post", fake_post)
+        def close(self):
+            pass
+
+    monkeypatch.setattr(database.requests, "Session", _FakeSession)
 
     conn = database.get_connection()
 
