@@ -1,6 +1,3 @@
-import sys
-import types
-
 import pytest
 
 from src import database
@@ -16,39 +13,48 @@ def test_get_connection_uses_sqlite_when_turso_url_not_set(tmp_path, monkeypatch
     conn.close()
 
 
-def test_get_connection_uses_libsql_when_turso_url_set(monkeypatch):
+def test_get_connection_uses_turso_http_client_when_turso_url_set(monkeypatch):
     monkeypatch.setenv("TURSO_DATABASE_URL", "libsql://example-org.turso.io")
     monkeypatch.setenv("TURSO_AUTH_TOKEN", "fake-token")
 
-    calls = {}
+    captured = {}
 
-    class _FakeRawConn:
-        def execute(self, sql, params=()):
-            calls.setdefault("executed", []).append(sql)
-            class _FakeCursor:
-                description = ()
-                def fetchone(self):
-                    return None
-                def fetchall(self):
-                    return []
-            return _FakeCursor()
-        def commit(self):
-            pass
+    class _FakeSession:
+        def post(self, url, json=None, headers=None, timeout=None):
+            captured["url"] = url
+            captured["json"] = json
+            captured["headers"] = headers
+
+            class _FakeResponse:
+                status_code = 200
+
+                def raise_for_status(self):
+                    pass
+
+                def json(self):
+                    return {
+                        "results": [
+                            {"type": "ok", "response": {"type": "execute", "result": {
+                                "cols": [], "rows": [],
+                            }}},
+                            {"type": "ok", "response": {"type": "close"}},
+                        ]
+                    }
+
+            return _FakeResponse()
+
         def close(self):
             pass
 
-    fake_libsql = types.SimpleNamespace(
-        connect=lambda database, auth_token: (
-            calls.__setitem__("connect_args", {"database": database, "auth_token": auth_token})
-            or _FakeRawConn()
-        )
-    )
-    monkeypatch.setitem(sys.modules, "libsql", fake_libsql)
+    monkeypatch.setattr(database.requests, "Session", _FakeSession)
 
     conn = database.get_connection()
 
     assert isinstance(conn, database._TursoConnection)
-    assert calls["connect_args"] == {
-        "database": "libsql://example-org.turso.io",
-        "auth_token": "fake-token",
-    }
+    assert isinstance(conn._conn, database._TursoHttpClient)
+    assert conn._conn._base_url == "https://example-org.turso.io"
+
+    # get_connection issues a PRAGMA statement on the fresh connection --
+    # confirms it actually goes over the HTTP client, not a native libsql:// socket.
+    assert captured["url"] == "https://example-org.turso.io/v2/pipeline"
+    assert captured["headers"]["Authorization"] == "Bearer fake-token"
