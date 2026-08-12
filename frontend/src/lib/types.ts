@@ -14,6 +14,14 @@ export interface Player {
   weight_pounds: number | null;
   birth_date: string;
   birth_country: string;
+  birth_city: string;
+  birth_state_province: string;
+  headshot_url: string | null;
+  draft_year: number | null;
+  draft_round: number | null;
+  draft_pick: number | null;
+  draft_overall: number | null;
+  draft_team_abbrev: string | null;
   team_abbrev: string;
   team_name: string;
   team_place_name: string;
@@ -43,6 +51,8 @@ export interface PlayerStats {
   shutouts: number | null;
   save_pct: number | null;
   gaa: number | null;
+  cf_pct_5v5?: number | null;
+  shots_per60_5v5?: number | null;
 }
 
 export type SortDirection = "asc" | "desc";
@@ -52,4 +62,57 @@ export interface StatMins {
   goals: number | null;
   assists: number | null;
   points: number | null;
+}
+
+export interface AdvancedStrengthState {
+  cf: number;
+  ca: number;
+  cf_pct: number | null;
+  ff: number;
+  fa: number;
+  ff_pct: number | null;
+  hdcf: number | null;
+  hdca: number | null;
+  hdcf_pct: number | null;
+  primary_points: number;
+  cf_pctile: number | null;
+  ff_pctile: number | null;
+  hdcf_pctile: number | null;
+  primary_points_pctile: number | null;
+  shots_per60?: number | null;
+  chances_per60?: number | null;
+  rebounds_created_per60?: number | null;
+  deflections_per60?: number | null;
+  points_per60?: number | null;
+  primary_points_per60?: number | null;
+  shots_per60_z?: number | null;
+  chances_per60_z?: number | null;
+  rebounds_created_per60_z?: number | null;
+  deflections_per60_z?: number | null;
+  points_per60_z?: number | null;
+  primary_points_per60_z?: number | null;
+}
+
+export interface AdvancedTrendPoint {
+  season_id: string;
+  strength_state: string;
+  cf_pct: number | null;
+  ff_pct: number | null;
+  hdcf_pct: number | null;
+  primary_points: number | null;
+  pdo: number | null;
+  shots_per60: number | null;
+  chances_per60: number | null;
+  rebounds_created_per60: number | null;
+  deflections_per60: number | null;
+  points_per60: number | null;
+  primary_points_per60: number | null;
+}
+
+export interface PlayerAdvancedStats {
+  player_id: number;
+  season_id: string | null;
+  strength_states: Record<string, AdvancedStrengthState>;
+  trend: AdvancedTrendPoint[];
+  pdo: number | null;
 }

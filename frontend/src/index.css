@@ -132,3 +132,8 @@ body {
     @apply font-sans;
   }
 }
+
+tr.row-highlight {
+  background-color: color-mix(in oklch, var(--primary) 25%, transparent) !important;
+  transition: background-color 0.3s ease;
+}

@@ -184,3 +184,75 @@ def test_insert_game_succeeds_for_relocated_team_when_stubbed_first(conn):
     assert game_row is not None
     assert game_row["home_team_id"] == 53
     assert game_row["away_team_id"] == 7
+
+
+def test_upsert_player_game_advanced_stats_is_idempotent(conn):
+    _stub_game(conn, game_id=100)
+    _stub_player(conn, player_id=1, position_code="C")
+    row = {
+        "game_id": 100, "player_id": 1, "team_id": None, "strength_state": "5v5",
+        "cf": 3, "ca": 2, "ff": 2, "fa": 1, "hdcf": 1, "hdca": 0,
+        "gf": 1, "ga": 0, "primary_points": 1, "toi_seconds": 900,
+    }
+    database.upsert_player_game_advanced_stats(conn, row)
+    database.upsert_player_game_advanced_stats(conn, row)  # re-run, must not duplicate
+    conn.commit()
+
+    count = conn.execute(
+        "SELECT COUNT(*) AS c FROM player_game_advanced_stats"
+    ).fetchone()["c"]
+    assert count == 1
+
+
+def test_upsert_player_game_advanced_stats_updates_on_conflict(conn):
+    _stub_game(conn, game_id=100)
+    _stub_player(conn, player_id=1, position_code="C")
+    row = {
+        "game_id": 100, "player_id": 1, "team_id": None, "strength_state": "5v5",
+        "cf": 3, "ca": 2, "ff": 2, "fa": 1, "hdcf": 1, "hdca": 0,
+        "gf": 1, "ga": 0, "primary_points": 1, "toi_seconds": 900,
+    }
+    database.upsert_player_game_advanced_stats(conn, row)
+    row["cf"] = 5  # a recompute changed the value
+    database.upsert_player_game_advanced_stats(conn, row)
+    conn.commit()
+
+    result = conn.execute(
+        "SELECT cf FROM player_game_advanced_stats WHERE game_id=100 AND player_id=1 AND strength_state='5v5'"
+    ).fetchone()
+    assert result["cf"] == 5
+
+
+def test_upsert_team_game_advanced_stats_is_idempotent(conn):
+    _stub_game(conn, game_id=100)
+    database.ensure_team_stub(conn, 1)
+    row = {
+        "game_id": 100, "team_id": 1, "strength_state": "5v5",
+        "cf": 3, "ca": 2, "ff": 2, "fa": 1, "gf": 1, "ga": 0,
+        "shots_for": 2, "shots_against": 1,
+    }
+    database.upsert_team_game_advanced_stats(conn, row)
+    database.upsert_team_game_advanced_stats(conn, row)
+    conn.commit()
+
+    count = conn.execute(
+        "SELECT COUNT(*) AS c FROM team_game_advanced_stats"
+    ).fetchone()["c"]
+    assert count == 1
+
+
+def test_upsert_player_advanced_percentiles_is_idempotent(conn):
+    _stub_player(conn, player_id=1, position_code="C")
+    row = {
+        "season_id": "20242025", "player_id": 1, "strength_state": "5v5",
+        "position_group": "F", "cf_pct_pctile": 75.0, "ff_pct_pctile": 80.0,
+        "hdcf_pct_pctile": 60.0, "primary_points_pctile": 90.0,
+    }
+    database.upsert_player_advanced_percentiles(conn, row)
+    database.upsert_player_advanced_percentiles(conn, row)
+    conn.commit()
+
+    count = conn.execute(
+        "SELECT COUNT(*) AS c FROM player_advanced_percentiles"
+    ).fetchone()["c"]
+    assert count == 1

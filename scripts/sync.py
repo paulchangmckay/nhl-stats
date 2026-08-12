@@ -10,7 +10,9 @@ What it does:
 For a full rebuild from scratch, use run_all_etl.py instead.
 
 To force-resync a specific season:
-  sqlite3 data/nhl_stats.db "DELETE FROM sync_log WHERE key='season_stats:20232024';"
+  # Local dev DB: sqlite3 data/nhl_stats.db "DELETE FROM sync_log WHERE key='season_stats:20232024';"
+  # Production (Turso): requires TURSO_DATABASE_URL/TURSO_AUTH_TOKEN to be set;
+  # use `turso db shell <db-name>` for ad-hoc queries instead of the sqlite3 CLI.
   python etl/load_season_stats.py
 """
 

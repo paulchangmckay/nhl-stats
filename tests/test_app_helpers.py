@@ -1,4 +1,4 @@
-from app import _toi_str, _height_str, _debug_enabled, _fetch_players
+from app import _toi_str, _height_str, _debug_enabled, _fetch_players, _host_port
 from src import database
 
 
@@ -62,3 +62,71 @@ def test_fetch_players_includes_team_place_name(conn):
 
     assert len(players) == 1
     assert players[0]["team_place_name"] == "Colorado"
+
+
+def test_fetch_players_includes_photo_bio_and_draft_fields(conn):
+    """Player profile overlay needs headshot_url, birth city/state, and
+    draft info surfaced by the players query (existing columns on the
+    players table, previously not selected by _fetch_players)."""
+    database.upsert_player_stub(conn, {
+        "player_id": 1, "first_name": "Connor", "last_name": "McDavid",
+        "position_code": "C", "shoots_catches": "L",
+    })
+    database.upsert_player_enrichment(conn, {
+        "player_id": 1,
+        "headshot_url": "https://example.com/mcdavid.png",
+        "birth_city": "Richmond Hill",
+        "birth_state_province": "ON",
+        "draft_year": 2015, "draft_round": 1, "draft_pick": 1,
+        "draft_overall": 1, "draft_team_abbrev": "EDM",
+        "is_active": 1,
+    })
+    conn.commit()
+
+    players = _fetch_players(conn)
+
+    assert len(players) == 1
+    p = players[0]
+    assert p["headshot_url"] == "https://example.com/mcdavid.png"
+    assert p["birth_city"] == "Richmond Hill"
+    assert p["birth_state_province"] == "ON"
+    assert p["draft_year"] == 2015
+    assert p["draft_round"] == 1
+    assert p["draft_pick"] == 1
+    assert p["draft_overall"] == 1
+    assert p["draft_team_abbrev"] == "EDM"
+
+
+def test_fetch_players_undrafted_player_has_null_draft_and_photo_fields(conn):
+    """Undrafted / un-enriched players (~21% of the roster) must not error
+    or fabricate data — these fields stay None, not '' or 0."""
+    database.upsert_player_stub(conn, {
+        "player_id": 2, "first_name": "Jane", "last_name": "Undrafted",
+        "position_code": "D", "shoots_catches": "L",
+    })
+    conn.commit()
+
+    players = _fetch_players(conn)
+
+    assert players[0]["draft_year"] is None
+    assert players[0]["draft_round"] is None
+    assert players[0]["draft_pick"] is None
+    assert players[0]["draft_overall"] is None
+    assert players[0]["draft_team_abbrev"] is None
+    assert players[0]["headshot_url"] is None
+    assert players[0]["birth_city"] == ""
+    assert players[0]["birth_state_province"] == ""
+
+
+def test_host_port_defaults_to_localhost_5099(monkeypatch):
+    monkeypatch.delenv("HOST", raising=False)
+    monkeypatch.delenv("PORT", raising=False)
+
+    assert _host_port() == ("127.0.0.1", 5099)
+
+
+def test_host_port_reads_env_overrides(monkeypatch):
+    monkeypatch.setenv("HOST", "0.0.0.0")
+    monkeypatch.setenv("PORT", "7860")
+
+    assert _host_port() == ("0.0.0.0", 7860)

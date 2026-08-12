@@ -1,0 +1,258 @@
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from src import database
+from etl.advanced_stats.sweep import compute_game_advanced_stats
+
+PERCENTILE_STRENGTH_STATES = ("5v5", "5v4", "4v5")
+PERCENTILE_MIN_GP = 10
+ZSCORE_MIN_POPULATION = 20
+
+
+def run(conn):
+    print("Computing advanced stats for completed games...")
+
+    pending = conn.execute("""
+        SELECT g.game_id, g.game_type, g.home_team_id FROM games g
+        WHERE g.game_state = 'OFF'
+          AND NOT EXISTS (
+              SELECT 1 FROM player_game_advanced_stats pgas WHERE pgas.game_id = g.game_id
+          )
+    """).fetchall()
+
+    print(f"  {len(pending)} completed games need advanced stats.")
+
+    for row in pending:
+        game_id, game_type, home_team_id = row["game_id"], row["game_type"], row["home_team_id"]
+        try:
+            shifts = _load_shifts_for_sweep(conn, game_id)
+            events = _load_events_for_sweep(conn, game_id)
+            player_rows, team_rows = compute_game_advanced_stats(
+                shifts, events, home_team_id=home_team_id, game_type=game_type
+            )
+            for pr in player_rows:
+                database.upsert_player_game_advanced_stats(conn, {**pr, "game_id": game_id})
+            for tr in team_rows:
+                database.upsert_team_game_advanced_stats(conn, {**tr, "game_id": game_id})
+            conn.commit()
+        except Exception as e:
+            print(f"  Warning: could not compute advanced stats for game {game_id}: {e}")
+
+    _run_aggregation_and_percentiles(conn)
+    print("  Advanced stats computation complete.")
+
+
+def _run_aggregation_and_percentiles(conn):
+    """Drives compute_season_aggregates/compute_percentiles for every
+    (season_id, game_type) pair with any per-game advanced-stats rows.
+    Bug caught in code review: these two functions had their own passing unit
+    tests but were never actually invoked from run(), run_all_etl.py, or the
+    README's documented commands -- the season/percentile tables would have
+    stayed permanently empty in production. Cheap to re-run in full each time
+    (pure local SQL over already-computed per-game rows, no API calls), so no
+    NOT-EXISTS gating is needed here the way per-game computation has it."""
+    season_game_type_pairs = conn.execute("""
+        SELECT DISTINCT g.season_id, g.game_type FROM games g
+        JOIN player_game_advanced_stats pgas ON pgas.game_id = g.game_id
+        WHERE g.season_id IS NOT NULL
+    """).fetchall()
+    for row in season_game_type_pairs:
+        compute_season_aggregates(conn, row["season_id"], row["game_type"])
+
+    season_ids = {row["season_id"] for row in season_game_type_pairs}
+    for season_id in season_ids:
+        compute_percentiles(conn, season_id)
+        compute_zscores(conn, season_id)
+
+
+def _load_shifts_for_sweep(conn, game_id):
+    rows = conn.execute("""
+        SELECT ps.player_id, ps.team_id, ps.period, ps.start_time, ps.end_time,
+               p.position_code
+        FROM player_shifts ps JOIN players p ON p.player_id = ps.player_id
+        WHERE ps.game_id = ?
+    """, (game_id,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def _load_events_for_sweep(conn, game_id):
+    rows = conn.execute("""
+        SELECT event_id, period, time_in_period, situation_code, event_type,
+               x_coord, y_coord, shot_type, event_owner_team_id, shooting_player_id,
+               assist1_player_id, assist2_player_id, home_team_defending_side
+        FROM game_events WHERE game_id = ?
+    """, (game_id,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def compute_season_aggregates(conn, season_id, game_type):
+    conn.execute("""
+        INSERT INTO player_season_advanced_stats
+            (player_id, season_id, game_type, team_abbrevs, strength_state,
+             cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp,
+             icf, ihdcf, rebounds_created, deflections, points)
+        SELECT
+            pgas.player_id, g.season_id, g.game_type,
+            (SELECT GROUP_CONCAT(DISTINCT t.abbrev)
+             FROM player_game_advanced_stats pgas2
+             JOIN teams t ON t.team_id = pgas2.team_id
+             JOIN games g2 ON g2.game_id = pgas2.game_id
+             WHERE pgas2.player_id = pgas.player_id
+               AND g2.season_id = g.season_id AND g2.game_type = g.game_type) AS team_abbrevs,
+            pgas.strength_state,
+            SUM(pgas.cf), SUM(pgas.ca), SUM(pgas.ff), SUM(pgas.fa),
+            SUM(pgas.hdcf), SUM(pgas.hdca), SUM(pgas.gf), SUM(pgas.ga),
+            SUM(pgas.primary_points), SUM(pgas.toi_seconds),
+            COUNT(DISTINCT pgas.game_id),
+            SUM(pgas.icf), SUM(pgas.ihdcf), SUM(pgas.rebounds_created),
+            SUM(pgas.deflections), SUM(pgas.points)
+        FROM player_game_advanced_stats pgas
+        JOIN games g ON g.game_id = pgas.game_id
+        WHERE g.season_id = ? AND g.game_type = ?
+        GROUP BY pgas.player_id, pgas.strength_state
+        ON CONFLICT(player_id, season_id, game_type, strength_state) DO UPDATE SET
+            team_abbrevs=excluded.team_abbrevs, cf=excluded.cf, ca=excluded.ca,
+            ff=excluded.ff, fa=excluded.fa, hdcf=excluded.hdcf, hdca=excluded.hdca,
+            gf=excluded.gf, ga=excluded.ga, primary_points=excluded.primary_points,
+            toi_seconds=excluded.toi_seconds, gp=excluded.gp,
+            icf=excluded.icf, ihdcf=excluded.ihdcf,
+            rebounds_created=excluded.rebounds_created, deflections=excluded.deflections,
+            points=excluded.points
+    """, (season_id, game_type))
+    conn.commit()
+
+
+def compute_percentiles(conn, season_id):
+    for strength_state in PERCENTILE_STRENGTH_STATES:
+        for position_group, position_codes in (("F", ("C", "L", "R")), ("D", ("D",))):
+            placeholders = ",".join("?" * len(position_codes))
+            query = f"""
+                SELECT psas.player_id, psas.cf, psas.ca, psas.ff, psas.fa,
+                       psas.hdcf, psas.hdca, psas.primary_points
+                FROM player_season_advanced_stats psas
+                JOIN players p ON p.player_id = psas.player_id
+                WHERE psas.season_id = ? AND psas.strength_state = ?
+                  AND psas.gp >= ? AND p.position_code IN ({placeholders})
+            """  # nosec B608 -- placeholders is only "?,?,..."; position_codes is a fixed internal tuple (never user input), values are bound below, never interpolated
+            rows = conn.execute(query, (season_id, strength_state, PERCENTILE_MIN_GP, *position_codes)).fetchall()
+
+            if not rows:
+                continue
+
+            def _pct_of(row):
+                return row["cf"] / (row["cf"] + row["ca"]) if (row["cf"] + row["ca"]) else 0
+
+            def _fen_pct_of(row):
+                return row["ff"] / (row["ff"] + row["fa"]) if (row["ff"] + row["fa"]) else 0
+
+            def _hd_pct_of(row):
+                if row["hdcf"] is None or row["hdca"] is None:
+                    return None
+                return row["hdcf"] / (row["hdcf"] + row["hdca"]) if (row["hdcf"] + row["hdca"]) else 0
+
+            all_cf_pct = [_pct_of(r) for r in rows]
+            all_ff_pct = [_fen_pct_of(r) for r in rows]
+            all_hdcf_pct = [v for v in (_hd_pct_of(r) for r in rows) if v is not None]
+            all_pp = [r["primary_points"] for r in rows]
+
+            # A season/strength-state/position-group where most players lack rink-side
+            # data (e.g. 2017-18/2018-19) can leave only a handful of players with real
+            # HD data -- too few for _percentile_rank's ranking to mean anything (its
+            # own len<=1 case returns a hardcoded 100.0). Reuse ZSCORE_MIN_POPULATION as
+            # the "large enough to rank" floor for this filtered population specifically.
+            hd_population_sufficient = len(all_hdcf_pct) >= ZSCORE_MIN_POPULATION
+
+            for r in rows:
+                hd_pct = _hd_pct_of(r) if hd_population_sufficient else None
+                database.upsert_player_advanced_percentiles(conn, {
+                    "season_id": season_id, "player_id": r["player_id"],
+                    "strength_state": strength_state, "position_group": position_group,
+                    "cf_pct_pctile": _percentile_rank(_pct_of(r), all_cf_pct),
+                    "ff_pct_pctile": _percentile_rank(_fen_pct_of(r), all_ff_pct),
+                    "hdcf_pct_pctile": _percentile_rank(hd_pct, all_hdcf_pct) if hd_pct is not None else None,
+                    "primary_points_pctile": _percentile_rank(r["primary_points"], all_pp),
+                })
+    conn.commit()
+
+
+def compute_zscores(conn, season_id):
+    rate_fields = {
+        "shots_per60_z": "icf", "chances_per60_z": "ihdcf",
+        "rebounds_created_per60_z": "rebounds_created",
+        "deflections_per60_z": "deflections",
+        "points_per60_z": "points", "primary_points_per60_z": "primary_points",
+    }
+    for position_group, position_codes in (("F", ("C", "L", "R")), ("D", ("D",))):
+        placeholders = ",".join("?" * len(position_codes))
+        query = f"""
+            SELECT psas.player_id, psas.icf, psas.ihdcf, psas.rebounds_created,
+                   psas.deflections, psas.points, psas.primary_points, psas.toi_seconds
+            FROM player_season_advanced_stats psas
+            JOIN players p ON p.player_id = psas.player_id
+            WHERE psas.season_id = ? AND psas.strength_state = '5v5' AND psas.game_type = 2
+              AND psas.gp >= ? AND psas.toi_seconds > 0 AND p.position_code IN ({placeholders})
+        """  # nosec B608 -- placeholders is only "?,?,..."; position_codes is a fixed internal tuple (never user input), values are bound below, never interpolated
+        rows = conn.execute(query, (season_id, PERCENTILE_MIN_GP, *position_codes)).fetchall()
+
+        if len(rows) < ZSCORE_MIN_POPULATION:
+            continue
+
+        def _rate(row, count_key):
+            if row[count_key] is None:
+                return None
+            return row[count_key] / (row["toi_seconds"] / 3600.0)
+
+        populations = {
+            z_key: [v for v in (_rate(r, count_key) for r in rows) if v is not None]
+            for z_key, count_key in rate_fields.items()
+        }
+
+        # Per-metric min-population floor: chances_per60_z's population can be much
+        # smaller than the other 5 metrics' (its own count_key, ihdcf, is the one
+        # Task 1 can null out for a whole season). The other 5 populations always
+        # equal len(rows), which already passed the ZSCORE_MIN_POPULATION check
+        # above, so this loop is a no-op for them -- checked generically per-metric
+        # rather than special-cased by name.
+        sufficient_population = {
+            z_key: len(population) >= ZSCORE_MIN_POPULATION
+            for z_key, population in populations.items()
+        }
+
+        for r in rows:
+            record = {"season_id": season_id, "player_id": r["player_id"],
+                      "position_group": position_group}
+            for z_key, count_key in rate_fields.items():
+                if not sufficient_population[z_key]:
+                    record[z_key] = None
+                    continue
+                rate_val = _rate(r, count_key)
+                record[z_key] = _zscore(rate_val, populations[z_key]) if rate_val is not None else None
+            database.upsert_player_rate_zscores(conn, record)
+    conn.commit()
+
+
+def _zscore(value, population):
+    mean = sum(population) / len(population)
+    variance = sum((v - mean) ** 2 for v in population) / len(population)
+    stddev = variance ** 0.5
+    if stddev == 0:
+        return 0.0
+    return round((value - mean) / stddev, 2)
+
+
+def _percentile_rank(value, population):
+    """Nearest-rank-style percentile: fraction of the population at or below
+    this value, scaled to 0-100. A single-player population is defined as
+    100 (top of a trivially small group)."""
+    if len(population) <= 1:
+        return 100.0
+    sorted_pop = sorted(population)
+    rank = sorted_pop.index(value)
+    return (rank / (len(sorted_pop) - 1)) * 100.0
+
+
+if __name__ == "__main__":
+    conn = database.get_connection()
+    run(conn)
+    conn.close()

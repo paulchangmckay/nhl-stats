@@ -5,6 +5,7 @@ __pycache__/
 *.pyo
 .DS_Store
 .env
+.env.*
 *.egg-info/
 dist/
 build/
@@ -13,5 +14,6 @@ venv/
 env/
 .ipynb_checkpoints/
 .claude/worktrees/
+.worktrees/
 .run/
 node_modules/

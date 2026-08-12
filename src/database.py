@@ -1,6 +1,196 @@
 import sqlite3
 import os
 
+import requests
+
+
+class _TursoRow:
+    """sqlite3.Row-compatible wrapper around a libsql result tuple."""
+
+    __slots__ = ("_columns", "_values")
+
+    def __init__(self, columns, values):
+        self._columns = columns
+        self._values = values
+
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            return self._values[self._columns.index(key)]
+        return self._values[key]
+
+    def keys(self):
+        return list(self._columns)
+
+    def __iter__(self):
+        return iter(self._values)
+
+    def __repr__(self):
+        return f"<_TursoRow {dict(zip(self._columns, self._values))}>"
+
+
+class _TursoCursor:
+    """Wraps a libsql cursor so fetchone/fetchall return _TursoRow objects."""
+
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def _columns(self):
+        return [d[0] for d in self._cursor.description]
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        return _TursoRow(self._columns(), row) if row is not None else None
+
+    def fetchall(self):
+        columns = self._columns()
+        return [_TursoRow(columns, row) for row in self._cursor.fetchall()]
+
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+
+
+class _TursoConnection:
+    """Wraps a libsql connection so conn.execute(...).fetchone()/.fetchall()
+    return sqlite3.Row-compatible objects, matching the interface every
+    caller in this codebase already relies on."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, sql, params=()):
+        return _TursoCursor(self._conn.execute(sql, params))
+
+    def executemany(self, sql, seq_of_params):
+        return self._conn.executemany(sql, seq_of_params)
+
+    def commit(self):
+        self._conn.commit()
+
+    def close(self):
+        self._conn.close()
+
+
+def _encode_hrana_value(value):
+    """Encode a Python param into a Hrana v2 wire-format value object."""
+    if value is None:
+        return {"type": "null"}
+    if isinstance(value, bool):
+        return {"type": "integer", "value": str(int(value))}
+    if isinstance(value, int):
+        return {"type": "integer", "value": str(value)}
+    if isinstance(value, float):
+        return {"type": "float", "value": value}
+    return {"type": "text", "value": str(value)}
+
+
+def _decode_hrana_value(value_obj):
+    """Decode a Hrana v2 wire-format value object back into a native Python value."""
+    vtype = value_obj.get("type")
+    if vtype == "null":
+        return None
+    if vtype == "integer":
+        return int(value_obj["value"])
+    if vtype == "float":
+        return float(value_obj["value"])
+    # wolf-debt: no "blob" case (base64-keyed, not value-keyed) -- silently
+    # returns None instead of raising, since no BLOB column exists today.
+    # upgrade trigger: any BLOB column added to this schema.
+    return value_obj.get("value")
+
+
+class _TursoHttpCursor:
+    """Cursor-like wrapper around one Hrana v2 /v2/pipeline execute result.
+
+    Matches the sliver of sqlite3.Cursor's interface _TursoCursor relies on:
+    `.description` (list where each entry's [0] is the column name) and
+    `.fetchone()`/`.fetchall()` returning plain value tuples.
+    """
+
+    def __init__(self, result):
+        self.description = [(c["name"],) for c in result.get("cols", [])]
+        self._rows = [
+            tuple(_decode_hrana_value(v) for v in row)
+            for row in result.get("rows", [])
+        ]
+        self._pos = 0
+
+    def fetchone(self):
+        if self._pos >= len(self._rows):
+            return None
+        row = self._rows[self._pos]
+        self._pos += 1
+        return row
+
+    def fetchall(self):
+        rows = self._rows[self._pos:]
+        self._pos = len(self._rows)
+        return rows
+
+
+class _TursoHttpClient:
+    """Raw Turso connection over the HTTPS Hrana v2 pipeline API.
+
+    Replaces the native `libsql://` remote protocol (unstable — see
+    https://github.com/paulchangmckay/nhl-stats/issues/111), issuing one
+    self-contained execute+close request per statement over a shared
+    requests.Session (so statements within one get_connection() lifetime
+    reuse the same TCP/TLS connection instead of each re-handshaking).
+
+    Every statement is committed immediately server-side, so .commit() is a
+    no-op here. Safe for this codebase specifically because every write
+    helper in this module (upsert_*/insert_*) uses INSERT OR REPLACE/IGNORE
+    or ON CONFLICT DO UPDATE -- i.e. is idempotent -- so a caller that writes
+    several rows in a loop and calls .commit() once at the end (the common
+    ETL pattern here) still converges to the same end state even though
+    each row was already durably written before that final .commit() call,
+    not batched into one all-or-nothing transaction as sqlite3 would do.
+    """
+
+    def __init__(self, base_url, auth_token):
+        self._base_url = base_url
+        self._auth_token = auth_token
+        self._session = requests.Session()
+
+    def execute(self, sql, params=()):
+        body = {
+            "requests": [
+                {"type": "execute", "stmt": {
+                    "sql": sql,
+                    "args": [_encode_hrana_value(p) for p in params],
+                }},
+                {"type": "close"},
+            ]
+        }
+        response = self._session.post(
+            f"{self._base_url}/v2/pipeline",
+            json=body,
+            headers={
+                "Authorization": f"Bearer {self._auth_token}",
+                "Content-Type": "application/json",
+            },
+            timeout=15,
+        )
+        response.raise_for_status()
+        try:
+            first = response.json()["results"][0]
+            if first["type"] == "error":
+                raise ValueError(f"Hrana: {first['error']['message']}")
+            result = first["response"]["result"]
+        except (IndexError, KeyError) as e:
+            raise ValueError(f"Hrana: malformed /v2/pipeline response, missing {e}")
+        return _TursoHttpCursor(result)
+
+    def executemany(self, sql, seq_of_params):
+        for params in seq_of_params:
+            self.execute(sql, params)
+
+    def commit(self):
+        pass  # each statement is already committed by execute() -- see class docstring
+
+    def close(self):
+        self._session.close()
+
+
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "nhl_stats.db")
 
 CREATE_TEAMS = """
@@ -218,6 +408,185 @@ CREATE_PLAYER_SHIFTS_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_player_shifts_player_game ON player_shifts(player_id, game_id)",
 ]
 
+CREATE_PLAYER_GAME_ADVANCED_STATS = """
+CREATE TABLE IF NOT EXISTS player_game_advanced_stats (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id        INTEGER NOT NULL REFERENCES games(game_id),
+    player_id      INTEGER NOT NULL REFERENCES players(player_id),
+    team_id        INTEGER REFERENCES teams(team_id),
+    strength_state TEXT NOT NULL,
+    cf             INTEGER DEFAULT 0,
+    ca             INTEGER DEFAULT 0,
+    ff             INTEGER DEFAULT 0,
+    fa             INTEGER DEFAULT 0,
+    hdcf           INTEGER DEFAULT 0,
+    hdca           INTEGER DEFAULT 0,
+    gf             INTEGER DEFAULT 0,
+    ga             INTEGER DEFAULT 0,
+    primary_points INTEGER DEFAULT 0,
+    toi_seconds    INTEGER DEFAULT 0,
+    icf             INTEGER DEFAULT 0,  -- individual Corsi For (own shot attempts, not on-ice)
+    ihdcf           INTEGER DEFAULT 0,  -- individual High-Danger Corsi For
+    rebounds_created INTEGER DEFAULT 0, -- credited to original shooter, see sweep.py
+    deflections     INTEGER DEFAULT 0,  -- shot_type IN ('deflected', 'tip-in')
+    points          INTEGER DEFAULT 0,  -- goals + assist1 + assist2 (primary_points excludes assist2)
+    created_at     TEXT DEFAULT (datetime('now')),
+    UNIQUE (game_id, player_id, strength_state)
+);
+"""
+
+CREATE_PLAYER_GAME_ADVANCED_STATS_INDEXES = [
+    "CREATE INDEX IF NOT EXISTS idx_player_game_adv_player ON player_game_advanced_stats(player_id)",
+]
+
+CREATE_TEAM_GAME_ADVANCED_STATS = """
+CREATE TABLE IF NOT EXISTS team_game_advanced_stats (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id        INTEGER NOT NULL REFERENCES games(game_id),
+    team_id        INTEGER NOT NULL REFERENCES teams(team_id),
+    strength_state TEXT NOT NULL,
+    cf             INTEGER DEFAULT 0,
+    ca             INTEGER DEFAULT 0,
+    ff             INTEGER DEFAULT 0,
+    fa             INTEGER DEFAULT 0,
+    gf             INTEGER DEFAULT 0,
+    ga             INTEGER DEFAULT 0,
+    shots_for      INTEGER DEFAULT 0,
+    shots_against  INTEGER DEFAULT 0,
+    created_at     TEXT DEFAULT (datetime('now')),
+    UNIQUE (game_id, team_id, strength_state)
+);
+"""
+
+# player_season_advanced_stats: same grain as player_season_stats (game_type
+# column, one row per player/season/game_type/strength_state) -- matches that
+# table's convention, not player_career_stats's rs_/po_ prefix convention,
+# since career stats there predates any per-strength-state dimension and
+# season stats is the closer structural match here.
+CREATE_PLAYER_SEASON_ADVANCED_STATS = """
+CREATE TABLE IF NOT EXISTS player_season_advanced_stats (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_id      INTEGER NOT NULL REFERENCES players(player_id),
+    season_id      TEXT NOT NULL,
+    game_type      INTEGER NOT NULL,
+    team_abbrevs   TEXT,
+    strength_state TEXT NOT NULL,
+    cf             INTEGER DEFAULT 0,
+    ca             INTEGER DEFAULT 0,
+    ff             INTEGER DEFAULT 0,
+    fa             INTEGER DEFAULT 0,
+    hdcf           INTEGER DEFAULT 0,
+    hdca           INTEGER DEFAULT 0,
+    gf             INTEGER DEFAULT 0,
+    ga             INTEGER DEFAULT 0,
+    primary_points INTEGER DEFAULT 0,
+    toi_seconds    INTEGER DEFAULT 0,
+    icf             INTEGER DEFAULT 0,  -- individual Corsi For (own shot attempts, not on-ice)
+    ihdcf           INTEGER DEFAULT 0,  -- individual High-Danger Corsi For
+    rebounds_created INTEGER DEFAULT 0, -- credited to original shooter, see sweep.py
+    deflections     INTEGER DEFAULT 0,  -- shot_type IN ('deflected', 'tip-in')
+    points          INTEGER DEFAULT 0,  -- goals + assist1 + assist2 (primary_points excludes assist2)
+    gp             INTEGER DEFAULT 0,
+    last_updated   TEXT DEFAULT (datetime('now')),
+    UNIQUE (player_id, season_id, game_type, strength_state)
+);
+"""
+
+CREATE_TEAM_SEASON_ADVANCED_STATS = """
+CREATE TABLE IF NOT EXISTS team_season_advanced_stats (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    team_id        INTEGER NOT NULL REFERENCES teams(team_id),
+    season_id      TEXT NOT NULL,
+    game_type      INTEGER NOT NULL,
+    strength_state TEXT NOT NULL,
+    cf             INTEGER DEFAULT 0,
+    ca             INTEGER DEFAULT 0,
+    ff             INTEGER DEFAULT 0,
+    fa             INTEGER DEFAULT 0,
+    gf             INTEGER DEFAULT 0,
+    ga             INTEGER DEFAULT 0,
+    shots_for      INTEGER DEFAULT 0,
+    shots_against  INTEGER DEFAULT 0,
+    last_updated   TEXT DEFAULT (datetime('now')),
+    UNIQUE (team_id, season_id, game_type, strength_state)
+);
+"""
+
+# player_career_advanced_stats: rs_/po_ prefix convention, matching
+# player_career_stats exactly (regular season vs. playoffs as columns, not a
+# game_type row split), with strength_state as the row-grain dimension.
+CREATE_PLAYER_CAREER_ADVANCED_STATS = """
+CREATE TABLE IF NOT EXISTS player_career_advanced_stats (
+    player_id       INTEGER NOT NULL REFERENCES players(player_id),
+    strength_state  TEXT NOT NULL,
+    rs_cf             INTEGER DEFAULT 0,
+    rs_ca             INTEGER DEFAULT 0,
+    rs_ff             INTEGER DEFAULT 0,
+    rs_fa             INTEGER DEFAULT 0,
+    rs_hdcf           INTEGER DEFAULT 0,
+    rs_hdca           INTEGER DEFAULT 0,
+    rs_gf             INTEGER DEFAULT 0,
+    rs_ga             INTEGER DEFAULT 0,
+    rs_primary_points INTEGER DEFAULT 0,
+    rs_toi_seconds    INTEGER DEFAULT 0,
+    rs_icf              INTEGER DEFAULT 0,
+    rs_ihdcf            INTEGER DEFAULT 0,
+    rs_rebounds_created INTEGER DEFAULT 0,
+    rs_deflections      INTEGER DEFAULT 0,
+    rs_points           INTEGER DEFAULT 0,
+    po_cf             INTEGER DEFAULT 0,
+    po_ca             INTEGER DEFAULT 0,
+    po_ff             INTEGER DEFAULT 0,
+    po_fa             INTEGER DEFAULT 0,
+    po_hdcf           INTEGER DEFAULT 0,
+    po_hdca           INTEGER DEFAULT 0,
+    po_gf             INTEGER DEFAULT 0,
+    po_ga             INTEGER DEFAULT 0,
+    po_primary_points INTEGER DEFAULT 0,
+    po_toi_seconds    INTEGER DEFAULT 0,
+    po_icf              INTEGER DEFAULT 0,
+    po_ihdcf            INTEGER DEFAULT 0,
+    po_rebounds_created INTEGER DEFAULT 0,
+    po_deflections      INTEGER DEFAULT 0,
+    po_points           INTEGER DEFAULT 0,
+    last_updated      TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (player_id, strength_state)
+);
+"""
+
+CREATE_PLAYER_ADVANCED_PERCENTILES = """
+CREATE TABLE IF NOT EXISTS player_advanced_percentiles (
+    id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+    season_id              TEXT NOT NULL,
+    player_id              INTEGER NOT NULL REFERENCES players(player_id),
+    strength_state         TEXT NOT NULL,
+    position_group         TEXT NOT NULL,
+    cf_pct_pctile          REAL,
+    ff_pct_pctile          REAL,
+    hdcf_pct_pctile        REAL,
+    primary_points_pctile  REAL,
+    created_at             TEXT DEFAULT (datetime('now')),
+    UNIQUE (season_id, player_id, strength_state)
+);
+"""
+
+CREATE_PLAYER_RATE_ZSCORES = """
+CREATE TABLE IF NOT EXISTS player_rate_zscores (
+    id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+    season_id                TEXT NOT NULL,
+    player_id                INTEGER NOT NULL REFERENCES players(player_id),
+    position_group           TEXT NOT NULL,
+    shots_per60_z            REAL,
+    chances_per60_z          REAL,
+    rebounds_created_per60_z REAL,
+    deflections_per60_z      REAL,
+    points_per60_z           REAL,
+    primary_points_per60_z   REAL,
+    created_at                TEXT DEFAULT (datetime('now')),
+    UNIQUE (season_id, player_id)
+);
+"""
+
 CREATE_SYNC_LOG = """
 CREATE TABLE IF NOT EXISTS sync_log (
     key          TEXT PRIMARY KEY,
@@ -239,8 +608,42 @@ _PLAYER_MIGRATIONS = [
     "ALTER TABLE players ADD COLUMN enriched_at          TEXT",
 ]
 
+_GAME_EVENTS_MIGRATIONS = [
+    "ALTER TABLE game_events ADD COLUMN home_team_defending_side TEXT",
+]
+
+_ADVANCED_STATS_MIGRATIONS = [
+    "ALTER TABLE player_game_advanced_stats ADD COLUMN icf INTEGER DEFAULT 0",
+    "ALTER TABLE player_game_advanced_stats ADD COLUMN ihdcf INTEGER DEFAULT 0",
+    "ALTER TABLE player_game_advanced_stats ADD COLUMN rebounds_created INTEGER DEFAULT 0",
+    "ALTER TABLE player_game_advanced_stats ADD COLUMN deflections INTEGER DEFAULT 0",
+    "ALTER TABLE player_game_advanced_stats ADD COLUMN points INTEGER DEFAULT 0",
+    "ALTER TABLE player_season_advanced_stats ADD COLUMN icf INTEGER DEFAULT 0",
+    "ALTER TABLE player_season_advanced_stats ADD COLUMN ihdcf INTEGER DEFAULT 0",
+    "ALTER TABLE player_season_advanced_stats ADD COLUMN rebounds_created INTEGER DEFAULT 0",
+    "ALTER TABLE player_season_advanced_stats ADD COLUMN deflections INTEGER DEFAULT 0",
+    "ALTER TABLE player_season_advanced_stats ADD COLUMN points INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN rs_icf INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN rs_ihdcf INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN rs_rebounds_created INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN rs_deflections INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN rs_points INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN po_icf INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN po_ihdcf INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN po_rebounds_created INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN po_deflections INTEGER DEFAULT 0",
+    "ALTER TABLE player_career_advanced_stats ADD COLUMN po_points INTEGER DEFAULT 0",
+]
+
 
 def get_connection(db_path=DB_PATH):
+    turso_url = os.environ.get("TURSO_DATABASE_URL")
+    if turso_url:
+        base_url = turso_url.replace("libsql://", "https://", 1)
+        raw = _TursoHttpClient(base_url, os.environ["TURSO_AUTH_TOKEN"])
+        conn = _TursoConnection(raw)
+        conn.execute("PRAGMA foreign_keys = ON")
+        return conn
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -249,11 +652,11 @@ def get_connection(db_path=DB_PATH):
 
 
 def run_migrations(conn):
-    for sql in _PLAYER_MIGRATIONS:
+    for sql in _PLAYER_MIGRATIONS + _GAME_EVENTS_MIGRATIONS + _ADVANCED_STATS_MIGRATIONS:
         try:
             conn.execute(sql)
-        except sqlite3.OperationalError:
-            pass  # column already exists
+        except (sqlite3.OperationalError, ValueError):
+            pass  # column already exists (sqlite3.OperationalError locally, ValueError via libsql)
     conn.commit()
 
 
@@ -261,9 +664,14 @@ def create_all_tables(conn):
     for sql in [CREATE_TEAMS, CREATE_SEASONS, CREATE_PLAYERS,
                 CREATE_GAMES, CREATE_PLAYER_GAME_STATS, CREATE_STANDINGS,
                 CREATE_PLAYER_SEASON_STATS, CREATE_PLAYER_CAREER_STATS,
-                CREATE_GAME_EVENTS, CREATE_PLAYER_SHIFTS, CREATE_SYNC_LOG]:
+                CREATE_GAME_EVENTS, CREATE_PLAYER_SHIFTS, CREATE_SYNC_LOG,
+                CREATE_PLAYER_GAME_ADVANCED_STATS, CREATE_TEAM_GAME_ADVANCED_STATS,
+                CREATE_PLAYER_SEASON_ADVANCED_STATS, CREATE_TEAM_SEASON_ADVANCED_STATS,
+                CREATE_PLAYER_CAREER_ADVANCED_STATS, CREATE_PLAYER_ADVANCED_PERCENTILES,
+                CREATE_PLAYER_RATE_ZSCORES]:
         conn.execute(sql)
-    for sql in CREATE_GAME_EVENTS_INDEXES + CREATE_PLAYER_SHIFTS_INDEXES:
+    for sql in (CREATE_GAME_EVENTS_INDEXES + CREATE_PLAYER_SHIFTS_INDEXES
+                + CREATE_PLAYER_GAME_ADVANCED_STATS_INDEXES):
         conn.execute(sql)
     run_migrations(conn)
     conn.commit()
@@ -466,18 +874,36 @@ def insert_standings_snapshot(conn, s):
 
 
 def insert_game_event(conn, e):
+    # ON CONFLICT DO UPDATE (not INSERT OR IGNORE) is deliberate here: the
+    # one-time home_team_defending_side gap-fill (backfill_defending_side.py)
+    # re-inserts already-loaded events solely to populate that one column,
+    # and needs the update to actually take effect on a second call for the
+    # same (game_id, event_id).
     conn.execute(
-        "INSERT OR IGNORE INTO game_events "
+        "INSERT INTO game_events "
         "(game_id, event_id, period, time_in_period, situation_code, event_type, "
         "zone_code, x_coord, y_coord, shot_type, event_owner_team_id, "
         "shooting_player_id, blocking_player_id, goalie_in_net_id, "
-        "assist1_player_id, assist2_player_id, details_json) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "assist1_player_id, assist2_player_id, details_json, home_team_defending_side) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(game_id, event_id) DO UPDATE SET "
+        "period=excluded.period, time_in_period=excluded.time_in_period, "
+        "situation_code=excluded.situation_code, event_type=excluded.event_type, "
+        "zone_code=excluded.zone_code, x_coord=excluded.x_coord, y_coord=excluded.y_coord, "
+        "shot_type=excluded.shot_type, event_owner_team_id=excluded.event_owner_team_id, "
+        "shooting_player_id=excluded.shooting_player_id, "
+        "blocking_player_id=excluded.blocking_player_id, "
+        "goalie_in_net_id=excluded.goalie_in_net_id, "
+        "assist1_player_id=excluded.assist1_player_id, "
+        "assist2_player_id=excluded.assist2_player_id, "
+        "details_json=excluded.details_json, "
+        "home_team_defending_side=excluded.home_team_defending_side",
         (e["game_id"], e["event_id"], e["period"], e["time_in_period"],
          e["situation_code"], e["event_type"], e["zone_code"], e["x_coord"],
          e["y_coord"], e["shot_type"], e["event_owner_team_id"],
          e["shooting_player_id"], e["blocking_player_id"], e["goalie_in_net_id"],
-         e["assist1_player_id"], e["assist2_player_id"], e["details_json"]),
+         e["assist1_player_id"], e["assist2_player_id"], e["details_json"],
+         e.get("home_team_defending_side")),
     )
 
 
@@ -523,3 +949,74 @@ def ensure_team_stub(conn, team_id, abbrev="UNK", common_name="Unknown", place_n
         "INSERT OR IGNORE INTO teams (team_id, abbrev, common_name, place_name) VALUES (?, ?, ?, ?)",
         (team_id, abbrev, common_name, place_name),
     )
+
+
+def upsert_player_game_advanced_stats(conn, r):
+    conn.execute("""
+        INSERT INTO player_game_advanced_stats
+            (game_id, player_id, team_id, strength_state, cf, ca, ff, fa,
+             hdcf, hdca, gf, ga, primary_points, toi_seconds,
+             icf, ihdcf, rebounds_created, deflections, points)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(game_id, player_id, strength_state) DO UPDATE SET
+            team_id=excluded.team_id, cf=excluded.cf, ca=excluded.ca,
+            ff=excluded.ff, fa=excluded.fa, hdcf=excluded.hdcf, hdca=excluded.hdca,
+            gf=excluded.gf, ga=excluded.ga, primary_points=excluded.primary_points,
+            toi_seconds=excluded.toi_seconds,
+            icf=excluded.icf, ihdcf=excluded.ihdcf,
+            rebounds_created=excluded.rebounds_created, deflections=excluded.deflections,
+            points=excluded.points
+    """, (r["game_id"], r["player_id"], r["team_id"], r["strength_state"],
+          r["cf"], r["ca"], r["ff"], r["fa"], r["hdcf"], r["hdca"],
+          r["gf"], r["ga"], r["primary_points"], r["toi_seconds"],
+          r.get("icf", 0), r.get("ihdcf", 0), r.get("rebounds_created", 0),
+          r.get("deflections", 0), r.get("points", 0)))
+
+
+def upsert_team_game_advanced_stats(conn, r):
+    conn.execute("""
+        INSERT INTO team_game_advanced_stats
+            (game_id, team_id, strength_state, cf, ca, ff, fa, gf, ga,
+             shots_for, shots_against)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(game_id, team_id, strength_state) DO UPDATE SET
+            cf=excluded.cf, ca=excluded.ca, ff=excluded.ff, fa=excluded.fa,
+            gf=excluded.gf, ga=excluded.ga, shots_for=excluded.shots_for,
+            shots_against=excluded.shots_against
+    """, (r["game_id"], r["team_id"], r["strength_state"], r["cf"], r["ca"],
+          r["ff"], r["fa"], r["gf"], r["ga"], r["shots_for"], r["shots_against"]))
+
+
+def upsert_player_advanced_percentiles(conn, r):
+    conn.execute("""
+        INSERT INTO player_advanced_percentiles
+            (season_id, player_id, strength_state, position_group,
+             cf_pct_pctile, ff_pct_pctile, hdcf_pct_pctile, primary_points_pctile)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(season_id, player_id, strength_state) DO UPDATE SET
+            position_group=excluded.position_group,
+            cf_pct_pctile=excluded.cf_pct_pctile, ff_pct_pctile=excluded.ff_pct_pctile,
+            hdcf_pct_pctile=excluded.hdcf_pct_pctile,
+            primary_points_pctile=excluded.primary_points_pctile
+    """, (r["season_id"], r["player_id"], r["strength_state"], r["position_group"],
+          r["cf_pct_pctile"], r["ff_pct_pctile"], r["hdcf_pct_pctile"],
+          r["primary_points_pctile"]))
+
+
+def upsert_player_rate_zscores(conn, r):
+    conn.execute("""
+        INSERT INTO player_rate_zscores
+            (season_id, player_id, position_group, shots_per60_z, chances_per60_z,
+             rebounds_created_per60_z, deflections_per60_z, points_per60_z,
+             primary_points_per60_z)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(season_id, player_id) DO UPDATE SET
+            position_group=excluded.position_group,
+            shots_per60_z=excluded.shots_per60_z, chances_per60_z=excluded.chances_per60_z,
+            rebounds_created_per60_z=excluded.rebounds_created_per60_z,
+            deflections_per60_z=excluded.deflections_per60_z,
+            points_per60_z=excluded.points_per60_z,
+            primary_points_per60_z=excluded.primary_points_per60_z
+    """, (r["season_id"], r["player_id"], r["position_group"], r["shots_per60_z"],
+          r["chances_per60_z"], r["rebounds_created_per60_z"], r["deflections_per60_z"],
+          r["points_per60_z"], r["primary_points_per60_z"]))

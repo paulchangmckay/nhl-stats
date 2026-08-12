@@ -9,6 +9,9 @@ export const SEASONS = [
   { id: "20222023", label: "2022–23" },
   { id: "20212022", label: "2021–22" },
   { id: "20202021", label: "2020–21" },
+  { id: "20192020", label: "2019–20" },
+  { id: "20182019", label: "2018–19" },
+  { id: "20172018", label: "2017–18" },
 ];
 
 function summaryLabel(active: string[]): string {

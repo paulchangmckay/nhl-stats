@@ -18,8 +18,9 @@ NHL Web API — `https://api-web.nhle.com/v1/` (free, no auth required)
 ## Setup
 
 ```bash
-# 1. Create a virtual environment
-python3 -m venv .venv
+# 1. Create a virtual environment (Python 3.12 required — libsql has no
+#    prebuilt wheel for 3.14 yet; matches the version CI uses)
+python3.12 -m venv .venv
 source .venv/bin/activate
 
 # 2. Install dependencies
@@ -55,6 +56,53 @@ Each script is idempotent and resumable (safe to re-run or interrupt
 partway through — already-loaded games are skipped). After this completes
 once, `python scripts/run_all_etl.py` is sufficient going forward; the
 same three steps run as fast no-ops when there's nothing new to load.
+
+### One-time backfill (advanced stats: Corsi/Fenwick/HDSC/PDO/Primary Points)
+
+Two more one-time steps, run in this order **after** the play-by-play/shifts
+backfill above has completed at least once:
+
+```bash
+python -m etl.backfill_defending_side
+python -m etl.compute_advanced_stats
+```
+
+The first re-fetches play-by-play for every already-ingested game solely to
+populate `home_team_defending_side` (needed for rink-side-correct high-danger
+shot detection; captured automatically for all future games by
+`load_play_by_play.py`, so this script never needs to run again after this
+one time). The second computes Corsi/Fenwick/HDSC/PDO-inputs/Primary Points
+for every completed game. Both are idempotent and resumable, same as the
+scripts above. After this completes once, `python scripts/run_all_etl.py`
+keeps advanced stats current for new games automatically (see its
+`compute_advanced_stats` step).
+
+### One-time backfill (shot-generation rate stats)
+
+After pulling this change, the new `icf`/`ihdcf`/`rebounds_created`/`deflections`/
+`points` columns and the `player_rate_zscores` table need to exist before a
+recompute can populate them, and `run()`'s `NOT EXISTS` gating means already-
+processed games won't be reprocessed on their own — a one-time full recompute
+is required:
+
+```bash
+python scripts/setup_db.py   # applies the schema migration (safe to rerun)
+cp data/nhl_stats.db "data/nhl_stats.db.bak-$(date +%Y%m%d)"   # required -- see below
+sqlite3 data/nhl_stats.db "DELETE FROM player_game_advanced_stats; DELETE FROM player_season_advanced_stats; DELETE FROM player_career_advanced_stats; DELETE FROM player_advanced_percentiles; DELETE FROM player_rate_zscores;"
+python -m etl.compute_advanced_stats
+```
+
+**Back up first.** This deletes and rebuilds all advanced-stats tables (not
+just the ones this phase adds columns to) — a per-game failure partway through
+leaves them partially or fully empty rather than rolling back. All advanced
+stats are unavailable via the API for the duration of the recompute (a personal
+local SQLite file, so no concurrent users are affected, but it's a real window,
+not a cosmetic one).
+
+After this completes once, `python scripts/run_all_etl.py` — already the
+documented way to keep `game_events`/`player_shifts`/advanced stats current —
+is sufficient going forward; its existing `NOT EXISTS` gating picks up the new
+columns for every game processed after this backfill with no further changes.
 
 ### Frontend (React + Vite)
 

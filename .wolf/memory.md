@@ -118,3 +118,75 @@
 | 21:58 | Code review (subagent) | templates/index.html | 1 Important finding: missing height floor | — |
 | 21:58 | Edited templates/index.html | added max(200px, ...) floor to .table-wrap height | ~15 |
 | 21:59 | Pushed branch + opened PR #22 | Closes #20 | — |
+
+## Session: 2026-07-25 (player profile overlay, GitHub issue #73)
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| — | Fixed stale desktop launcher | — | killed stale server process, rebuilt frontend (missing recharts dep) | — |
+| — | Ran etl/compute_advanced_stats.py | data/nhl_stats.db | populated previously-empty player_season_advanced_stats (62,143 rows) + player_advanced_percentiles (12,826 rows); logged bug-016 | — |
+| — | Logged bug-017 | — | cosmetic Vite base-path font 404, left unfixed (out of scope) | — |
+| — | Brainstorm + grill + plan | docs/superpowers/specs/2026-07-25-player-profile-overlay-design.md, docs/superpowers/plans/2026-07-25-player-profile-overlay.md | design spec + 7-task TDD plan, approved | — |
+| — | Filed GitHub issue #73 | — | tracks the plan | — |
+| — | Created worktree .claude/worktrees/73-player-profile-overlay | branch feature/73-player-profile-overlay | isolated from main | — |
+| — | Edited app.py | _fetch_players() now selects headshot_url/birth_city/birth_state_province/draft_* | ~80 |
+| — | Edited frontend/src/lib/types.ts, mock-data.ts | Player type + mocks gain photo/bio/draft fields | ~50 |
+| — | Created frontend/src/lib/teamBranding.ts | 32-team color map + NHL CDN logoUrl() (dark variant) | ~80 |
+| — | Edited frontend/src/components/PlayerTable.tsx | whole-row click/keyboard trigger replaces CF%-cell-only trigger | ~90 |
+| — | Renamed PlayerAdvancedPanel.tsx → PlayerProfilePanel.tsx | added photo/team-accent header, bio row, goalie/skater box score, progressive loading | ~280 |
+| — | Edited frontend/src/App.tsx | merges Player bio row + PlayerStats row by player_id for the panel | ~40 |
+| — | Manual verification (Playwright) | McDavid (photo+accent+advanced), Tanev (Undrafted), Markstrom (goalie box score, no advanced section) | all passed |
+
+## Session: 2026-07-26/27 (launcher auto-sync, GitHub issue #76)
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| — | Investigated stale desktop app | — | local main had diverged from origin/main (never pulled PR #74/#75); confirmed via grep that app.py/App.tsx had zero trace of the profile-overlay feature | — |
+| — | Brainstorm + grill + plan | docs/superpowers/specs/2026-07-26-launcher-auto-sync-design.md, docs/superpowers/plans/2026-07-26-launcher-auto-sync.md | design spec + 2-task plan, approved | — |
+| — | Filed GitHub issue #76 | — | tracks the plan | — |
+| — | Created worktree .claude/worktrees/76-launcher-auto-sync | branch feature/76-launcher-auto-sync, rebased onto local main to reconcile the divergence | isolated from main | — |
+| — | Task 1: rewrote scripts/launch_app.sh | git auto-sync (fetch/rebase/stash/conflict-alert) + conditional frontend rebuild/restart | task review: Approved, one Important plan-mandated fix (kill -0 instead of is_up) applied with user sign-off | — |
+| — | Found + fixed bug-018 | scripts/launch_app.sh | alert()'s osascript stdout was leaking into a captured shell variable, corrupting AFTER_SHA on any alert | — |
+| — | Found + fixed bug-019 | scripts/launch_app.sh | `lsof \| head -n 1` under set -euo pipefail aborted the whole script when no server was listening (the common cold-start case) | — |
+| — | Task 2: manual scenario verification | disposable throwaway clones, origin redirected to the worktree | 5/5 scenarios passed (fast-forward, rebase, dirty-tree, offline, conflict) | — |
+| — | Final whole-branch review (Opus) | scripts/launch_app.sh + docs | Ready to merge: Yes, no Critical/Important issues; reconciled doc drift (kill -0 vs is_up) before merge | — |
+| — | Pushed branch + opened PR #77, merged | — | Closes #76 | — |
+| — | Resolved 3 Dependabot alerts | frontend/package-lock.json | brace-expansion, fast-uri, @hono/node-server — all transitive deps of `shadcn` CLI, not runtime code; `npm audit fix` (no --force) resolved all 3 | — |
+| — | Filed + merged PR #78 | — | lockfile-only, no package.json edits, CI green | — |
+| — | Discovered recurring rebase conflict | — | local main's OWN old doc commits (content-identical to already-squash-merged PRs, different SHAs) will conflict on every future auto-sync rebase; `git merge` tolerates this, `git rebase` does not | — |
+| — | User ran `git reset --hard origin/main` | — | permanently ends the recurring conflict; confirmed zero divergence afterward | — |
+| — | Learned (the hard way): local-only commits to main get discarded by reset | .wolf/cerebrum.md, .wolf/memory.md | first attempt at merge-conflict-resolution for these files was committed directly to local main (violating this project's own documented convention) and was wiped out by the reset since it was never pushed; redone via a proper worktree + PR (this session-reflect commit) | — |
+
+## Session: 2026-08-01/02 (Turso DB migration + Render deploy)
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| — | User asked how to deploy the Cloudflare Page connected to this repo | — | investigated the actual stack (Flask + 1.48GB local SQLite, Vite/React frontend) and found Python Workers can't run Flask (stdlib-only in production) — ruled out Cloudflare as the app host | — |
+| — | Explored HF Docker Spaces as an alternative | — | Docker Spaces started requiring a paid Pro plan mid-investigation (recent, undocumented platform change) — ruled out | — |
+| — | Surveyed free DB options (user asked directly) | — | HF Dataset repo, Turso, Neon, Supabase compared; Turso (5GB free, SQLite-compatible) chosen after user said "let's try turso.tech" | — |
+| — | Brainstorm + grill (incl. a live empirical libsql spike) | docs/superpowers/specs/2026-07-30-turso-render-deploy-design.md | discovered mid-grilling that `libsql` has no `row_factory` (plain tuples, not dict rows) and raises `ValueError` not `sqlite3.OperationalError` on duplicate columns — corrected the spec before planning; also settled remote-only connection mode, exact cutover sequence, manual-only future migrations | — |
+| — | Filed GitHub issue #82, wrote 8-task plan | docs/superpowers/plans/2026-07-30-turso-render-deploy.md | subagent-driven execution: libsql row-adapter, get_connection() branching, migration idempotency fix, configurable host/port, Dockerfile+gunicorn, sync.py docstring fix | — |
+| — | Final whole-branch review (Opus) found + fixed 1 Critical | tests/conftest.py, README.md, src/database.py | `conn` fixture had no isolation from `TURSO_DATABASE_URL` — would have let `pytest` silently write fixture data into production Turso once the env var was exported locally; fixed via `monkeypatch.delenv` | — |
+| — | Pushed branch, opened PR #88 | — | tracks issue #82 | — |
+| — | Manually provisioned Turso (Task 7) | data/nhl_stats.db | `turso db create --from-file` first attempt silently produced an empty DB (source file wasn't in WAL mode, no error even on the 1.48GB file); fixed via `PRAGMA journal_mode=WAL` + `--wait`, re-verified via exact row-count match on the 3 largest tables | — |
+| — | Confirmed ETL→Turso end-to-end | scripts/sync.py | ran from the PR worktree (main checkout doesn't have the Turso code until merge); verified via a fresh `sync_log` timestamp read directly from Turso, not just the script's own stdout | — |
+| — | Reconciled PR #88 with main (5 commits had landed since branch point) | docs/superpowers/specs/2026-07-30-historical-data-expansion-design.md | one add/add conflict (stale local-main draft vs. the real squash-merged spec) — took origin's version; 127/127 tests passed post-merge | — |
+| — | Merged PR #88, cleaned up worktree/branches | — | issue #82 auto-closed | — |
+| — | User created Render service, added TURSO_DATABASE_URL/TURSO_AUTH_TOKEN secrets | — | verified live: `/` → 200, `/api/teams` → 200 with real Turso data; confirmed auto-deploy-on-push using a real subsequent PR (#100) as the test case | — |
+| — | Post-deploy cleanup: found `.env.turso` (live secret) was untracked AND unignored | .gitignore | filed + merged PR #101 (`.env.*` pattern) same day | — |
+| — | `git reset --hard origin/main` blocked by the auto-mode permission classifier | — | blocked even after explicit in-chat user confirmation; requires a settings.json permission rule or the user running it in a real terminal — gave the user the exact command instead of retrying | — |
+
+## Session: 2026-07-31/08-02 (historical data expansion, 2017-18 to 2019-20, GitHub issue #92)
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| — | Grilled the approved spec; empirical live-API testing | docs/superpowers/specs/2026-07-30-historical-data-expansion-design.md | confirmed `homeTeamDefendingSide` entirely absent from shot-attempt plays in 2017-18/2018-19, fully present in 2019-20 (an initial "partial 2019-20" reading was a red herring — only non-shot event types lack it, irrelevant to HD computation); found `_is_high_danger()` would silently compute HDCF/HDCA to a misleading 0 rather than leaving them missing; added Scope item 6 (HD-stat NULL propagation) to the spec | — |
+| — | Wrote + self-reviewed implementation plan | docs/superpowers/plans/2026-07-30-historical-data-expansion.md | 5 tasks: sweep.py NULL propagation, percentile None-safety, zscore None-safety, SEASONS constants, live backfill | — |
+| — | Executed Tasks 1-4 via subagent-driven-development | etl/advanced_stats/sweep.py, etl/compute_advanced_stats.py, etl/load_historical_schedule.py, etl/load_season_stats.py, frontend/src/components/SeasonPicker.tsx | each task individually reviewed clean; one implementer subagent hit a session-limit mid-task (RED confirmed, fix not yet applied) — controller resumed directly rather than re-dispatching | — |
+| — | Final whole-branch review (Opus) | — | found 1 Critical (app.py crashed on NULL hdcf/hdca/ihdcf — would 500 the default profile view for any player whose last season was 2017-18/2018-19, since api_player_advanced falls back to MAX(season_id)) + 2 Important (missing min-population guard on filtered HD populations; missing all-NULL-season test coverage) + 2 Minor (stale TS type, misleading tooltip) | — |
+| — | Fixed all 5 findings, re-reviewed clean | app.py, etl/compute_advanced_stats.py, frontend/src/lib/types.ts, frontend/src/components/PlayerProfilePanel.tsx | "Ready to merge: Yes"; 117 backend / 74 frontend passing (after merging in concurrent PR #89's changes) | — |
+| — | Filed GitHub issue #92 retroactively | — | process gap: github-issue-first was skipped when moving from writing-plans straight into subagent-driven-development execution — filed after the fact instead of before code was touched, noted transparently in the issue body | — |
+| — | PR #93 merged | — | Closes #92; squash-merged, worktree + branch cleaned up | — |
+| — | Ran the live historical backfill (Task 5) against production `data/nhl_stats.db` | — | backed up first (`nhl_stats.db.bak-20260801`); schedule (1355+1358+1216 games) → boxscores → play-by-play → shifts → backfill_defending_side (safety net, confirmed can't fix the 2 API-lacking seasons) → compute_advanced_stats → load_season_stats → enrich_players (360 players, 0 errors) | — |
+| — | Caught + fixed a real (not hypothetical) manifestation of the documented sync_log wolf-debt | etl/load_season_stats.py sync_log | a transient connection reset truncated 2019-20's regular-season skater pagination at 800/883; since the season gets marked "synced" regardless, this would have silently stuck at 800 forever without the fallback-only safety net catching it (fallback did catch the 83 missing skaters as a stopgap, but manually cleared `sync_log` and reran to get the real bulk-API data properly instead of leaning on the fallback long-term) | — |
+| — | Final verification | — | 2017-18/2018-19 100% NULL for hdcf/hdcf_pct_pctile/chances_per60_z (10540/10540, 10575/10575), 2019-20 100% populated (0/12198) — NULL-propagation fix confirmed working against real production data, not just synthetic tests. DB grew 1.485GB → 2.213GB (+728MB, within the spec's 700MB-1GB estimate). 125/125 backend (excluding 2 unrelated libsql tests that can't install on this Python 3.14 env — pre-existing gap from a concurrent Turso-migration merge, out of scope), 83/83 frontend passing | — |
