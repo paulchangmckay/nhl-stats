@@ -80,7 +80,7 @@ export default function Players() {
     updateToolbarHeight();
     window.addEventListener("resize", updateToolbarHeight);
     return () => window.removeEventListener("resize", updateToolbarHeight);
-  }, [filters, seasons]);
+  }, [filters, seasons, teamsState.status, playersState.status]);
 
   const rows = useMemo(() => {
     if (playersState.status !== "ready") return [];
