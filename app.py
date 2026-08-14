@@ -34,7 +34,7 @@ def index():
 
 @app.route("/<path:path>")
 def spa_fallback(path):
-    if path.startswith("api/") or path.startswith("static/"):
+    if path.startswith("api/"):
         abort(404)
     return render_template("index.html")
 
