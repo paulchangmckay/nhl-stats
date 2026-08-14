@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import App from "./App";
+import { MemoryRouter } from "react-router-dom";
+import Players from "./Players";
 import { MOCK_TEAMS, MOCK_PLAYERS, MOCK_STATS } from "@/lib/mock-data";
 
 function mockFetchOnce(url: string) {
@@ -17,6 +18,14 @@ function mockFetchOnce(url: string) {
   return Promise.reject(new Error(`unexpected url: ${url}`));
 }
 
+function renderPlayers() {
+  return render(
+    <MemoryRouter initialEntries={["/players"]}>
+      <Players />
+    </MemoryRouter>
+  );
+}
+
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn((url: string) => mockFetchOnce(url)));
 });
@@ -25,9 +34,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("App", () => {
+describe("Players", () => {
   it("loads teams, players, and default-season stats, then renders the table", async () => {
-    render(<App />);
+    renderPlayers();
     expect(await screen.findByText("MacKinnon")).toBeInTheDocument();
   });
 
@@ -40,7 +49,7 @@ describe("App", () => {
           : mockFetchOnce(url)
       )
     );
-    render(<App />);
+    renderPlayers();
     expect(await screen.findByText(/failed to load/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
   });
@@ -56,7 +65,7 @@ describe("App", () => {
         return mockFetchOnce(url);
       })
     );
-    render(<App />);
+    renderPlayers();
     await screen.findByText(/failed to load/i);
     shouldFail = false;
     await userEvent.click(screen.getByRole("button", { name: /retry/i }));
@@ -72,7 +81,7 @@ describe("App", () => {
           : mockFetchOnce(url)
       )
     );
-    render(<App />);
+    renderPlayers();
     expect(await screen.findByText(/failed to load teams/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
   });
@@ -86,14 +95,14 @@ describe("App", () => {
           : mockFetchOnce(url)
       )
     );
-    render(<App />);
+    renderPlayers();
     await screen.findByText("NHL Players");
     expect(await screen.findByText(/failed to load stats/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
   });
 
   it("narrows rows when a search query is typed", async () => {
-    render(<App />);
+    renderPlayers();
     await screen.findByText("MacKinnon");
     await userEvent.type(screen.getByPlaceholderText("Search players…"), "McDavid");
     expect(screen.queryByText("MacKinnon")).not.toBeInTheDocument();
@@ -101,7 +110,7 @@ describe("App", () => {
   });
 
   it("shows the player count, narrowed when a filter is active", async () => {
-    render(<App />);
+    renderPlayers();
     await screen.findByText("MacKinnon");
     expect(screen.getByText("3 players")).toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText("Search players…"), "McDavid");
@@ -109,7 +118,7 @@ describe("App", () => {
   });
 
   it("clears other filters, scrolls to, and highlights the row when a suggestion is clicked", async () => {
-    render(<App />);
+    renderPlayers();
     await screen.findByText("MacKinnon");
     await userEvent.click(screen.getByRole("button", { name: "C" })); // active position filter
     await userEvent.type(screen.getByPlaceholderText("Search players…"), "MacKinnon");
@@ -125,13 +134,14 @@ describe("App", () => {
     });
   });
 
-  it("wraps the table in a single bounded-height scroll container (bug-008 regression guard)", async () => {
-    render(<App />);
+  it("wraps the table in a single bounded-height scroll container sized for the sticky toolbar and header (bug-008 regression guard)", async () => {
+    renderPlayers();
     await screen.findByText("MacKinnon");
     const wrap = document.querySelector('[data-testid="table-wrap"]');
     expect(wrap).not.toBeNull();
     const style = wrap!.getAttribute("style") || "";
-    expect(style).toMatch(/height/);
+    expect(style).toMatch(/--toolbar-height/);
+    expect(style).toMatch(/--header-height/);
     expect(wrap).toHaveClass("overflow-auto");
   });
 
@@ -151,7 +161,7 @@ describe("App", () => {
         return mockFetchOnce(url);
       })
     );
-    render(<App />);
+    renderPlayers();
     await screen.findByText("MacKinnon");
 
     const row = document.querySelector('[data-player-id="1"]')!;
