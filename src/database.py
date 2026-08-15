@@ -589,6 +589,18 @@ CREATE TABLE IF NOT EXISTS player_rate_zscores (
 );
 """
 
+CREATE_GOALIE_RATE_ZSCORES = """
+CREATE TABLE IF NOT EXISTS goalie_rate_zscores (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    season_id     TEXT NOT NULL,
+    player_id     INTEGER NOT NULL REFERENCES players(player_id),
+    sv_pct_z      REAL,
+    gaa_z         REAL,
+    created_at    TEXT DEFAULT (datetime('now')),
+    UNIQUE (season_id, player_id)
+);
+"""
+
 CREATE_SYNC_LOG = """
 CREATE TABLE IF NOT EXISTS sync_log (
     key          TEXT PRIMARY KEY,
@@ -672,7 +684,7 @@ def create_all_tables(conn):
                 CREATE_PLAYER_GAME_ADVANCED_STATS, CREATE_TEAM_GAME_ADVANCED_STATS,
                 CREATE_PLAYER_SEASON_ADVANCED_STATS, CREATE_TEAM_SEASON_ADVANCED_STATS,
                 CREATE_PLAYER_CAREER_ADVANCED_STATS, CREATE_PLAYER_ADVANCED_PERCENTILES,
-                CREATE_PLAYER_RATE_ZSCORES]:
+                CREATE_PLAYER_RATE_ZSCORES, CREATE_GOALIE_RATE_ZSCORES]:
         conn.execute(sql)
     for sql in (CREATE_GAME_EVENTS_INDEXES + CREATE_PLAYER_SHIFTS_INDEXES
                 + CREATE_PLAYER_GAME_ADVANCED_STATS_INDEXES):
@@ -1026,3 +1038,12 @@ def upsert_player_rate_zscores(conn, r):
           r["chances_per60_z"], r["rebounds_created_per60_z"], r["deflections_per60_z"],
           r["points_per60_z"], r["primary_points_per60_z"],
           r["ca_per60_z"], r["hdca_per60_z"]))
+
+
+def upsert_goalie_rate_zscores(conn, r):
+    conn.execute("""
+        INSERT INTO goalie_rate_zscores (season_id, player_id, sv_pct_z, gaa_z)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(season_id, player_id) DO UPDATE SET
+            sv_pct_z=excluded.sv_pct_z, gaa_z=excluded.gaa_z
+    """, (r["season_id"], r["player_id"], r["sv_pct_z"], r["gaa_z"]))

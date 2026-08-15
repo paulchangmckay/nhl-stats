@@ -8,6 +8,7 @@ from etl.advanced_stats.sweep import compute_game_advanced_stats
 PERCENTILE_STRENGTH_STATES = ("5v5", "5v4", "4v5")
 PERCENTILE_MIN_GP = 10
 ZSCORE_MIN_POPULATION = 20
+GOALIE_ZSCORE_MIN_GP = 5
 
 
 def run(conn):
@@ -64,6 +65,7 @@ def _run_aggregation_and_percentiles(conn):
     for season_id in season_ids:
         compute_percentiles(conn, season_id)
         compute_zscores(conn, season_id)
+        compute_goalie_zscores(conn, season_id)
 
 
 def _load_shifts_for_sweep(conn, game_id):
@@ -231,6 +233,30 @@ def compute_zscores(conn, season_id):
                 rate_val = _rate(r, count_key)
                 record[z_key] = _zscore(rate_val, populations[z_key]) if rate_val is not None else None
             database.upsert_player_rate_zscores(conn, record)
+    conn.commit()
+
+
+def compute_goalie_zscores(conn, season_id):
+    rows = conn.execute("""
+        SELECT player_id, save_pct, gaa
+        FROM player_season_stats
+        WHERE season_id = ? AND game_type = 2 AND position_code = 'G'
+          AND gp >= ? AND save_pct IS NOT NULL AND gaa IS NOT NULL
+    """, (season_id, GOALIE_ZSCORE_MIN_GP)).fetchall()
+
+    if not rows:
+        return
+
+    sv_pcts = [r["save_pct"] for r in rows]
+    gaas = [r["gaa"] for r in rows]
+
+    for r in rows:
+        database.upsert_goalie_rate_zscores(conn, {
+            "season_id": season_id,
+            "player_id": r["player_id"],
+            "sv_pct_z": _zscore(r["save_pct"], sv_pcts),
+            "gaa_z": _zscore(r["gaa"], gaas),
+        })
     conn.commit()
 
 

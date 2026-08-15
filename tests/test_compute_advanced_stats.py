@@ -564,3 +564,77 @@ def test_compute_zscores_ca_hdca_null_when_below_min_population(conn):
 
     rows = conn.execute("SELECT * FROM player_rate_zscores WHERE season_id = '20172018'").fetchall()
     assert len(rows) == 0  # below ZSCORE_MIN_POPULATION -- compute_zscores skips the whole group
+
+
+def test_compute_goalie_zscores_computes_sv_pct_and_gaa_z(conn):
+    # 6 qualifying goalies (only need to clear GOALIE_ZSCORE_MIN_GP=5, no
+    # separate min-population floor like skaters -- goalie pools are much
+    # smaller league-wide, so this uses len(rows) > 0 as its only floor).
+    database.upsert_season(conn, {"season_id": "20172018", "start_year": 2017, "end_year": 2018})
+    for player_id in range(1, 7):
+        database.upsert_player_stub(conn, {
+            "player_id": player_id, "first_name": "G", "last_name": str(player_id),
+            "position_code": "G", "shoots_catches": None,
+        })
+        conn.execute("""
+            INSERT INTO player_season_stats
+                (player_id, season_id, game_type, position_code, gp, save_pct, gaa)
+            VALUES (?, '20172018', 2, 'G', 10, ?, ?)
+        """, (player_id, 0.900 + player_id * 0.001, 3.00 - player_id * 0.05))
+    conn.commit()
+
+    module.compute_goalie_zscores(conn, season_id="20172018")
+
+    rows = conn.execute("SELECT * FROM goalie_rate_zscores WHERE season_id = '20172018'").fetchall()
+    assert len(rows) == 6
+    p1 = next(r for r in rows if r["player_id"] == 1)
+    assert p1["sv_pct_z"] is not None
+    assert p1["gaa_z"] is not None
+
+
+def test_compute_goalie_zscores_excludes_goalies_below_min_gp(conn):
+    database.upsert_season(conn, {"season_id": "20172018", "start_year": 2017, "end_year": 2018})
+    database.upsert_player_stub(conn, {
+        "player_id": 1, "first_name": "G", "last_name": "Qualifies",
+        "position_code": "G", "shoots_catches": None,
+    })
+    database.upsert_player_stub(conn, {
+        "player_id": 2, "first_name": "G", "last_name": "TooFew",
+        "position_code": "G", "shoots_catches": None,
+    })
+    conn.execute("""
+        INSERT INTO player_season_stats
+            (player_id, season_id, game_type, position_code, gp, save_pct, gaa)
+        VALUES (1, '20172018', 2, 'G', 10, 0.910, 2.50)
+    """)
+    conn.execute("""
+        INSERT INTO player_season_stats
+            (player_id, season_id, game_type, position_code, gp, save_pct, gaa)
+        VALUES (2, '20172018', 2, 'G', 2, 0.920, 2.00)
+    """)  # gp=2, below GOALIE_ZSCORE_MIN_GP=5
+    conn.commit()
+
+    module.compute_goalie_zscores(conn, season_id="20172018")
+
+    rows = conn.execute("SELECT player_id FROM goalie_rate_zscores WHERE season_id = '20172018'").fetchall()
+    assert [r["player_id"] for r in rows] == [1]
+
+
+def test_compute_goalie_zscores_excludes_skaters(conn):
+    database.upsert_season(conn, {"season_id": "20172018", "start_year": 2017, "end_year": 2018})
+    for player_id in range(1, 7):
+        database.upsert_player_stub(conn, {
+            "player_id": player_id, "first_name": "S", "last_name": str(player_id),
+            "position_code": "C", "shoots_catches": None,
+        })
+        conn.execute("""
+            INSERT INTO player_season_stats
+                (player_id, season_id, game_type, position_code, gp, save_pct, gaa)
+            VALUES (?, '20172018', 2, 'C', 10, NULL, NULL)
+        """, (player_id,))
+    conn.commit()
+
+    module.compute_goalie_zscores(conn, season_id="20172018")
+
+    rows = conn.execute("SELECT * FROM goalie_rate_zscores WHERE season_id = '20172018'").fetchall()
+    assert len(rows) == 0
