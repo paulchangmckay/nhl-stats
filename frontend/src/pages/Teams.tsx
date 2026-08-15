@@ -14,7 +14,9 @@ export default function Teams() {
 
   return (
     <div className="grid grid-cols-2 gap-4 p-6 sm:grid-cols-4 lg:grid-cols-6">
-      {teams.map((team) => {
+      {teams
+        .filter((team) => team.abbrev !== "UNK")
+        .map((team) => {
         const colors = teamColors(team.abbrev);
         return (
           <Link

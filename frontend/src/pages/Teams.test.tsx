@@ -34,4 +34,31 @@ describe("Teams", () => {
       "/teams/TOR"
     );
   });
+
+  it("filters out the UNK placeholder team row", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              { abbrev: "COL", common_name: "Colorado Avalanche" },
+              { abbrev: "UNK", common_name: "Unknown" },
+            ]),
+        } as Response)
+      )
+    );
+
+    render(
+      <MemoryRouter>
+        <Teams />
+      </MemoryRouter>
+    );
+
+    await screen.findByRole("link", { name: /Colorado Avalanche/i });
+    expect(screen.queryByText("Unknown")).not.toBeInTheDocument();
+
+    vi.unstubAllGlobals();
+  });
 });
