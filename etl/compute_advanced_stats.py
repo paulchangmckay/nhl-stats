@@ -182,12 +182,14 @@ def compute_zscores(conn, season_id):
         "rebounds_created_per60_z": "rebounds_created",
         "deflections_per60_z": "deflections",
         "points_per60_z": "points", "primary_points_per60_z": "primary_points",
+        "ca_per60_z": "ca", "hdca_per60_z": "hdca",
     }
     for position_group, position_codes in (("F", ("C", "L", "R")), ("D", ("D",))):
         placeholders = ",".join("?" * len(position_codes))
         query = f"""
             SELECT psas.player_id, psas.icf, psas.ihdcf, psas.rebounds_created,
-                   psas.deflections, psas.points, psas.primary_points, psas.toi_seconds
+                   psas.deflections, psas.points, psas.primary_points, psas.toi_seconds,
+                   psas.ca, psas.hdca
             FROM player_season_advanced_stats psas
             JOIN players p ON p.player_id = psas.player_id
             WHERE psas.season_id = ? AND psas.strength_state = '5v5' AND psas.game_type = 2

@@ -508,3 +508,59 @@ def test_compute_zscores_all_null_ihdcf_season_does_not_crash(conn):
     ).fetchone()
     assert row["chances_per60_z"] is None
     assert row["shots_per60_z"] is not None
+
+
+def test_compute_zscores_computes_ca_and_hdca_per60_z(conn):
+    # 20 qualifying players (meets ZSCORE_MIN_POPULATION), each with distinct
+    # ca/hdca values so a real, non-degenerate z-score is computable.
+    for player_id in range(1, 21):
+        database.upsert_player_stub(conn, {
+            "player_id": player_id, "first_name": "P", "last_name": str(player_id),
+            "position_code": "C", "shoots_catches": None,
+        })
+        conn.execute("""
+            INSERT INTO player_season_advanced_stats
+                (player_id, season_id, game_type, team_abbrevs, strength_state,
+                 cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp,
+                 icf, ihdcf, rebounds_created, deflections, points)
+            VALUES (?, '20172018', 2, 'HOM', '5v5', 1, ?, 1, 1, 1, ?, 1, 1, 1, 3600, 12,
+                    1, 1, 1, 1, 5)
+        """, (player_id, player_id, player_id))
+    conn.commit()
+
+    module.compute_zscores(conn, season_id="20172018")
+
+    p1 = conn.execute(
+        "SELECT ca_per60_z, hdca_per60_z FROM player_rate_zscores WHERE player_id = 1"
+    ).fetchone()
+    assert p1["ca_per60_z"] is not None
+    assert p1["hdca_per60_z"] is not None
+    # player 1 has the lowest ca/hdca of the 20 -- lowest raw value means the
+    # most negative z-score (this is the raw per-metric z, not yet negated
+    # for "lower is better" -- that inversion happens in the frontend combine step)
+    assert p1["ca_per60_z"] < 0
+    assert p1["hdca_per60_z"] < 0
+
+
+def test_compute_zscores_ca_hdca_null_when_below_min_population(conn):
+    # Only 5 qualifying players -- below ZSCORE_MIN_POPULATION (20), so every
+    # z-score field (including the new ones) must be None, not just skipped.
+    for player_id in range(1, 6):
+        database.upsert_player_stub(conn, {
+            "player_id": player_id, "first_name": "P", "last_name": str(player_id),
+            "position_code": "C", "shoots_catches": None,
+        })
+        conn.execute("""
+            INSERT INTO player_season_advanced_stats
+                (player_id, season_id, game_type, team_abbrevs, strength_state,
+                 cf, ca, ff, fa, hdcf, hdca, gf, ga, primary_points, toi_seconds, gp,
+                 icf, ihdcf, rebounds_created, deflections, points)
+            VALUES (?, '20172018', 2, 'HOM', '5v5', 1, ?, 1, 1, 1, ?, 1, 1, 1, 3600, 12,
+                    1, 1, 1, 1, 5)
+        """, (player_id, player_id, player_id))
+    conn.commit()
+
+    module.compute_zscores(conn, season_id="20172018")
+
+    rows = conn.execute("SELECT * FROM player_rate_zscores WHERE season_id = '20172018'").fetchall()
+    assert len(rows) == 0  # below ZSCORE_MIN_POPULATION -- compute_zscores skips the whole group

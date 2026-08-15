@@ -582,6 +582,8 @@ CREATE TABLE IF NOT EXISTS player_rate_zscores (
     deflections_per60_z      REAL,
     points_per60_z           REAL,
     primary_points_per60_z   REAL,
+    ca_per60_z                REAL,
+    hdca_per60_z              REAL,
     created_at                TEXT DEFAULT (datetime('now')),
     UNIQUE (season_id, player_id)
 );
@@ -633,6 +635,8 @@ _ADVANCED_STATS_MIGRATIONS = [
     "ALTER TABLE player_career_advanced_stats ADD COLUMN po_rebounds_created INTEGER DEFAULT 0",
     "ALTER TABLE player_career_advanced_stats ADD COLUMN po_deflections INTEGER DEFAULT 0",
     "ALTER TABLE player_career_advanced_stats ADD COLUMN po_points INTEGER DEFAULT 0",
+    "ALTER TABLE player_rate_zscores ADD COLUMN ca_per60_z REAL",
+    "ALTER TABLE player_rate_zscores ADD COLUMN hdca_per60_z REAL",
 ]
 
 
@@ -1008,15 +1012,17 @@ def upsert_player_rate_zscores(conn, r):
         INSERT INTO player_rate_zscores
             (season_id, player_id, position_group, shots_per60_z, chances_per60_z,
              rebounds_created_per60_z, deflections_per60_z, points_per60_z,
-             primary_points_per60_z)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             primary_points_per60_z, ca_per60_z, hdca_per60_z)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(season_id, player_id) DO UPDATE SET
             position_group=excluded.position_group,
             shots_per60_z=excluded.shots_per60_z, chances_per60_z=excluded.chances_per60_z,
             rebounds_created_per60_z=excluded.rebounds_created_per60_z,
             deflections_per60_z=excluded.deflections_per60_z,
             points_per60_z=excluded.points_per60_z,
-            primary_points_per60_z=excluded.primary_points_per60_z
+            primary_points_per60_z=excluded.primary_points_per60_z,
+            ca_per60_z=excluded.ca_per60_z, hdca_per60_z=excluded.hdca_per60_z
     """, (r["season_id"], r["player_id"], r["position_group"], r["shots_per60_z"],
           r["chances_per60_z"], r["rebounds_created_per60_z"], r["deflections_per60_z"],
-          r["points_per60_z"], r["primary_points_per60_z"]))
+          r["points_per60_z"], r["primary_points_per60_z"],
+          r["ca_per60_z"], r["hdca_per60_z"]))
