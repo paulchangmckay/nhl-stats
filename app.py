@@ -245,6 +245,67 @@ def api_players_stats():
     return jsonify(players)
 
 
+@app.route("/api/players/rankings")
+def api_players_rankings():
+    season_id = request.args.get("season")
+    team_abbrev = request.args.get("team")
+    conn = get_connection()
+
+    skater_query = """
+        SELECT p.player_id, p.first_name || ' ' || p.last_name AS name,
+               t.abbrev AS team_abbrev, z.position_group,
+               z.primary_points_per60_z, z.shots_per60_z,
+               z.ca_per60_z, z.hdca_per60_z
+        FROM player_rate_zscores z
+        JOIN players p ON p.player_id = z.player_id
+        LEFT JOIN teams t ON p.current_team_id = t.team_id
+        WHERE z.season_id = ?
+    """
+    params = [season_id]
+    if team_abbrev:
+        skater_query += " AND t.abbrev = ?"
+        params.append(team_abbrev)
+    skater_rows = conn.execute(skater_query, params).fetchall()
+
+    goalie_query = """
+        SELECT p.player_id, p.first_name || ' ' || p.last_name AS name,
+               t.abbrev AS team_abbrev, g.sv_pct_z, g.gaa_z
+        FROM goalie_rate_zscores g
+        JOIN players p ON p.player_id = g.player_id
+        LEFT JOIN teams t ON p.current_team_id = t.team_id
+        WHERE g.season_id = ?
+    """
+    goalie_params = [season_id]
+    if team_abbrev:
+        goalie_query += " AND t.abbrev = ?"
+        goalie_params.append(team_abbrev)
+    goalie_rows = conn.execute(goalie_query, goalie_params).fetchall()
+
+    conn.close()
+
+    result = [
+        {
+            "player_id": r["player_id"], "name": r["name"], "team_abbrev": r["team_abbrev"],
+            "position_group": r["position_group"],
+            "primary_points_per60_z": r["primary_points_per60_z"],
+            "shots_per60_z": r["shots_per60_z"],
+            "ca_per60_z": r["ca_per60_z"], "hdca_per60_z": r["hdca_per60_z"],
+            "sv_pct_z": None, "gaa_z": None,
+        }
+        for r in skater_rows
+    ] + [
+        {
+            "player_id": r["player_id"], "name": r["name"], "team_abbrev": r["team_abbrev"],
+            "position_group": "G",
+            "primary_points_per60_z": None, "shots_per60_z": None,
+            "ca_per60_z": None, "hdca_per60_z": None,
+            "sv_pct_z": r["sv_pct_z"], "gaa_z": r["gaa_z"],
+        }
+        for r in goalie_rows
+    ]
+    return jsonify(result)
+
+
 def _pct(numer, denom):
     return round(numer * 100.0 / denom, 1) if denom else None
 
