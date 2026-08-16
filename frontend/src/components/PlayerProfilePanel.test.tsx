@@ -39,6 +39,7 @@ const MOCK_ADVANCED: PlayerAdvancedStats = {
 };
 
 const mackinnonBio = MOCK_PLAYERS[0];   // has headshot_url + draft info
+const mcdavidBio = MOCK_PLAYERS[1];
 const mcdavidStats = MOCK_STATS[1];
 const stolarzBio = MOCK_PLAYERS[2];     // goalie: no headshot_url, undrafted
 const stolarzStats = MOCK_STATS[2];
@@ -265,7 +266,11 @@ describe("PlayerProfilePanel", () => {
     expect(screen.getByText("FF%", { selector: "span" })).toBeInTheDocument();
   });
 
-  it("switching strength state re-filters the graph for a strength-aware selection", async () => {
+  it("switching strength state updates the active toggle and stat display", async () => {
+    // Real chart-data filtering behavior is covered directly (not through the
+    // DOM) by src/lib/graphData.test.ts's computeChartData tests -- jsdom's
+    // ResponsiveContainer measures 0x0 (see src/test-setup.ts's ResizeObserver
+    // stub), so Recharts never renders real SVG/points here to assert against.
     render(
       <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
         onOpenChange={() => {}} />
@@ -273,9 +278,7 @@ describe("PlayerProfilePanel", () => {
     await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
     // MOCK_ADVANCED.trend has one 5v4 row (season 20242025) and two 5v5 rows.
     await userEvent.click(screen.getByRole("button", { name: "5v4" }));
-    await waitFor(() => expect(screen.getByText("55")).toBeInTheDocument()); // 5v4 cf_pctile, sanity check toggle worked
-    // With 5v4 active and cf_pct (strength-aware) selected, chart data should be the single 5v4 trend row.
-    // Verified indirectly: no crash, still one legend entry.
+    await waitFor(() => expect(screen.getByText("55")).toBeInTheDocument()); // 5v4 cf_pctile, toggle took effect
     expect(screen.getByText("CF%", { selector: "span" })).toBeInTheDocument();
   });
 
@@ -288,6 +291,28 @@ describe("PlayerProfilePanel", () => {
     await userEvent.click(screen.getByRole("button", { name: /Shots\/60/ }));
     await userEvent.click(screen.getByRole("button", { name: "5v4" }));
     expect(screen.getByText("Shots/60", { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("resets strengthState back to 5v5 when playerId changes, even if the panel stays mounted (#96)", async () => {
+    const { rerender } = render(
+      <PlayerProfilePanel open playerId={1} bio={mackinnonBio} stats={MOCK_STATS[0]}
+        onOpenChange={() => {}} />
+    );
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
+    await userEvent.click(screen.getByRole("button", { name: "5v4" }));
+    await waitFor(() => expect(screen.getByText("55")).toBeInTheDocument());
+
+    // Simulate the mounting strategy the spec assumes is reset-safe -- the
+    // panel stays mounted and just receives a new playerId, rather than the
+    // parent unmounting/remounting it (App.tsx currently always does the
+    // latter, which is why this was previously unreachable in practice).
+    rerender(
+      <PlayerProfilePanel open playerId={2} bio={mcdavidBio} stats={mcdavidStats}
+        onOpenChange={() => {}} />
+    );
+
+    // Back to the 5v5 cf_pctile (75), not still showing 5v4's value (55).
+    await waitFor(() => expect(screen.getByText("75")).toBeInTheDocument());
   });
 });
 

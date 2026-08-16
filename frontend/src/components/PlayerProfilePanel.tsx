@@ -20,6 +20,7 @@ import { teamColors, logoUrl } from "@/lib/teamBranding";
 import { formatSeasonId } from "@/lib/utils";
 import type { Player, PlayerStats, PlayerAdvancedStats } from "@/lib/types";
 import { METRIC_DEFINITIONS, type MetricKey } from "@/lib/metricDefinitions";
+import { computeChartData } from "@/lib/graphData";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 const STRENGTH_STATES = ["5v5", "5v4", "4v5"] as const;
@@ -250,6 +251,7 @@ export function PlayerProfilePanel({
     setPhotoFailed(false);
     setLogoFailed(false);
     setSelectedMetrics(new Set(["cf_pct"]));
+    setStrengthState("5v5");
   }, [playerId]);
 
   useEffect(() => {
@@ -266,9 +268,8 @@ export function PlayerProfilePanel({
 
   const current = state.status === "ready" ? state.data.strength_states[strengthState] : undefined;
   const primaryMetricKey = selectedMetrics.values().next().value as MetricKey;
-  const graphStrengthState = METRIC_DEFINITIONS[primaryMetricKey].strengthAware ? strengthState : "5v5";
   const chartData = state.status === "ready"
-    ? state.data.trend.filter((row) => row.strength_state === graphStrengthState)
+    ? computeChartData(state.data.trend, primaryMetricKey, strengthState)
     : [];
   const playerName = stats
     ? `${stats.first_name} ${stats.last_name}`
