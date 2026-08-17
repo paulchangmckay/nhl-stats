@@ -293,6 +293,7 @@ def test_fetch_player_advanced_zscore_populated_when_zscore_row_exists(conn):
         "season_id": "20242025", "player_id": 1, "position_group": "F",
         "shots_per60_z": 1.23, "chances_per60_z": 0.5, "rebounds_created_per60_z": -0.2,
         "deflections_per60_z": 0.0, "points_per60_z": 0.9, "primary_points_per60_z": 0.8,
+        "ca_per60_z": -0.4, "hdca_per60_z": -0.1,
     })
     conn.commit()
 
