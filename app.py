@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, abort
 from src.database import get_connection
 
 app = Flask(__name__)
@@ -29,6 +29,13 @@ def _height_str(inches):
 
 @app.route("/")
 def index():
+    return render_template("index.html")
+
+
+@app.route("/<path:path>")
+def spa_fallback(path):
+    if path.startswith("api/"):
+        abort(404)
     return render_template("index.html")
 
 
