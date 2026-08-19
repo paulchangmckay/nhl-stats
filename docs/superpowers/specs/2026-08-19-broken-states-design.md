@@ -29,7 +29,17 @@ Three pages currently look broken to a user, live, not hypothetically:
 
 ### Home (`frontend/src/pages/Home.tsx`)
 
-The hero section (`Home.tsx:6-15`) uses `py-24` for its vertical padding, which is what pushes the empty section below it to look like a large intentional gap. Reduce to `py-12`. No fetch, no new component — a one-line class change. The `{/* News feed (#118)... */}` comment stays as-is; it's still accurate documentation of what belongs there once built.
+**Corrected during grilling — the original "shrink the hero" plan was wrong.** `App.tsx:6` wraps every page in `min-h-screen`, which forces the page to fill the full viewport regardless of content height. Shrinking the hero's `py-24` padding would make the hero *shorter*, and since `min-h-screen` still forces the same total height, the empty area below would grow, not shrink — the opposite of the goal. The real defect isn't hero height; it's that the space has zero visual explanation for why it's blank.
+
+Fix: replace the bare `{/* News feed (#118)... */}` comment with a lightweight text placeholder — no fetch, no new component:
+
+```tsx
+<p className="px-4 py-12 text-center text-sm text-muted-foreground">
+  League news coming soon.
+</p>
+```
+
+This keeps the hero exactly as it is today (no height change) and gives the remaining `min-h-screen` space a visible, honest explanation instead of looking broken.
 
 ### TeamPage.tsx / TopPlayers.tsx — scoped rankings error state
 
@@ -101,7 +111,7 @@ This fires for a genuinely empty category once `rankingsState.status === "ready"
 
 ## Testing
 
-- **`Home.test.tsx`**: new test asserting the hero section carries `py-12` (not `py-24`) — a direct, unambiguous check that the dead-space fix is in place, rather than an indirect pixel-height measurement.
+- **`Home.test.tsx`**: new test asserting the text "League news coming soon." renders — a direct, unambiguous check that the placeholder is in place.
 - **`TeamPage.test.tsx`**: new test — mock `/api/players/rankings` to resolve `{ ok: false, status: 500 }`, render, assert the `Alert` with retry renders inside the leaderboard grid area *and* the team header (`"Colorado Avalanche"` per the existing fixture) still renders. A second assertion: clicking retry re-issues the rankings fetch (mock call count increments).
 - **`TopPlayers.test.tsx`**: same shape as TeamPage's new test, without the team-header assertion (TopPlayers has no team header).
 - **`Leaderboard.test.tsx`**: new test — render with `players={[]}`, assert "No qualifying players." renders and no `<ol>`/button role elements are present.
