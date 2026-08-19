@@ -114,7 +114,7 @@ export function PlayerTable({ rows, sortKey, sortDir, onSort, onOpenProfile }: P
                 {col.key === "position_code" ? (
                   <Badge
                     variant="outline"
-                    className={POSITION_COLORS[row.position_code as keyof typeof POSITION_COLORS].badgeClass}
+                    className={POSITION_COLORS[row.position_code as keyof typeof POSITION_COLORS]?.badgeClass}
                   >
                     {row.position_code}
                   </Badge>
