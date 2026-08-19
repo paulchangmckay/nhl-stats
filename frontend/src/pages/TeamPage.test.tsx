@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import TeamPage from "./TeamPage";
 
@@ -55,5 +56,34 @@ describe("TeamPage", () => {
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
     const rankingsCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/api/players/rankings"));
     expect(rankingsCall![0]).toContain("team=COL");
+  });
+
+  it("shows an error with retry when rankings fail, while the team header still renders", async () => {
+    let rankingsCallCount = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (url.includes("/api/players/rankings")) {
+          rankingsCallCount += 1;
+          return Promise.resolve({ ok: false, status: 500 } as Response);
+        }
+        return mockFetchOnce(url);
+      })
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/teams/COL"]}>
+        <Routes>
+          <Route path="/teams/:teamId" element={<TeamPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Colorado Avalanche")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to load rankings");
+    expect(rankingsCallCount).toBe(1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(rankingsCallCount).toBe(2);
   });
 });
