@@ -26,7 +26,33 @@ The app renders on the stock, unmodified shadcn "zinc" theme — every color tok
 
 Single-theme rewrite, no new abstraction layer:
 
-- Retint `:root` tokens to an ice-blue family: `--primary`, `--ring`, and `--chart-1` through `--chart-5` become a blue ramp (light-to-dark, for consistent data-viz color across recharts usage). `--background`, `--card`, `--border`, `--secondary`, `--muted`, `--accent` (the shadcn semantic hover-surface token, distinct from the new brand accent) get a subtle cool tint instead of pure `oklch(x 0 0)` gray — kept low-chroma so they still read as neutral structure, not competing color.
+- Retint `:root` tokens to an ice-blue family, pinned to these exact values (locked during grilling — no free-form "pick a blue" left to implementation time):
+
+  ```
+  --background:          oklch(0.16 0.02 240)
+  --foreground:          oklch(0.97 0.01 235)
+  --card:                oklch(0.21 0.02 240)
+  --card-foreground:     oklch(0.97 0.01 235)
+  --primary:             oklch(0.75 0.13 230)   /* ice blue */
+  --primary-foreground:  oklch(0.18 0.03 240)   /* dark navy on ice blue */
+  --border:              oklch(1 0 0 / 10%)     /* unchanged — alpha-based, tint-agnostic */
+  --popover:             oklch(0.21 0.02 240)
+  --popover-foreground:  oklch(0.97 0.01 235)
+  --secondary:           oklch(0.27 0.02 240)
+  --secondary-foreground: oklch(0.97 0.01 235)
+  --muted:               oklch(0.27 0.02 240)
+  --muted-foreground:    oklch(0.70 0.02 235)
+  --accent:              oklch(0.27 0.02 240)   /* shadcn hover-surface token, distinct from brand accent above */
+  --accent-foreground:   oklch(0.97 0.01 235)
+  --input:               oklch(1 0 0 / 15%)
+  --ring:                oklch(0.70 0.12 230)
+  ```
+
+  `--primary` (L 0.75) against `--primary-foreground` (L 0.18) gives a large lightness gap, expected to clear WCAG AA (4.5:1) comfortably for button/focus-ring text — confirmed visually during the acceptance check below, not just assumed from the numbers.
+  `--destructive` stays red, unchanged (error/invalid states, unrelated to brand accent).
+  `--sidebar*` tokens (`--sidebar`, `--sidebar-foreground`, `--sidebar-primary`, `--sidebar-primary-foreground`, `--sidebar-accent`, `--sidebar-accent-foreground`, `--sidebar-border`, `--sidebar-ring`) and `--chart-1` through `--chart-5` are all dead — grepped, zero usage anywhere in `src/`. Delete them rather than spending design effort retinting values nothing reads.
+
+**Follow-up, explicitly out of scope here:** `PlayerProfilePanel.tsx:28-31`'s trend-line chart uses its own hardcoded, unrelated palette (`sky-500, amber-500, emerald-500, rose-500, violet-500, cyan-500`) that has nothing to do with the ice-blue identity this spec builds. Confirmed via grep — `--chart-*` tokens aren't referenced there or anywhere else. Not fixed in this spec (would expand the file list beyond what's approved); worth its own follow-up item.
 - Delete the light-mode `:root` block (currently lines 8-41) — it can never render since `class="dark"` is hardcoded.
 - Delete the `.dark { ... }` override block (currently lines 43-75) — fold its role into `:root` directly, since there is only one theme now. No behavior change: `:root` becomes the single source of truth for all color tokens.
 - Keep `class="dark"` on `<html>` (`index.html:2`) and the `@custom-variant dark (&:where(.dark, .dark *));` declaration (`index.css:6`) untouched. Seven installed shadcn primitives (`button.tsx`, `badge.tsx`, `input.tsx`, `checkbox.tsx`, `toggle.tsx`, `textarea.tsx`, `input-group.tsx`) use Tailwind's `dark:` variant internally and must keep resolving correctly.
@@ -38,16 +64,31 @@ Add `<meta name="color-scheme" content="dark">` so native controls (date pickers
 
 ### Position color consistency
 
-New file `frontend/src/lib/positionColors.ts` exports a single `POSITION_COLORS` map keyed by position code (`C`, `L`, `R`, `D`, `G`), holding the color identity per position (currently duplicated ad hoc as `POSITION_CLASSES` inside `PositionToggle.tsx:5-11`).
+New file `frontend/src/lib/positionColors.ts` exports a single `POSITION_COLORS` map keyed by position code (`C`, `L`, `R`, `D`, `G`). Each entry holds two pre-written, complete Tailwind class strings — never concatenated/derived at runtime, so Tailwind's JIT scanner sees full literals in source and doesn't silently drop classes:
 
-- `PositionToggle.tsx` imports `POSITION_COLORS` instead of defining its own local map; interactive toggle classes (text + `aria-pressed` background) derive from it.
-- `PlayerTable.tsx:113-114` imports the same map and applies the matching color to the position `Badge` (replacing the current neutral `variant="outline"`), so a user who's learned the toggle's color language sees it carried through in the table.
+```ts
+export const POSITION_COLORS: Record<"C" | "L" | "R" | "D" | "G", { toggleClass: string; badgeClass: string }> = {
+  C: { toggleClass: "text-green-500 aria-pressed:bg-green-500 aria-pressed:text-background", badgeClass: "border-green-500/40 bg-green-500/10 text-green-500" },
+  L: { toggleClass: "text-blue-400 aria-pressed:bg-blue-400 aria-pressed:text-background", badgeClass: "border-blue-400/40 bg-blue-400/10 text-blue-400" },
+  R: { toggleClass: "text-sky-300 aria-pressed:bg-sky-300 aria-pressed:text-background", badgeClass: "border-sky-300/40 bg-sky-300/10 text-sky-300" },
+  D: { toggleClass: "text-purple-300 aria-pressed:bg-purple-300 aria-pressed:text-background", badgeClass: "border-purple-300/40 bg-purple-300/10 text-purple-300" },
+  G: { toggleClass: "text-orange-400 aria-pressed:bg-orange-400 aria-pressed:text-background", badgeClass: "border-orange-400/40 bg-orange-400/10 text-orange-400" },
+};
+```
+
+- `PositionToggle.tsx` imports `POSITION_COLORS` instead of defining its own local `POSITION_CLASSES`; each `ToggleGroupItem` uses `.toggleClass` (the existing values, moved as-is — no color changes to the toggle itself).
+- `PlayerTable.tsx:113-114` imports the same map and applies `.badgeClass` to the position `Badge` (replacing the current neutral `variant="outline"`), so a user who's learned the toggle's color language sees it carried through in the table.
 
 ## Testing
 
-Pure CSS/token changes (theme retint, dead-code removal, meta tag) have no meaningful unit test — verified visually: run the dev server, browser-snapshot Home/Players/Teams/a Team page/Top Players, confirm the ice-blue accent renders consistently and no visual regression versus the current audit screenshots.
+Pure CSS/token changes (theme retint, dead-code removal, meta tag) have no meaningful unit test — a string-match on OKLCH literals would break on any future nudge without catching a real regression, so this is a deliberate TDD exemption for non-behavioral styling, not a gap. Verified visually instead: run `openwolf designqc` (per `.claude/rules/openwolf.md`) to capture screenshots across Home/Players/Teams/a Team page/Top Players, read them from `.wolf/designqc-captures/`, confirm the ice-blue accent renders consistently, contrast holds on buttons/focus rings, and there's no visual regression versus the current audit screenshots.
 
-The position-color fix gets one test in `PlayerTable`'s existing test file: rendering a row for each position code (`C`, `L`, `R`, `D`, `G`) produces a `Badge` carrying the class/color defined in `POSITION_COLORS` for that code — asserts the shared map is actually wired in, not just present.
+The position-color fix gets tests in both existing test files touching the shared map:
+
+- `PlayerTable.test.tsx`: `MOCK_STATS` only covers `C`/`G` — rather than extending that shared fixture (other tests depend on its exact shape/count), the new test builds a small local inline fixture (one minimal row per position code, all 5) passed directly to `<PlayerTable rows={...} .../>`, asserting each row's `Badge` carries the `.badgeClass` defined in `POSITION_COLORS` for that code.
+- `PositionToggle.test.tsx` (already exists): extend with one assertion per position code, asserting each `ToggleGroupItem` carries the matching `.toggleClass`.
+
+Together these verify both consumers of the shared map are actually wired in, not just that the map exists.
 
 ## Files touched
 
