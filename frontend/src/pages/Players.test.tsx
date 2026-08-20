@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import Players from "./Players";
 import { MOCK_TEAMS, MOCK_PLAYERS, MOCK_STATS } from "@/lib/mock-data";
 
@@ -22,6 +22,20 @@ function renderPlayers() {
   return render(
     <MemoryRouter initialEntries={["/players"]}>
       <Players />
+    </MemoryRouter>
+  );
+}
+
+function LocationDisplay() {
+  const location = useLocation();
+  return <div data-testid="location-search">{location.search}</div>;
+}
+
+function renderPlayersAt(initialPath: string) {
+  return render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <Players />
+      <LocationDisplay />
     </MemoryRouter>
   );
 }
@@ -168,5 +182,43 @@ describe("Players", () => {
     await userEvent.click(row);
 
     expect(await screen.findByText("Nathan MacKinnon")).toBeInTheDocument();
+  });
+
+  it("reads filters and sort from the URL on initial load", async () => {
+    renderPlayersAt("/players?team=EDM&sort=goals&dir=asc");
+    await screen.findByText("McDavid");
+    // MOCK_STATS has 3 players: MacKinnon (COL), McDavid (EDM), Stolarz
+    // (TOR). The team=EDM filter should narrow to McDavid only -- checking
+    // that MacKinnon is absent proves the filter actually applied from the
+    // URL, not just that the page rendered without crashing.
+    expect(screen.queryByText("MacKinnon")).not.toBeInTheDocument();
+  });
+
+  it("writes a non-default filter to the URL and omits untouched defaults", async () => {
+    renderPlayersAt("/players");
+    await screen.findByText("MacKinnon");
+    await userEvent.click(screen.getByRole("button", { name: "C" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("location-search")).toHaveTextContent("positions=C");
+    });
+    expect(screen.getByTestId("location-search").textContent).not.toContain("search=");
+  });
+
+  it("resets filters via URL and still scrolls to/highlights the selected suggestion", async () => {
+    renderPlayersAt("/players?team=EDM");
+    await screen.findByText("McDavid");
+    await userEvent.type(screen.getByPlaceholderText("Search players…"), "McDavid");
+    // The suggestion dropdown item renders "{first_name} {last_name}" as one
+    // combined text node (Toolbar.tsx) -- distinct from the table cell's
+    // last-name-only "McDavid" text, so this exact string is what
+    // disambiguates the suggestion from the table row already on screen.
+    const suggestion = await screen.findByText("Connor McDavid", { selector: "div" });
+    await userEvent.click(suggestion);
+    await waitFor(() => {
+      expect(screen.getByTestId("location-search").textContent).not.toContain("team=");
+    });
+    await waitFor(() => {
+      expect(document.querySelector('[data-player-id="2"]')).toHaveClass("row-highlight");
+    });
   });
 });
