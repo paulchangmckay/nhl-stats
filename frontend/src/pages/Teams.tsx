@@ -22,7 +22,7 @@ export default function Teams() {
           <Link
             key={team.abbrev}
             to={`/teams/${team.abbrev}`}
-            className="flex flex-col items-center gap-2 rounded-lg border border-border p-4 text-center transition-colors hover:bg-muted"
+            className="flex min-w-0 flex-col items-center gap-2 rounded-lg border border-border p-4 text-center transition-colors hover:bg-muted"
             style={colors ? { borderTopColor: colors.primary, borderTopWidth: "4px" } : undefined}
           >
             <img src={logoUrl(team.abbrev)} alt={`${team.abbrev} logo`} className="h-12 w-12" />
