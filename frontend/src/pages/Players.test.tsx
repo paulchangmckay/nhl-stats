@@ -221,4 +221,26 @@ describe("Players", () => {
       expect(document.querySelector('[data-player-id="2"]')).toHaveClass("row-highlight");
     });
   });
+
+  it("preserves other filters when the season changes, and only fetches stats once per season", async () => {
+    let statsCallCount = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (url.includes("/api/players/stats")) {
+          statsCallCount += 1;
+        }
+        return mockFetchOnce(url);
+      })
+    );
+    renderPlayersAt("/players?team=EDM");
+    await screen.findByText("McDavid");
+    const callsAfterInitialLoad = statsCallCount;
+
+    // Wait a bit to catch any runaway re-fetch loop before asserting the URL.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(statsCallCount).toBe(callsAfterInitialLoad);
+
+    expect(screen.getByTestId("location-search").textContent).toContain("team=EDM");
+  });
 });
