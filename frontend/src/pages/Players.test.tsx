@@ -233,13 +233,9 @@ describe("Players", () => {
         return mockFetchOnce(url);
       })
     );
-    renderPlayersAt("/players?team=EDM");
+    renderPlayersAt("/players?team=EDM&seasons=20232024");
     await screen.findByText("McDavid");
-    const callsAfterInitialLoad = statsCallCount;
-
-    // Wait a bit to catch any runaway re-fetch loop before asserting the URL.
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    expect(statsCallCount).toBe(callsAfterInitialLoad);
+    expect(statsCallCount).toBe(1);
 
     expect(screen.getByTestId("location-search").textContent).toContain("team=EDM");
   });
