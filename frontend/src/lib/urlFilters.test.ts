@@ -68,6 +68,11 @@ describe("parseFiltersFromParams", () => {
     expect(result.filters.statMins.gp).toBeNull();
   });
 
+  it("decodes an empty (but present) numeric stat-min param as null, not 0", () => {
+    const result = parseFiltersFromParams(new URLSearchParams("gp="));
+    expect(result.filters.statMins.gp).toBeNull();
+  });
+
   it("decodes an invalid sort direction as the default", () => {
     const result = parseFiltersFromParams(new URLSearchParams("dir=sideways"));
     expect(result.sortDir).toBe("desc");

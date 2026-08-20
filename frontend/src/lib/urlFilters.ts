@@ -14,7 +14,7 @@ export const DEFAULT_SORT_DIR: SortDirection = "desc";
 const STAT_MIN_KEYS: (keyof StatMins)[] = ["gp", "goals", "assists", "points"];
 
 function parseStatMin(raw: string | null): number | null {
-  if (raw === null) return null;
+  if (raw === null || raw === "") return null;
   const n = Number(raw);
   return Number.isNaN(n) ? null : n;
 }
