@@ -73,6 +73,16 @@ describe("parseFiltersFromParams", () => {
     expect(result.filters.statMins.gp).toBeNull();
   });
 
+  it("decodes an Infinity numeric stat-min param as null, not Infinity", () => {
+    const result = parseFiltersFromParams(new URLSearchParams("gp=Infinity"));
+    expect(result.filters.statMins.gp).toBeNull();
+  });
+
+  it("decodes a whitespace-only numeric stat-min param as null", () => {
+    const result = parseFiltersFromParams(new URLSearchParams("gp=%20"));
+    expect(result.filters.statMins.gp).toBeNull();
+  });
+
   it("decodes an invalid sort direction as the default", () => {
     const result = parseFiltersFromParams(new URLSearchParams("dir=sideways"));
     expect(result.sortDir).toBe("desc");
