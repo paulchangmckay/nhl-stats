@@ -146,6 +146,41 @@ describe("PlayerTable", () => {
     expect(row.classList.contains("row-highlight")).toBe(true);
   });
 
+  it("a second scrollToPlayer supersedes the first still-polling call", () => {
+    // The generation-token guard exists so two quick suggestion clicks
+    // don't let the first (now-stale) call's retry loop highlight its
+    // target after a second call has taken over.
+    vi.useFakeTimers();
+    const ref = createRef<PlayerTableHandle>();
+    render(<PlayerTable ref={ref} rows={MOCK_STATS} sortKey="points" sortDir="desc" onSort={() => {}} />);
+
+    const rowA = document.querySelector('[data-player-id="1"]')!;
+    const rowB = document.querySelector('[data-player-id="2"]')!;
+    const tbody = rowA.parentElement!;
+    rowA.remove();
+    rowB.remove();
+
+    ref.current!.scrollToPlayer(1);
+    vi.advanceTimersByTime(16);
+    ref.current!.scrollToPlayer(2); // supersedes the still-polling call for player 1
+
+    tbody.appendChild(rowA);
+    tbody.appendChild(rowB);
+    vi.advanceTimersByTime(16);
+
+    expect(rowA.classList.contains("row-highlight")).toBe(false);
+    expect(rowB.classList.contains("row-highlight")).toBe(true);
+  });
+
+  it("keeps the sticky header above transformed rows (z-index regression guard)", () => {
+    // Rows are positioned via CSS transform, which makes each <tr> a
+    // stacking context painting at effective z-index 0 -- without an
+    // explicit z-index on the sticky header, rows would paint over it
+    // while scrolling (this actually happened on this branch once).
+    render(<PlayerTable rows={MOCK_STATS} sortKey="points" sortDir="desc" onSort={() => {}} />);
+    expect(document.querySelector("thead")).toHaveClass("sticky", "top-0", "z-10");
+  });
+
   it("computes correct row positions and spacer height for a windowed (non-full) scroll view", () => {
     // Simulate scrolling partway through a 100-row list: only rows 40-42
     // are "visible" (mimicking what a real scroll position would report),

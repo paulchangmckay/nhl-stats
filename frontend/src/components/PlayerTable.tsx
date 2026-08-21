@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Table,
@@ -81,6 +81,24 @@ export const PlayerTable = forwardRef<PlayerTableHandle, PlayerTableProps>(funct
   // Guards scrollToPlayer's per-frame retry loop against a second call
   // superseding the first while it's still polling.
   const scrollGenerationRef = useRef(0);
+
+  // Also invalidates any in-flight retry loop on unmount, so it can't
+  // later find and highlight a same-id row belonging to a freshly
+  // remounted PlayerTable (e.g. navigate away and back within the 5s
+  // polling window).
+  // wolf-debt: imperative classList highlight, ceiling = can still be lost
+  // if the target row itself unmounts mid-highlight (not on PlayerTable
+  // unmount, which this guards, but a virtualizer-driven scroll away from
+  // the row during its 1.5s display window). Upgrade trigger: report of a
+  // flaky/missing highlight, or a second caller ever needing scrollToPlayer
+  // concurrently with this one -- switch to React-state-driven highlighting
+  // (a highlightedPlayerId state read by each row's className) instead of
+  // imperative classList mutation.
+  useEffect(() => {
+    return () => {
+      scrollGenerationRef.current++;
+    };
+  }, []);
 
   useImperativeHandle(
     ref,
