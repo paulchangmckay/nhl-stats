@@ -113,6 +113,34 @@ describe("PlayerTable", () => {
     expect(mockScrollToIndex).not.toHaveBeenCalled();
   });
 
+  it("scrollToPlayer keeps retrying across frames until the row mounts, not just one frame", () => {
+    // Regression test: a real-browser measurement showed the virtualizer's
+    // scroll-driven re-render can lag scrollToIndex()'s underlying scroll
+    // by 500ms-2000ms+ (the native "scroll" event that drives it fires
+    // late for a long jump). A single requestAnimationFrame check missed
+    // the row entirely and never highlighted it. This test forces that
+    // "not mounted yet" condition and confirms the retry loop keeps
+    // checking instead of giving up after one frame.
+    vi.useFakeTimers();
+    const ref = createRef<PlayerTableHandle>();
+    render(<PlayerTable ref={ref} rows={MOCK_STATS} sortKey="points" sortDir="desc" onSort={() => {}} />);
+
+    const row = document.querySelector('[data-player-id="2"]')!;
+    const tbody = row.parentElement!;
+    row.remove(); // simulate the row not being mounted yet
+
+    ref.current!.scrollToPlayer(2);
+
+    vi.advanceTimersByTime(16); // one frame: row still absent, must not give up
+    expect(row.classList.contains("row-highlight")).toBe(false);
+
+    tbody.appendChild(row); // simulate it mounting on a later frame
+    vi.advanceTimersByTime(16);
+    expect(row.classList.contains("row-highlight")).toBe(true);
+
+    vi.useRealTimers();
+  });
+
   it("computes correct row positions and spacer height for a windowed (non-full) scroll view", () => {
     // Simulate scrolling partway through a 100-row list: only rows 40-42
     // are "visible" (mimicking what a real scroll position would report),

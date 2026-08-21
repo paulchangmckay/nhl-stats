@@ -85,12 +85,28 @@ export const PlayerTable = forwardRef<PlayerTableHandle, PlayerTableProps>(funct
         const index = rows.findIndex((r) => r.player_id === playerId);
         if (index === -1) return;
         virtualizer.scrollToIndex(index, { align: "center", behavior: "auto" });
-        requestAnimationFrame(() => {
+
+        // The row mounts once the virtualizer's scroll-driven re-render
+        // commits, which is gated on a native "scroll" event firing on the
+        // container. Measured directly (real browser, not jsdom): that event
+        // can lag scrollTo()'s underlying scrollTop change by 500ms-2000ms+
+        // for a long jump -- far more than one requestAnimationFrame tick.
+        // A single rAF check would silently miss the row and never
+        // highlight it. Poll every frame instead, bounded so a genuinely
+        // missing row (e.g. a stale id) doesn't loop forever.
+        const deadline = Date.now() + 3000;
+        const tryHighlight = () => {
           const el = document.querySelector(`[data-player-id="${playerId}"]`);
-          if (!el) return;
-          el.classList.add("row-highlight");
-          setTimeout(() => el.classList.remove("row-highlight"), 1500);
-        });
+          if (el) {
+            el.classList.add("row-highlight");
+            setTimeout(() => el.classList.remove("row-highlight"), 1500);
+            return;
+          }
+          if (Date.now() < deadline) {
+            requestAnimationFrame(tryHighlight);
+          }
+        };
+        requestAnimationFrame(tryHighlight);
       },
     }),
     [rows, virtualizer]
