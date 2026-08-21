@@ -5,6 +5,22 @@ import { MemoryRouter } from "react-router-dom";
 import Players from "./Players";
 import { MOCK_TEAMS, MOCK_PLAYERS, MOCK_STATS } from "@/lib/mock-data";
 
+vi.mock("@tanstack/react-virtual", () => ({
+  useVirtualizer: (options: { count: number }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: options.count }, (_, index) => ({
+        key: index,
+        index,
+        start: index * 38,
+        end: (index + 1) * 38,
+        size: 38,
+        lane: 0,
+      })),
+    getTotalSize: () => options.count * 38,
+    scrollToIndex: vi.fn(),
+  }),
+}));
+
 function mockFetchOnce(url: string) {
   if (url.includes("/api/teams")) {
     return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_TEAMS) } as Response);

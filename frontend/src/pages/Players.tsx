@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Toolbar, type ToolbarFilters } from "@/components/Toolbar";
-import { PlayerTable } from "@/components/PlayerTable";
+import { PlayerTable, type PlayerTableHandle } from "@/components/PlayerTable";
 import { PlayerProfilePanel } from "@/components/PlayerProfilePanel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,8 @@ export default function Players() {
   const [sortKey, setSortKey] = useState("points");
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
   const [profilePlayerId, setProfilePlayerId] = useState<number | null>(null);
+  const tableRef = useRef<PlayerTableHandle>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   function loadTeams() {
     setTeamsState({ status: "loading" });
@@ -132,11 +134,7 @@ export default function Players() {
       statMins: { gp: null, goals: null, assists: null, points: null },
     });
     requestAnimationFrame(() => {
-      const row = document.querySelector(`[data-player-id="${player.player_id}"]`);
-      if (!row) return;
-      row.scrollIntoView({ behavior: "smooth", block: "center" });
-      row.classList.add("row-highlight");
-      setTimeout(() => row.classList.remove("row-highlight"), 1500);
+      tableRef.current?.scrollToPlayer(player.player_id);
     });
   }
 
@@ -192,6 +190,7 @@ export default function Players() {
         </Alert>
       ) : (
         <div
+          ref={scrollContainerRef}
           data-testid="table-wrap"
           className="overflow-auto"
           style={{
@@ -200,11 +199,13 @@ export default function Players() {
           }}
         >
           <PlayerTable
+            ref={tableRef}
             rows={rows}
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={handleSort}
             onOpenProfile={setProfilePlayerId}
+            scrollContainerRef={scrollContainerRef}
           />
         </div>
       )}

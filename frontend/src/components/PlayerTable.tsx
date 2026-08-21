@@ -64,7 +64,7 @@ interface PlayerTableProps {
   sortDir: SortDirection;
   onSort: (key: string) => void;
   onOpenProfile?: (playerId: number) => void;
-  scrollContainerRef?: React.RefObject<HTMLDivElement>;
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export const PlayerTable = forwardRef<PlayerTableHandle, PlayerTableProps>(function PlayerTable(
