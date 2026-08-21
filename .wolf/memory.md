@@ -192,3 +192,4 @@
 | — | Final verification | — | 2017-18/2018-19 100% NULL for hdcf/hdcf_pct_pctile/chances_per60_z (10540/10540, 10575/10575), 2019-20 100% populated (0/12198) — NULL-propagation fix confirmed working against real production data, not just synthetic tests. DB grew 1.485GB → 2.213GB (+728MB, within the spec's 700MB-1GB estimate). 125/125 backend (excluding 2 unrelated libsql tests that can't install on this Python 3.14 env — pre-existing gap from a concurrent Turso-migration merge, out of scope), 83/83 frontend passing | — |
 | 18:40 | designqc: captured 6 screenshots (286KB, ~15000 tok) | /, /players, /teams, /teams/EDM, /top-players | ready for eval | ~0 |
 | 19:15 | designqc: captured 3 screenshots (73KB, ~7500 tok) | /, /teams/EDM, /top-players | ready for eval | ~0 |
+| 20:52 | designqc: captured 5 screenshots (206KB, ~12500 tok) | /teams | ready for eval | ~0 |
