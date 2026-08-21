@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Toolbar, type ToolbarFilters } from "@/components/Toolbar";
+import { Toolbar } from "@/components/Toolbar";
 import { PlayerTable, type PlayerTableHandle } from "@/components/PlayerTable";
 import { PlayerProfilePanel } from "@/components/PlayerProfilePanel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { matchesQuery } from "@/lib/search";
-import type { Team, Player, PlayerStats, SortDirection } from "@/lib/types";
+import { useUrlFilters } from "@/lib/useUrlFilters";
+import { DEFAULT_FILTERS } from "@/lib/urlFilters";
+import type { Team, Player, PlayerStats } from "@/lib/types";
 
 type FetchState<T> =
   | { status: "loading" }
@@ -29,15 +31,7 @@ export default function Players() {
   const [statsCache, setStatsCache] = useState<Record<string, PlayerStats[]>>({});
   const [statsError, setStatsError] = useState<string | null>(null);
 
-  const [filters, setFilters] = useState<ToolbarFilters>({
-    search: "",
-    team: "",
-    positions: new Set(),
-    statMins: { gp: null, goals: null, assists: null, points: null },
-  });
-  const [seasons, setSeasons] = useState<string[]>(["20252026"]);
-  const [sortKey, setSortKey] = useState("points");
-  const [sortDir, setSortDir] = useState<SortDirection>("desc");
+  const { filters, seasons, sortKey, sortDir, setFilters, setSeasons, setSort } = useUrlFilters();
   const [profilePlayerId, setProfilePlayerId] = useState<number | null>(null);
   const tableRef = useRef<PlayerTableHandle>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -119,20 +113,14 @@ export default function Players() {
 
   function handleSort(key: string) {
     if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      setSort(key, sortDir === "asc" ? "desc" : "asc");
     } else {
-      setSortKey(key);
-      setSortDir("desc");
+      setSort(key, "desc");
     }
   }
 
   function handleSelectSuggestion(player: Player) {
-    setFilters({
-      search: "",
-      team: "",
-      positions: new Set(),
-      statMins: { gp: null, goals: null, assists: null, points: null },
-    });
+    setFilters(DEFAULT_FILTERS);
     requestAnimationFrame(() => {
       tableRef.current?.scrollToPlayer(player.player_id);
     });

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import type { PlayerStats, SortDirection } from "@/lib/types";
+import { POSITION_COLORS } from "@/lib/positionColors";
 
 const ROW_HEIGHT_PX = 38;
 
@@ -201,7 +202,12 @@ export const PlayerTable = forwardRef<PlayerTableHandle, PlayerTableProps>(funct
                   className={col.numeric ? "text-right tabular-nums" : ""}
                 >
                   {col.key === "position_code" ? (
-                    <Badge variant="outline">{row.position_code}</Badge>
+                    <Badge
+                      variant="outline"
+                      className={POSITION_COLORS[row.position_code as keyof typeof POSITION_COLORS]?.badgeClass}
+                    >
+                      {row.position_code}
+                    </Badge>
                   ) : col.skaterOnly && row.position_code === "G" ? (
                     "-"
                   ) : (

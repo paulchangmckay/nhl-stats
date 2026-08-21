@@ -17,3 +17,4 @@ env/
 .worktrees/
 .run/
 node_modules/
+.wolf/designqc-captures/
