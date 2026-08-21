@@ -1,14 +1,7 @@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { POSITION_COLORS } from "@/lib/positionColors";
 
 const POSITIONS = ["C", "L", "R", "D", "G"] as const;
-
-const POSITION_CLASSES: Record<(typeof POSITIONS)[number], string> = {
-  C: "text-green-500 aria-pressed:bg-green-500 aria-pressed:text-background",
-  L: "text-blue-400 aria-pressed:bg-blue-400 aria-pressed:text-background",
-  R: "text-sky-300 aria-pressed:bg-sky-300 aria-pressed:text-background",
-  D: "text-purple-300 aria-pressed:bg-purple-300 aria-pressed:text-background",
-  G: "text-orange-400 aria-pressed:bg-orange-400 aria-pressed:text-background",
-};
 
 interface PositionToggleProps {
   active: Set<string>;
@@ -31,7 +24,7 @@ export function PositionToggle({ active, onChange }: PositionToggleProps) {
           value={pos}
           aria-label={pos}
           onClick={() => toggle(pos)}
-          className={POSITION_CLASSES[pos]}
+          className={POSITION_COLORS[pos].toggleClass}
         >
           {pos}
         </ToggleGroupItem>
