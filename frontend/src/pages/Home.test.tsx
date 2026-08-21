@@ -18,4 +18,9 @@ describe("Home", () => {
     const hero = screen.getByTestId("hero");
     expect(hero.style.backgroundImage).toMatch(/^linear-gradient\(135deg,/);
   });
+
+  it("shows a coming-soon placeholder instead of a blank section", () => {
+    render(<Home />);
+    expect(screen.getByText("League news coming soon.")).toBeInTheDocument();
+  });
 });

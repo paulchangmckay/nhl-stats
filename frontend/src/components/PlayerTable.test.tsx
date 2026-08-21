@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlayerTable } from "./PlayerTable";
 import { MOCK_STATS } from "@/lib/mock-data";
+import type { PlayerStats } from "@/lib/types";
+import { POSITION_COLORS } from "@/lib/positionColors";
 
 describe("PlayerTable", () => {
   it("renders one row per player", () => {
@@ -72,5 +74,24 @@ describe("PlayerTable", () => {
   it("renders the Shots/60 (5v5) teaser column", () => {
     render(<PlayerTable rows={MOCK_STATS} sortKey="points" sortDir="desc" onSort={() => {}} />);
     expect(screen.getByRole("columnheader", { name: "Shots/60 (5v5)" })).toBeInTheDocument();
+  });
+
+  it("colors the position badge to match POSITION_COLORS for every position code", () => {
+    const rows: PlayerStats[] = (["C", "L", "R", "D", "G"] as const).map((position_code, i) => ({
+      ...MOCK_STATS[0],
+      player_id: 100 + i,
+      last_name: `Test${position_code}`,
+      position_code,
+    }));
+    render(<PlayerTable rows={rows} sortKey="points" sortDir="desc" onSort={() => {}} />);
+    rows.forEach((row) => {
+      // Scoped to the row, not screen: the table has columns literally labeled
+      // "G" (Goals) and "L" (Losses) — a page-wide getByText("G"/"L") would
+      // match both the column header and the badge and throw on ambiguity.
+      const tableRow = document.querySelector(`[data-player-id="${row.player_id}"]`) as HTMLElement;
+      const badge = within(tableRow).getByText(row.position_code);
+      const expectedClasses = POSITION_COLORS[row.position_code as keyof typeof POSITION_COLORS].badgeClass.split(" ");
+      expectedClasses.forEach((cls) => expect(badge).toHaveClass(cls));
+    });
   });
 });

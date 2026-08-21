@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import TopPlayers from "./TopPlayers";
 
@@ -37,7 +38,7 @@ describe("TopPlayers", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText("Top Offense")).toBeInTheDocument();
+    expect(await screen.findByText("Top Offense")).toBeInTheDocument();
     expect(screen.getByText("Top Defense")).toBeInTheDocument();
     expect(screen.getByText("Top Goalie")).toBeInTheDocument();
     // Fixture qualifies this player for both Top Offense and Top Defense
@@ -49,5 +50,31 @@ describe("TopPlayers", () => {
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
     const rankingsCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/api/players/rankings"));
     expect(rankingsCall![0]).not.toContain("team=");
+  });
+
+  it("shows an error with retry when rankings fail", async () => {
+    let rankingsCallCount = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (url.includes("/api/players/rankings")) {
+          rankingsCallCount += 1;
+          return Promise.resolve({ ok: false, status: 500 } as Response);
+        }
+        return mockFetchOnce(url);
+      })
+    );
+
+    render(
+      <MemoryRouter>
+        <TopPlayers />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to load rankings");
+    expect(rankingsCallCount).toBe(1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(rankingsCallCount).toBe(2);
   });
 });
