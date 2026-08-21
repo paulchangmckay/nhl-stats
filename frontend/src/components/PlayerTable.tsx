@@ -1,3 +1,5 @@
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Table,
   TableBody,
@@ -9,6 +11,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import type { PlayerStats, SortDirection } from "@/lib/types";
 import { POSITION_COLORS } from "@/lib/positionColors";
+
+const ROW_HEIGHT_PX = 38;
 
 interface Column {
   key: string;
@@ -51,15 +55,93 @@ function cellValue(col: Column, row: PlayerStats): string {
   return String(val);
 }
 
+export interface PlayerTableHandle {
+  scrollToPlayer(playerId: number): void;
+}
+
 interface PlayerTableProps {
   rows: PlayerStats[];
   sortKey: string;
   sortDir: SortDirection;
   onSort: (key: string) => void;
   onOpenProfile?: (playerId: number) => void;
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-export function PlayerTable({ rows, sortKey, sortDir, onSort, onOpenProfile }: PlayerTableProps) {
+export const PlayerTable = forwardRef<PlayerTableHandle, PlayerTableProps>(function PlayerTable(
+  { rows, sortKey, sortDir, onSort, onOpenProfile, scrollContainerRef },
+  ref
+) {
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollContainerRef?.current ?? null,
+    estimateSize: () => ROW_HEIGHT_PX,
+    overscan: 10,
+  });
+
+  // Guards scrollToPlayer's per-frame retry loop against a second call
+  // superseding the first while it's still polling.
+  const scrollGenerationRef = useRef(0);
+
+  // Also invalidates any in-flight retry loop on unmount, so it can't
+  // later find and highlight a same-id row belonging to a freshly
+  // remounted PlayerTable (e.g. navigate away and back within the 5s
+  // polling window).
+  // wolf-debt: imperative classList highlight, ceiling = can still be lost
+  // if the target row itself unmounts mid-highlight (not on PlayerTable
+  // unmount, which this guards, but a virtualizer-driven scroll away from
+  // the row during its 1.5s display window). Upgrade trigger: report of a
+  // flaky/missing highlight, or a second caller ever needing scrollToPlayer
+  // concurrently with this one -- switch to React-state-driven highlighting
+  // (a highlightedPlayerId state read by each row's className) instead of
+  // imperative classList mutation.
+  useEffect(() => {
+    return () => {
+      scrollGenerationRef.current++;
+    };
+  }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToPlayer(playerId: number) {
+        const index = rows.findIndex((r) => r.player_id === playerId);
+        if (index === -1) return;
+        virtualizer.scrollToIndex(index, { align: "center", behavior: "auto" });
+
+        // The row can't mount until a native "scroll" event fires on the
+        // container -- virtual-core's re-render is flushSync'd inside that
+        // handler. That event is asynchronous, and under a busy or
+        // throttled main thread it can take many frames (measured up to
+        // ~2s in a real-browser session), not just one. A single rAF check
+        // would silently miss the row and never highlight it. Poll every
+        // frame instead. A generation token guards against a second
+        // scrollToPlayer call superseding this one while it's still
+        // polling (e.g. two suggestion clicks in quick succession) --
+        // without it, an in-flight loop could still highlight its now-stale
+        // target after a newer call has taken over. Bounded to 5s, matching
+        // virtual-core's own MAX_RECONCILE_MS -- no point polling past the
+        // point the library itself gives up settling the scroll.
+        const myGeneration = ++scrollGenerationRef.current;
+        const deadline = Date.now() + 5000;
+        const tryHighlight = () => {
+          if (myGeneration !== scrollGenerationRef.current) return;
+          const el = document.querySelector(`[data-player-id="${playerId}"]`);
+          if (el) {
+            el.classList.add("row-highlight");
+            setTimeout(() => el.classList.remove("row-highlight"), 1500);
+            return;
+          }
+          if (Date.now() < deadline) {
+            requestAnimationFrame(tryHighlight);
+          }
+        };
+        requestAnimationFrame(tryHighlight);
+      },
+    }),
+    [rows, virtualizer]
+  );
+
   if (rows.length === 0) {
     return <div className="p-12 text-center text-sm text-muted-foreground">No players found.</div>;
   }
@@ -70,9 +152,14 @@ export function PlayerTable({ rows, sortKey, sortDir, onSort, onOpenProfile }: P
     return true;
   });
 
+  const virtualItems = virtualizer.getVirtualItems();
+  const totalSize = virtualizer.getTotalSize();
+  const renderedHeight = virtualItems.length * ROW_HEIGHT_PX;
+  const spacerHeight = totalSize - renderedHeight;
+
   return (
     <Table>
-      <TableHeader className="sticky top-0 bg-card">
+      <TableHeader className="sticky top-0 z-10 bg-card">
         <TableRow>
           {columns.map((col) => (
             <TableHead
@@ -87,47 +174,56 @@ export function PlayerTable({ rows, sortKey, sortDir, onSort, onOpenProfile }: P
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map((row) => (
-          <TableRow
-            key={row.player_id}
-            data-player-id={row.player_id}
-            tabIndex={onOpenProfile ? 0 : undefined}
-            role={onOpenProfile ? "button" : undefined}
-            onClick={onOpenProfile ? () => onOpenProfile(row.player_id) : undefined}
-            onKeyDown={
-              onOpenProfile
-                ? (e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onOpenProfile(row.player_id);
+        {virtualItems.map((virtualItem, i) => {
+          const row = rows[virtualItem.index];
+          return (
+            <TableRow
+              key={row.player_id}
+              data-player-id={row.player_id}
+              style={{ transform: `translateY(${virtualItem.start - i * ROW_HEIGHT_PX}px)` }}
+              tabIndex={onOpenProfile ? 0 : undefined}
+              role={onOpenProfile ? "button" : undefined}
+              onClick={onOpenProfile ? () => onOpenProfile(row.player_id) : undefined}
+              onKeyDown={
+                onOpenProfile
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onOpenProfile(row.player_id);
+                      }
                     }
-                  }
-                : undefined
-            }
-            className={onOpenProfile ? "cursor-pointer hover:bg-muted/50" : undefined}
-          >
-            {columns.map((col) => (
-              <TableCell
-                key={col.key}
-                className={col.numeric ? "text-right tabular-nums" : ""}
-              >
-                {col.key === "position_code" ? (
-                  <Badge
-                    variant="outline"
-                    className={POSITION_COLORS[row.position_code as keyof typeof POSITION_COLORS]?.badgeClass}
-                  >
-                    {row.position_code}
-                  </Badge>
-                ) : col.skaterOnly && row.position_code === "G" ? (
-                  "-"
-                ) : (
-                  cellValue(col, row)
-                )}
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
+                  : undefined
+              }
+              className={onOpenProfile ? "cursor-pointer hover:bg-muted/50" : undefined}
+            >
+              {columns.map((col) => (
+                <TableCell
+                  key={col.key}
+                  className={col.numeric ? "text-right tabular-nums" : ""}
+                >
+                  {col.key === "position_code" ? (
+                    <Badge
+                      variant="outline"
+                      className={POSITION_COLORS[row.position_code as keyof typeof POSITION_COLORS]?.badgeClass}
+                    >
+                      {row.position_code}
+                    </Badge>
+                  ) : col.skaterOnly && row.position_code === "G" ? (
+                    "-"
+                  ) : (
+                    cellValue(col, row)
+                  )}
+                </TableCell>
+              ))}
+            </TableRow>
+          );
+        })}
+        {spacerHeight > 0 && (
+          <tr aria-hidden="true">
+            <td colSpan={columns.length} style={{ height: spacerHeight, padding: 0, border: "none" }} />
+          </tr>
+        )}
       </TableBody>
     </Table>
   );
-}
+});
