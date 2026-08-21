@@ -2,8 +2,6 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Superseded during execution — this plan's Task 1/Task 2 code blocks do not match the final committed code.** Manual verification (Task 3) found a real bug this plan's `scrollToPlayer` code couldn't have caught (a single `requestAnimationFrame` check silently missed a row that took up to ~2s to mount) — see commits `6a25d39`, `3d6d69f`, `7425f1e` on this branch for the actual final implementation, root cause, and fix. Task 2's `scrollContainerRef` type also ended up `RefObject<HTMLDivElement | null>`, not `RefObject<HTMLDivElement>` as written below (a real React 19 `useRef` typing requirement, found during Task 2). The header's sticky className ended up `"sticky top-0 z-10 bg-card"`, not `"sticky top-0 bg-card"` (a real stacking-context regression, found and fixed during Task 1's review). Read this plan for the overall design and reasoning; read `git log` for what actually shipped.
-
 **Goal:** Stop `PlayerTable` from mounting all ~1038 rows unconditionally — only rows within (and just outside) the visible scroll window should exist in the DOM at any time, with no behavioral or visual regression.
 
 **Architecture:** `@tanstack/react-virtual`'s `useVirtualizer` drives which rows render, positioned via `translateY` (not `position: absolute`, which would conflict with the existing sticky header). `PlayerTable` becomes a `forwardRef` component exposing one imperative method (`scrollToPlayer`) so `Players.tsx`'s search-suggestion-click feature can force a currently-unmounted row to mount, then highlight it — without `Players.tsx` needing to know virtualization exists.
@@ -286,12 +284,12 @@ export const PlayerTable = forwardRef<PlayerTableHandle, PlayerTableProps>(funct
 - [ ] **Step 5: Run tests to verify they pass**
 
 Run: `cd frontend && npx vitest run src/components/PlayerTable.test.tsx`
-Expected: PASS — all 9 tests (7 existing + 2 new). The mocked `useVirtualizer` reports every row as a virtual item, so every existing assertion (row text, sort clicks, goalie columns, empty state, click-to-open-profile, keyboard Enter) behaves exactly as before virtualization — the mock makes virtualization transparent to these tests, per the spec's testing strategy.
+Expected: PASS — all 10 tests (8 existing + 2 new). The mocked `useVirtualizer` reports every row as a virtual item, so every existing assertion (row text, sort clicks, goalie columns, empty state, click-to-open-profile, keyboard Enter) behaves exactly as before virtualization — the mock makes virtualization transparent to these tests, per the spec's testing strategy.
 
 - [ ] **Step 6: Run the build to check for type errors**
 
 Run: `cd frontend && npm run build`
-Expected: exit 0. Do not run the full `npm test` suite yet — `Players.test.tsx` renders the real (now-virtualized) `PlayerTable` and does not have its own mock until Task 2, so it is expected to fail at this point. That's addressed in Task 2's Step 1-2, not a regression to chase down here; running the full suite now would only produce a confusing, expected-but-unresolved failure. `PlayerTable.test.tsx`'s own 9 tests (confirmed passing in Step 5) are the complete verification for this task.
+Expected: exit 0. Do not run the full `npm test` suite yet — `Players.test.tsx` renders the real (now-virtualized) `PlayerTable` and does not have its own mock until Task 2, so it is expected to fail at this point. That's addressed in Task 2's Step 1-2, not a regression to chase down here; running the full suite now would only produce a confusing, expected-but-unresolved failure. `PlayerTable.test.tsx`'s own 10 tests (confirmed passing in Step 5) are the complete verification for this task.
 
 - [ ] **Step 7: Commit**
 
@@ -455,8 +453,9 @@ Expected: all tests pass, build succeeds.
 
 - [ ] **Step 7: Commit**
 
+Run from the worktree root (`/Users/paulmckay/Desktop/NHL Stats Project/.worktrees/feature-139-player-table-virtualization`), not the main checkout — confirm with `git rev-parse --show-toplevel` first if unsure:
+
 ```bash
-cd "/Users/paulmckay/Desktop/NHL Stats Project"
 git add frontend/src/pages/Players.tsx frontend/src/pages/Players.test.tsx
 git commit -m "Wire Players.tsx to PlayerTable's virtualization ref
 
