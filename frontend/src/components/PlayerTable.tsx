@@ -113,7 +113,7 @@ export const PlayerTable = forwardRef<PlayerTableHandle, PlayerTableProps>(funct
 
   return (
     <Table>
-      <TableHeader className="sticky top-0 bg-card">
+      <TableHeader className="sticky top-0 z-10 bg-card">
         <TableRow>
           {columns.map((col) => (
             <TableHead

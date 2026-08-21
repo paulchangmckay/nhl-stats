@@ -2,13 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { PlayerTable, type PlayerTableHandle } from "./PlayerTable";
 import { MOCK_STATS } from "@/lib/mock-data";
+import type { PlayerStats } from "@/lib/types";
 
 const mockScrollToIndex = vi.fn();
 
 vi.mock("@tanstack/react-virtual", () => ({
-  useVirtualizer: (options: { count: number }) => ({
+  useVirtualizer: vi.fn((options: { count: number }) => ({
     getVirtualItems: () =>
       Array.from({ length: options.count }, (_, index) => ({
         key: index,
@@ -20,7 +22,7 @@ vi.mock("@tanstack/react-virtual", () => ({
       })),
     getTotalSize: () => options.count * 38,
     scrollToIndex: mockScrollToIndex,
-  }),
+  })),
 }));
 
 beforeEach(() => {
@@ -109,5 +111,43 @@ describe("PlayerTable", () => {
     render(<PlayerTable ref={ref} rows={MOCK_STATS} sortKey="points" sortDir="desc" onSort={() => {}} />);
     ref.current!.scrollToPlayer(9999);
     expect(mockScrollToIndex).not.toHaveBeenCalled();
+  });
+
+  it("computes correct row positions and spacer height for a windowed (non-full) scroll view", () => {
+    // Simulate scrolling partway through a 100-row list: only rows 40-42
+    // are "visible" (mimicking what a real scroll position would report),
+    // not the full mocked default (every row visible, which never
+    // exercises the translateY/spacer math for a real windowed scenario).
+    const manyRows: PlayerStats[] = Array.from({ length: 100 }, (_, i) => ({
+      ...MOCK_STATS[0],
+      player_id: 1000 + i,
+      last_name: `Player${i}`,
+    }));
+
+    vi.mocked(useVirtualizer).mockReturnValueOnce({
+      getVirtualItems: () => [
+        { key: 40, index: 40, start: 1520, end: 1558, size: 38, lane: 0 },
+        { key: 41, index: 41, start: 1558, end: 1596, size: 38, lane: 0 },
+        { key: 42, index: 42, start: 1596, end: 1634, size: 38, lane: 0 },
+      ],
+      getTotalSize: () => 100 * 38,
+      scrollToIndex: vi.fn(),
+    } as unknown as ReturnType<typeof useVirtualizer>);
+
+    render(<PlayerTable rows={manyRows} sortKey="points" sortDir="desc" onSort={() => {}} />);
+
+    const firstRenderedRow = document.querySelector('[data-player-id="1040"]') as HTMLElement;
+    expect(firstRenderedRow).toBeTruthy();
+    // Row at virtual index 40 is the 0th rendered row (i=0): transform = start - i*38 = 1520 - 0 = 1520
+    expect(firstRenderedRow.style.transform).toBe("translateY(1520px)");
+
+    const secondRenderedRow = document.querySelector('[data-player-id="1041"]') as HTMLElement;
+    // Row at virtual index 41 is the 1st rendered row (i=1): transform = start - i*38 = 1558 - 38 = 1520
+    expect(secondRenderedRow.style.transform).toBe("translateY(1520px)");
+
+    // Spacer: totalSize (3800) - renderedHeight (3 * 38 = 114) = 3686
+    const spacerCell = document.querySelector('td[colspan]') as HTMLElement;
+    expect(spacerCell).toBeTruthy();
+    expect(spacerCell.style.height).toBe("3686px");
   });
 });
