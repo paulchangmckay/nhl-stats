@@ -24,4 +24,10 @@ describe("Leaderboard", () => {
     await userEvent.click(screen.getByText("Cale Makar"));
     expect(onSelectPlayer).toHaveBeenCalledWith(2);
   });
+
+  it("shows an empty-state message instead of a bare list when there are no players", () => {
+    render(<Leaderboard title="Top Goalie" players={[]} onSelectPlayer={() => {}} />);
+    expect(screen.getByText("No qualifying players.")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
 });
