@@ -486,6 +486,68 @@
       ],
       "occurrences": 1,
       "last_seen": "2026-07-31T04:35:00Z"
+    },
+    {
+      "id": "bug-027",
+      "timestamp": "2026-08-14T00:00:00Z",
+      "error_message": "Table below the toolbar renders taller than the visible viewport on first load (table-wrap sizes itself against a stale 57px --toolbar-height fallback instead of the toolbar's real ~111-143px height).",
+      "file": "frontend/src/pages/Players.tsx",
+      "root_cause": "The useEffect that measures [data-toolbar] and writes --toolbar-height had deps [filters, seasons]. On initial mount the component renders a loading skeleton (no Toolbar in the DOM yet) while teamsState/playersState are 'loading', so the effect's first run finds no [data-toolbar] element and never sets the var. Once data loads and the real Toolbar mounts, the effect does not re-run because the loading->ready transition of teamsState/playersState isn't in the dependency array -- only filters/seasons are, and those don't change on data load. Invisible to jsdom-based tests (getBoundingClientRect() behaves differently there); only surfaced via live Playwright verification.",
+      "fix": "Added teamsState.status and playersState.status to the effect's dependency array so it re-measures once the real Toolbar is in the DOM after loading completes.",
+      "tags": [
+        "frontend",
+        "react",
+        "useEffect",
+        "timing",
+        "css-var",
+        "jsdom-blind-spot"
+      ],
+      "related_bugs": [
+        "bug-008",
+        "bug-014"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-08-14T00:00:00Z"
+    },
+    {
+      "id": "bug-028",
+      "timestamp": "2026-08-16T00:00:00Z",
+      "error_message": "Player profile overlay (and any other Dialog in the app) is cut off with no way to scroll when its content is taller than the browser viewport (GitHub issue #115).",
+      "file": "frontend/src/components/ui/dialog.tsx",
+      "root_cause": "DialogContent (the shared shadcn/base-ui Dialog primitive used by every dialog in the app) had a max-width constraint (max-w-[calc(100%-2rem)]) but no max-height or overflow-y -- centered via position:fixed + translate, so tall content overflowed past both edges of the viewport with no scrollable ancestor anywhere in the chain. Standard shadcn Dialog recipes normally ship with a max-h/overflow-y-auto pair for exactly this reason; it was missing from this project's copy.",
+      "fix": "Added max-h-[calc(100vh-2rem)] and overflow-y-auto to DialogContent's base className, mirroring the existing 2rem-margin convention already used for max-width on the same element. Fixed at the shared-primitive level so every current and future dialog benefits, not just PlayerProfilePanel.",
+      "tags": [
+        "frontend",
+        "css",
+        "dialog",
+        "scroll",
+        "shared-primitive"
+      ],
+      "related_bugs": [
+        "bug-008",
+        "bug-014"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-08-16T00:00:00Z"
+    },
+    {
+      "id": "bug-029",
+      "timestamp": "2026-08-15T00:00:00Z",
+      "error_message": "React 'Encountered two children with the same key' console error when rendering a full team list keyed by abbrev (surfaced building the Teams picker page, issue #126).",
+      "file": "src/database.py (teams table data), frontend/src/pages/Teams.tsx, frontend/src/components/TeamPicker.tsx",
+      "root_cause": "The real teams table has two rows with abbrev='UNK' (common_name='Unknown'), likely leftover placeholder rows from historical boxscore ingestion for unresolved teams. Any component mapping /api/teams by abbrev as a React key collides. TeamPicker.tsx has had this identical latent bug since before this session; it was simply never exercised by live browser testing until the new Teams.tsx picker page hit it.",
+      "fix": "Narrowly filtered abbrev !== 'UNK' out of Teams.tsx only (the new component). TeamPicker.tsx's identical bug and the underlying duplicate DB rows are DEFERRED -- tracked in issue #126, not yet fixed.",
+      "tags": [
+        "frontend",
+        "react",
+        "data-integrity",
+        "duplicate-rows",
+        "deferred",
+        "open"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-08-15T00:00:00Z"
     }
   ]
 }

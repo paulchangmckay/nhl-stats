@@ -339,7 +339,7 @@ export function PlayerProfilePanel({
 
         {stats &&
           (isGoalie ? (
-            <div className="grid grid-cols-4 gap-2 text-center text-sm">
+            <div className="grid grid-cols-3 gap-2 text-center text-sm sm:grid-cols-4">
               <StatCell label="GP" value={stats.gp?.toString() ?? "-"} />
               <StatCell label="W" value={stats.wins?.toString() ?? "-"} />
               <StatCell label="L" value={stats.losses?.toString() ?? "-"} />
@@ -349,7 +349,7 @@ export function PlayerProfilePanel({
               <StatCell label="SO" value={stats.shutouts?.toString() ?? "-"} />
             </div>
           ) : (
-            <div className="grid grid-cols-6 gap-2 text-center text-sm">
+            <div className="grid grid-cols-3 gap-2 text-center text-sm sm:grid-cols-6">
               <StatCell label="GP" value={stats.gp?.toString() ?? "-"} />
               <StatCell label="G" value={stats.goals?.toString() ?? "-"} />
               <StatCell label="A" value={stats.assists?.toString() ?? "-"} />
@@ -384,7 +384,7 @@ export function PlayerProfilePanel({
                   ))}
                 </div>
 
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                   <PercentileBox metricKey="cf_pct" selected={selectedMetrics.has("cf_pct")} onToggle={toggleMetric}
                     label="CF%" value={current?.cf_pct ?? null} pctile={current?.cf_pctile ?? null} />
                   <PercentileBox metricKey="ff_pct" selected={selectedMetrics.has("ff_pct")} onToggle={toggleMetric}
@@ -401,7 +401,7 @@ export function PlayerProfilePanel({
                   </SelectableStatBox>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <ZScoreBox metricKey="shots_per60" selected={selectedMetrics.has("shots_per60")} onToggle={toggleMetric}
                     label="Shots/60"
                     rate={state.data.strength_states["5v5"]?.shots_per60}

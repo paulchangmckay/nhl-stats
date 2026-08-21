@@ -14,6 +14,9 @@ export default function Home() {
         </p>
       </section>
       {/* News feed (#118) renders here inline once built — Home has no separate /news route. */}
+      <p className="px-4 py-12 text-center text-sm text-muted-foreground">
+        League news coming soon.
+      </p>
     </div>
   );
 }
