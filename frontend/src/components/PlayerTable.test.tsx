@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRef } from "react";
@@ -27,6 +27,12 @@ vi.mock("@tanstack/react-virtual", () => ({
 
 beforeEach(() => {
   mockScrollToIndex.mockClear();
+});
+
+// Unconditional, so a fake-timer test that fails partway through doesn't
+// leak faked timers into every test that runs after it in this file.
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("PlayerTable", () => {
@@ -114,13 +120,14 @@ describe("PlayerTable", () => {
   });
 
   it("scrollToPlayer keeps retrying across frames until the row mounts, not just one frame", () => {
-    // Regression test: a real-browser measurement showed the virtualizer's
-    // scroll-driven re-render can lag scrollToIndex()'s underlying scroll
-    // by 500ms-2000ms+ (the native "scroll" event that drives it fires
-    // late for a long jump). A single requestAnimationFrame check missed
-    // the row entirely and never highlighted it. This test forces that
-    // "not mounted yet" condition and confirms the retry loop keeps
-    // checking instead of giving up after one frame.
+    // Regression test: the row can't mount until a native "scroll" event
+    // fires on the container (virtual-core flushSync's its re-render
+    // inside that handler), and that event is asynchronous -- measured up
+    // to ~2s late in a real-browser session for a long jump. A single
+    // requestAnimationFrame check missed the row entirely and never
+    // highlighted it. This test forces that "not mounted yet" condition
+    // and confirms the retry loop keeps checking instead of giving up
+    // after one frame.
     vi.useFakeTimers();
     const ref = createRef<PlayerTableHandle>();
     render(<PlayerTable ref={ref} rows={MOCK_STATS} sortKey="points" sortDir="desc" onSort={() => {}} />);
@@ -137,8 +144,6 @@ describe("PlayerTable", () => {
     tbody.appendChild(row); // simulate it mounting on a later frame
     vi.advanceTimersByTime(16);
     expect(row.classList.contains("row-highlight")).toBe(true);
-
-    vi.useRealTimers();
   });
 
   it("computes correct row positions and spacer height for a windowed (non-full) scroll view", () => {

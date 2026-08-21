@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle } from "react";
+import { forwardRef, useImperativeHandle, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Table,
@@ -78,6 +78,10 @@ export const PlayerTable = forwardRef<PlayerTableHandle, PlayerTableProps>(funct
     overscan: 10,
   });
 
+  // Guards scrollToPlayer's per-frame retry loop against a second call
+  // superseding the first while it's still polling.
+  const scrollGenerationRef = useRef(0);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -86,16 +90,23 @@ export const PlayerTable = forwardRef<PlayerTableHandle, PlayerTableProps>(funct
         if (index === -1) return;
         virtualizer.scrollToIndex(index, { align: "center", behavior: "auto" });
 
-        // The row mounts once the virtualizer's scroll-driven re-render
-        // commits, which is gated on a native "scroll" event firing on the
-        // container. Measured directly (real browser, not jsdom): that event
-        // can lag scrollTo()'s underlying scrollTop change by 500ms-2000ms+
-        // for a long jump -- far more than one requestAnimationFrame tick.
-        // A single rAF check would silently miss the row and never
-        // highlight it. Poll every frame instead, bounded so a genuinely
-        // missing row (e.g. a stale id) doesn't loop forever.
-        const deadline = Date.now() + 3000;
+        // The row can't mount until a native "scroll" event fires on the
+        // container -- virtual-core's re-render is flushSync'd inside that
+        // handler. That event is asynchronous, and under a busy or
+        // throttled main thread it can take many frames (measured up to
+        // ~2s in a real-browser session), not just one. A single rAF check
+        // would silently miss the row and never highlight it. Poll every
+        // frame instead. A generation token guards against a second
+        // scrollToPlayer call superseding this one while it's still
+        // polling (e.g. two suggestion clicks in quick succession) --
+        // without it, an in-flight loop could still highlight its now-stale
+        // target after a newer call has taken over. Bounded to 5s, matching
+        // virtual-core's own MAX_RECONCILE_MS -- no point polling past the
+        // point the library itself gives up settling the scroll.
+        const myGeneration = ++scrollGenerationRef.current;
+        const deadline = Date.now() + 5000;
         const tryHighlight = () => {
+          if (myGeneration !== scrollGenerationRef.current) return;
           const el = document.querySelector(`[data-player-id="${playerId}"]`);
           if (el) {
             el.classList.add("row-highlight");
