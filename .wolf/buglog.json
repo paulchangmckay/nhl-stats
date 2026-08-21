@@ -548,6 +548,24 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-08-15T00:00:00Z"
+    },
+    {
+      "id": "bug-030",
+      "timestamp": "2026-08-20T00:00:00Z",
+      "error_message": "Clicking a search suggestion for a player far down the list (e.g. sorted index 1018 of 1038) scrolls the container but never highlights the target row; the highlight silently never appears.",
+      "file": "frontend/src/components/PlayerTable.tsx (scrollToPlayer)",
+      "root_cause": "After @tanstack/react-virtual's scrollToIndex() moves scrollTop, the rendered virtual items (getVirtualItems()) don't update until a native 'scroll' event fires and flushSync's a re-render inside virtual-core -- that event can lag the scrollTop change by up to ~2s for a long jump under a busy/throttled main thread. scrollToPlayer's original implementation checked for the target row via a single requestAnimationFrame callback, which fired and found nothing (silently no-op'd) long before the row actually mounted.",
+      "fix": "Replaced the single rAF check with a bounded per-frame retry loop (5s deadline, matching virtual-core's own MAX_RECONCILE_MS) plus a generation-token guard so a second scrollToPlayer call supersedes an in-flight retry loop from a stale first call, and an unmount cleanup that invalidates any in-flight loop. See commits 6a25d39, 3d6d69f, 7425f1e on the now-merged feature/139-player-table-virtualization branch.",
+      "tags": [
+        "frontend",
+        "react",
+        "virtualization",
+        "timing",
+        "race-condition"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-08-20T00:00:00Z"
     }
   ]
 }
